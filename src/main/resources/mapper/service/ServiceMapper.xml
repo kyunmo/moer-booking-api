@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.service.repository.ServiceRepository">
+
+    <!-- ResultMap -->
+    <resultMap id="ServiceResultMap" type="io.moer.booking.domain.service.Service">
+        <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="category" column="category"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="price" column="price"/>
+        <result property="duration" column="duration"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="options" column="options"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="availableStaffIds" column="available_staff_ids"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="isActive" column="is_active"/>
+        <result property="displayOrder" column="display_order"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 생성 -->
+    <insert id="save" parameterType="io.moer.booking.domain.service.Service"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO services (
+            business_id, category, name, description, price, duration,
+            image_url, options, available_staff_ids, is_active, display_order
+        ) VALUES (
+                     #{businessId}, #{category}, #{name}, #{description}, #{price}, #{duration},
+                     #{imageUrl},
+                     #{options, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{availableStaffIds, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     COALESCE(#{isActive}, true), COALESCE(#{displayOrder}, 0)
+                 )
+    </insert>
+
+    <!-- 단건 조회 -->
+    <select id="findById" resultMap="ServiceResultMap">
+        SELECT * FROM services
+        WHERE id = #{id}
+    </select>
+
+    <!-- Business의 Service 목록 -->
+    <select id="findByBusinessId" resultMap="ServiceResultMap">
+        SELECT * FROM services
+        WHERE business_id = #{businessId}
+        ORDER BY display_order ASC, category ASC, created_at ASC
+    </select>
+
+    <!-- Business의 활성 Service 목록 -->
+    <select id="findByBusinessIdAndActive" resultMap="ServiceResultMap">
+        SELECT * FROM services
+        WHERE business_id = #{businessId}
+          AND is_active = #{isActive}
+        ORDER BY display_order ASC, category ASC, created_at ASC
+    </select>
+
+    <!-- 조건별 조회 (동적 쿼리) -->
+    <select id="findByCondition" resultMap="ServiceResultMap">
+        SELECT * FROM services
+        WHERE business_id = #{businessId}
+        <if test="category != null and category != ''">
+            AND category = #{category}
+        </if>
+        <if test="isActive != null">
+            AND is_active = #{isActive}
+        </if>
+        <if test="staffId != null">
+            AND (
+            available_staff_ids IS NULL
+            OR available_staff_ids @> #{staffId}::text::jsonb
+            )
+        </if>
+        ORDER BY display_order ASC, category ASC, created_at ASC
+    </select>
+
+    <!-- Business의 특정 카테고리 Service 목록 -->
+    <select id="findByBusinessIdAndCategory" resultMap="ServiceResultMap">
+        SELECT * FROM services
+        WHERE business_id = #{businessId}
+          AND category = #{category}
+        ORDER BY display_order ASC, created_at ASC
+    </select>
+
+    <!-- 수정 -->
+    <update id="update">
+        UPDATE services
+        SET
+        <if test="category != null">category = #{category},</if>
+        <if test="name != null">name = #{name},</if>
+        <if test="description != null">description = #{description},</if>
+        <if test="price != null">price = #{price},</if>
+        <if test="duration != null">duration = #{duration},</if>
+        <if test="imageUrl != null">image_url = #{imageUrl},</if>
+        <if test="options != null">
+            options = #{options, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        </if>
+        <if test="availableStaffIds != null">
+            available_staff_ids = #{availableStaffIds, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        </if>
+        <if test="isActive != null">is_active = #{isActive},</if>
+        <if test="displayOrder != null">display_order = #{displayOrder},</if>
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="delete">
+        DELETE FROM services
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 존재 확인 -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM services WHERE id = #{id}
+        )
+    </select>
+
+    <!-- Business의 Service 존재 확인 -->
+    <select id="existsByBusinessIdAndId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM services
+            WHERE business_id = #{businessId} AND id = #{id}
+        )
+    </select>
+
+    <!-- Business의 Service 개수 -->
+    <select id="countByBusinessId" resultType="long">
+        SELECT COUNT(*) FROM services
+        WHERE business_id = #{businessId}
+    </select>
+
+    <!-- Business의 특정 카테고리 Service 개수 -->
+    <select id="countByBusinessIdAndCategory" resultType="long">
+        SELECT COUNT(*) FROM services
+        WHERE business_id = #{businessId}
+          AND category = #{category}
+    </select>
+
+</mapper>

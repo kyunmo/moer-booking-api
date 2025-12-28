@@ -216,4 +216,81 @@ true);
 INSERT INTO portfolios (staff_id, business_id, title, description, image_url, tags, display_order) VALUES
 (1, 1, '단발 레이어드컷', '고객님 취향 저격 단발컷', 'https://example.com/portfolio1.jpg', '["단발", "레이어드", "여성컷"]'::jsonb, 1),
 (1, 1, '볼륨 펌', '자연스러운 볼륨감', 'https://example.com/portfolio2.jpg', '["볼륨펌", "웨이브"]'::jsonb, 2),
-                                                                                                       (2, 1, '남성 페이드컷', '깔끔한 페이드 스타일', 'https://example.com/portfolio3.jpg', '["남성컷", "페이드"]'::jsonb, 1);
+(2, 1, '남성 페이드컷', '깔끔한 페이드 스타일', 'https://example.com/portfolio3.jpg', '["남성컷", "페이드"]'::jsonb, 1);
+
+
+-- services 테이블
+CREATE TABLE services (
+id BIGSERIAL PRIMARY KEY,
+business_id BIGINT NOT NULL,
+
+category VARCHAR(50),  -- "컷", "펌", "염색", "1:1수업", "그룹수업", "좌석"
+name VARCHAR(100) NOT NULL,
+description TEXT,
+
+-- 가격/시간
+price INT DEFAULT 0,
+duration INT NOT NULL,  -- 소요 시간 (분)
+
+-- 이미지
+image_url VARCHAR(255),
+
+-- 옵션 (업종별로 다름)
+options JSONB,  -- 업종별 추가 옵션
+
+-- 가능한 직원 (NULL이면 모든 직원 가능)
+available_staff_ids JSONB,  -- [1, 2, 3] or null
+
+-- 표시
+is_active BOOLEAN DEFAULT TRUE,
+display_order INT DEFAULT 0,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+-- 인덱스
+CREATE INDEX idx_services_business ON services(business_id);
+CREATE INDEX idx_services_category ON services(business_id, category);
+CREATE INDEX idx_services_active ON services(business_id, is_active);
+
+-- 테스트 데이터 (미용실)
+INSERT INTO services (business_id, category, name, description, price, duration, options, available_staff_ids, is_active) VALUES
+(1, '컷', '여성컷', '여성 기본 커트', 30000, 30,
+'{"can_combine": true, "requires_consultation": false, "material_cost_included": true}'::jsonb,
+'[1, 2]'::jsonb,
+true),
+(1, '컷', '남성컷', '남성 기본 커트', 20000, 20,
+'{"can_combine": true, "requires_consultation": false, "material_cost_included": true}'::jsonb,
+'[1, 2]'::jsonb,
+true),
+(1, '펌', '볼륨펌', '자연스러운 볼륨감', 80000, 120,
+'{"can_combine": true, "requires_consultation": true, "material_cost_included": true}'::jsonb,
+'[1]'::jsonb,
+true),
+(1, '펌', '디지털펌', '웨이브 디지털펌', 100000, 150,
+'{"can_combine": true, "requires_consultation": true, "material_cost_included": true}'::jsonb,
+'[1]'::jsonb,
+true),
+(1, '염색', '전체염색', '전체 염색', 70000, 90,
+'{"can_combine": true, "requires_consultation": true, "material_cost_included": false}'::jsonb,
+'[1, 3]'::jsonb,
+true),
+(1, '클리닉', '두피 클리닉', '두피 케어 프로그램', 50000, 60,
+'{"can_combine": false, "requires_consultation": false, "material_cost_included": true}'::jsonb,
+'[1]'::jsonb,
+true);
+
+-- 테스트 데이터 (필라테스 - business_id=2라고 가정)
+-- INSERT INTO services (business_id, category, name, description, price, duration, options, is_active) VALUES
+-- (2, '1:1수업', '개인 필라테스', '1:1 개인 수업', 80000, 50,
+--  '{"class_type": "private", "max_capacity": 1, "equipment_required": ["리포머"], "level": "all"}'::jsonb,
+--  true),
+-- (2, '그룹수업', '그룹 필라테스', '소그룹 수업 (최대 4명)', 40000, 50,
+--  '{"class_type": "group", "max_capacity": 4, "equipment_required": ["리포머"], "level": "beginner"}'::jsonb,
+--  true),
+-- (2, '그룹수업', '매트 필라테스', '매트 운동 (최대 10명)', 30000, 50,
+--  '{"class_type": "large", "max_capacity": 10, "equipment_required": ["매트"], "level": "all"}'::jsonb,
+--  true);
