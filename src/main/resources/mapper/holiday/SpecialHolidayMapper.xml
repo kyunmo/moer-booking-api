@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.holiday.repository.SpecialHolidayRepository">
+
+    <!-- ResultMap -->
+    <resultMap id="SpecialHolidayResultMap" type="io.moer.booking.domain.holiday.SpecialHoliday">
+        <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="holidayDate" column="holiday_date"/>
+        <result property="title" column="title"/>
+        <result property="isClosed" column="is_closed"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- 생성 -->
+    <insert id="save" parameterType="io.moer.booking.domain.holiday.SpecialHoliday"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO special_holidays (
+            business_id, holiday_date, title, is_closed
+        ) VALUES (
+                     #{businessId}, #{holidayDate}, #{title},
+                     COALESCE(#{isClosed}, true)
+                 )
+    </insert>
+
+    <!-- 단건 조회 -->
+    <select id="findById" resultMap="SpecialHolidayResultMap">
+        SELECT * FROM special_holidays
+        WHERE id = #{id}
+    </select>
+
+    <!-- Business의 전체 휴무일 조회 -->
+    <select id="findByBusinessId" resultMap="SpecialHolidayResultMap">
+        SELECT * FROM special_holidays
+        WHERE business_id = #{businessId}
+        ORDER BY holiday_date ASC
+    </select>
+
+    <!-- Business의 특정 기간 휴무일 조회 -->
+    <select id="findByBusinessIdAndDateRange" resultMap="SpecialHolidayResultMap">
+        SELECT * FROM special_holidays
+        WHERE business_id = #{businessId}
+          AND holiday_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY holiday_date ASC
+    </select>
+
+    <!-- Business의 특정 날짜 휴무일 조회 -->
+    <select id="findByBusinessIdAndDate" resultMap="SpecialHolidayResultMap">
+        SELECT * FROM special_holidays
+        WHERE business_id = #{businessId}
+          AND holiday_date = #{holidayDate}
+    </select>
+
+    <!-- 삭제 (ID) -->
+    <delete id="delete">
+        DELETE FROM special_holidays
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 삭제 (Business + Date) -->
+    <delete id="deleteByBusinessIdAndDate">
+        DELETE FROM special_holidays
+        WHERE business_id = #{businessId}
+          AND holiday_date = #{holidayDate}
+    </delete>
+
+    <!-- 존재 확인 (ID) -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM special_holidays WHERE id = #{id}
+        )
+    </select>
+
+    <!-- 존재 확인 (Business + Date) -->
+    <select id="existsByBusinessIdAndDate" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM special_holidays
+            WHERE business_id = #{businessId}
+              AND holiday_date = #{holidayDate}
+        )
+    </select>
+
+    <!-- Business의 Holiday 존재 확인 -->
+    <select id="existsByBusinessIdAndId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM special_holidays
+            WHERE business_id = #{businessId} AND id = #{id}
+        )
+    </select>
+
+</mapper>

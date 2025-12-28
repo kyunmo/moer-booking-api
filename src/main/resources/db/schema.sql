@@ -294,3 +294,98 @@ true);
 -- (2, '그룹수업', '매트 필라테스', '매트 운동 (최대 10명)', 30000, 50,
 --  '{"class_type": "large", "max_capacity": 10, "equipment_required": ["매트"], "level": "all"}'::jsonb,
 --  true);
+
+
+
+-- special_holidays 테이블
+CREATE TABLE special_holidays (
+id BIGSERIAL PRIMARY KEY,
+business_id BIGINT NOT NULL,
+
+holiday_date DATE NOT NULL,
+title VARCHAR(100),
+is_closed BOOLEAN DEFAULT TRUE,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+UNIQUE(business_id, holiday_date)
+);
+
+-- 인덱스
+CREATE INDEX idx_special_holidays_business ON special_holidays(business_id);
+CREATE INDEX idx_special_holidays_date ON special_holidays(business_id, holiday_date);
+
+-- 테스트 데이터
+INSERT INTO special_holidays (business_id, holiday_date, title, is_closed) VALUES
+(1, '2026-01-01', '신정', true),
+(1, '2026-02-16', '설날 연휴', true),
+(1, '2026-02-17', '설날', true),
+(1, '2026-02-18', '설날 연휴', true),
+(1, '2026-03-01', '삼일절', true),
+(1, '2026-05-05', '어린이날', true),
+(1, '2026-06-06', '현충일', true),
+(1, '2026-08-15', '광복절', true),
+(1, '2026-09-28', '추석 연휴', true),
+(1, '2026-09-29', '추석', true),
+(1, '2026-09-30', '추석 연휴', true),
+(1, '2026-10-03', '개천절', true),
+(1, '2026-10-09', '한글날', true),
+(1, '2026-12-25', '크리스마스', true),
+(1, '2026-07-15', '리모델링 휴업', true),
+(1, '2026-07-16', '리모델링 휴업', true);
+
+
+-- customers 테이블
+CREATE TABLE customers (
+id BIGSERIAL PRIMARY KEY,
+business_id BIGINT NOT NULL,
+
+-- 기본 정보
+name VARCHAR(50) NOT NULL,
+phone VARCHAR(20) NOT NULL,
+email VARCHAR(100),
+
+-- 통계
+visit_count INT DEFAULT 0,
+total_spent INT DEFAULT 0,
+last_visit_date DATE,
+
+-- 태그
+tags JSONB,  -- ["VIP", "단골", "신규"]
+
+-- 관리자 메모 (관리자만 볼 수 있음)
+admin_memo TEXT,
+
+-- 카카오톡
+kakao_user_key VARCHAR(100),  -- 카카오 알림용
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+-- 인덱스
+CREATE INDEX idx_customers_business ON customers(business_id);
+CREATE INDEX idx_customers_phone ON customers(business_id, phone);
+CREATE INDEX idx_customers_visit ON customers(business_id, visit_count DESC);
+CREATE INDEX idx_customers_tags ON customers USING GIN (tags);
+
+-- 테스트 데이터
+INSERT INTO customers (business_id, name, phone, email, visit_count, total_spent, last_visit_date, tags, admin_memo) VALUES
+(1, '김고객', '010-1111-1111', 'kim@example.com', 15, 450000, '2026-01-05',
+'["VIP", "단골"]'::jsonb,
+'항상 밝은 갈색 염색 선호. 다음엔 더 밝게 해달라고 하심'),
+(1, '이고객', '010-2222-2222', 'lee@example.com', 8, 240000, '2025-12-28',
+'["단골"]'::jsonb,
+'컷만 주로 하심. 짧게 자르는 스타일 선호'),
+(1, '박고객', '010-3333-3333', null, 1, 30000, '2026-01-03',
+'["신규"]'::jsonb,
+''),
+(1, '최고객', '010-4444-4444', 'choi@example.com', 3, 90000, '2025-12-20',
+'[]'::jsonb,
+'알레르기 있음 - 염색약 주의'),
+(2, '강고객', '010-5555-5555', 'kang@example.com', 20, 800000, '2026-01-04',
+'["VIP"]'::jsonb,
+'1:1 수업 선호. 요가 매트 개인 소지');

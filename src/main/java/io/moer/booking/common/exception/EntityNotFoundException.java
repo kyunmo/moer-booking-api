@@ -10,4 +10,8 @@ public class EntityNotFoundException extends BaseException {
         super(ErrorCode.ENTITY_NOT_FOUND,
                 String.format("%s를 찾을 수 없습니다. (식별자: %s)", entityName, identifier));
     }
+
+    public EntityNotFoundException(ErrorCode errorCode, String identifier) {
+        super(errorCode, identifier);
+    }
 }
