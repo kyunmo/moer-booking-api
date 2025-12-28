@@ -136,3 +136,84 @@ INSERT INTO business_settings (business_id, settings) VALUES
 (1, '{"type": "beauty_shop", "portfolio_enabled": true, "service_categories": ["컷", "펌", "염색"], "booking_interval": 30}'::jsonb),
 (2, '{"type": "beauty_shop", "portfolio_enabled": true, "service_categories": ["컷", "펌"], "booking_interval": 30}'::jsonb),
 (3, '{"type": "beauty_shop", "portfolio_enabled": false, "service_categories": ["컷", "펌", "염색", "클리닉"], "booking_interval": 60}'::jsonb);
+
+
+
+-- staffs 테이블
+CREATE TABLE staffs (
+id BIGSERIAL PRIMARY KEY,
+business_id BIGINT NOT NULL,
+user_id BIGINT,  -- nullable (계정 연동 선택)
+name VARCHAR(50) NOT NULL,
+nickname VARCHAR(50),
+phone VARCHAR(20),
+email VARCHAR(100),
+
+-- 프로필
+profile_image_url VARCHAR(255),
+introduction TEXT,
+career_years INT,
+specialties JSONB,  -- ["컷", "펌"] or ["필라테스 기초", "재활"]
+
+-- 근무 정보
+work_schedule JSONB,  -- {"mon": {"start": "09:00", "end": "18:00", "is_off": false}, ...}
+is_active BOOLEAN DEFAULT TRUE,
+display_order INT DEFAULT 0,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- 인덱스
+CREATE INDEX idx_staffs_business ON staffs(business_id);
+CREATE INDEX idx_staffs_user ON staffs(user_id);
+CREATE INDEX idx_staffs_active ON staffs(business_id, is_active);
+
+-- portfolios 테이블 (미용실 특화)
+CREATE TABLE portfolios (
+id BIGSERIAL PRIMARY KEY,
+staff_id BIGINT NOT NULL,
+business_id BIGINT NOT NULL,
+
+title VARCHAR(100),
+description TEXT,
+image_url VARCHAR(255) NOT NULL,
+tags JSONB,  -- ["단발컷", "볼륨펌", "자연스러운"]
+
+display_order INT DEFAULT 0,
+is_visible BOOLEAN DEFAULT TRUE,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (staff_id) REFERENCES staffs(id) ON DELETE CASCADE,
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_portfolios_staff ON portfolios(staff_id);
+CREATE INDEX idx_portfolios_business ON portfolios(business_id);
+CREATE INDEX idx_portfolios_tags ON portfolios USING GIN (tags);
+
+-- 테스트 데이터
+INSERT INTO staffs (business_id, name, nickname, phone, introduction, career_years, specialties, work_schedule, is_active) VALUES
+(1, '김미용', '미용쌤', '010-1111-1111', '10년 경력 원장', 10,
+'["컷", "펌", "염색"]'::jsonb,
+'{"mon": {"start": "09:00", "end": "20:00", "is_off": false}, "tue": {"start": "09:00", "end": "20:00", "is_off": false}, "wed": {"start": "09:00", "end": "20:00", "is_off": false}, "thu": {"start": "09:00", "end": "20:00", "is_off": false}, "fri": {"start": "09:00", "end": "20:00", "is_off": false}, "sat": {"start": "10:00", "end": "19:00", "is_off": false}, "sun": {"is_off": true}}'::jsonb,
+true),
+(1, '박디자이너', '박쌤', '010-2222-2222', '컷트 전문', 5,
+'["컷"]'::jsonb,
+'{"mon": {"start": "10:00", "end": "19:00", "is_off": false}, "tue": {"start": "10:00", "end": "19:00", "is_off": false}, "wed": {"start": "10:00", "end": "19:00", "is_off": false}, "thu": {"start": "10:00", "end": "19:00", "is_off": false}, "fri": {"start": "10:00", "end": "19:00", "is_off": false}, "sat": {"is_off": true}, "sun": {"is_off": true}}'::jsonb,
+true),
+(2, '이디자이너', '이쌤', '010-3333-3333', '염색 전문가', 7,
+'["염색", "클리닉"]'::jsonb,
+'{}'::jsonb,
+true);
+
+-- 포트폴리오 테스트 데이터
+INSERT INTO portfolios (staff_id, business_id, title, description, image_url, tags, display_order) VALUES
+(1, 1, '단발 레이어드컷', '고객님 취향 저격 단발컷', 'https://example.com/portfolio1.jpg', '["단발", "레이어드", "여성컷"]'::jsonb, 1),
+(1, 1, '볼륨 펌', '자연스러운 볼륨감', 'https://example.com/portfolio2.jpg', '["볼륨펌", "웨이브"]'::jsonb, 2),
+                                                                                                       (2, 1, '남성 페이드컷', '깔끔한 페이드 스타일', 'https://example.com/portfolio3.jpg', '["남성컷", "페이드"]'::jsonb, 1);

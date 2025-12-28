@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.staff.repository.PortfolioRepository">
+
+    <!-- ResultMap -->
+    <resultMap id="PortfolioResultMap" type="io.moer.booking.domain.staff.Portfolio">
+        <id property="id" column="id"/>
+        <result property="staffId" column="staff_id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="title" column="title"/>
+        <result property="description" column="description"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="tags" column="tags"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="displayOrder" column="display_order"/>
+        <result property="isVisible" column="is_visible"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 생성 -->
+    <insert id="save" parameterType="io.moer.booking.domain.staff.Portfolio"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO portfolios (
+            staff_id, business_id, title, description, image_url, tags,
+            display_order, is_visible
+        ) VALUES (
+                     #{staffId}, #{businessId}, #{title}, #{description}, #{imageUrl},
+                     #{tags, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     COALESCE(#{displayOrder}, 0), COALESCE(#{isVisible}, true)
+                 )
+    </insert>
+
+    <!-- 단건 조회 -->
+    <select id="findById" resultMap="PortfolioResultMap">
+        SELECT * FROM portfolios
+        WHERE id = #{id}
+    </select>
+
+    <!-- Staff의 포트폴리오 목록 -->
+    <select id="findByStaffId" resultMap="PortfolioResultMap">
+        SELECT * FROM portfolios
+        WHERE staff_id = #{staffId}
+        ORDER BY display_order ASC, created_at DESC
+    </select>
+
+    <!-- Business의 포트폴리오 목록 -->
+    <select id="findByBusinessId" resultMap="PortfolioResultMap">
+        SELECT * FROM portfolios
+        WHERE business_id = #{businessId}
+        ORDER BY display_order ASC, created_at DESC
+    </select>
+
+    <!-- Staff의 공개 포트폴리오 -->
+    <select id="findByStaffIdAndVisible" resultMap="PortfolioResultMap">
+        SELECT * FROM portfolios
+        WHERE staff_id = #{staffId}
+          AND is_visible = #{isVisible}
+        ORDER BY display_order ASC, created_at DESC
+    </select>
+
+    <!-- 수정 -->
+    <update id="update">
+        UPDATE portfolios
+        SET
+        <if test="title != null">title = #{title},</if>
+        <if test="description != null">description = #{description},</if>
+        <if test="imageUrl != null">image_url = #{imageUrl},</if>
+        <if test="tags != null">
+            tags = #{tags, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        </if>
+        <if test="displayOrder != null">display_order = #{displayOrder},</if>
+        <if test="isVisible != null">is_visible = #{isVisible},</if>
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="delete">
+        DELETE FROM portfolios
+        WHERE id = #{id}
+    </delete>
+
+    <!-- Staff의 모든 포트폴리오 삭제 -->
+    <delete id="deleteByStaffId">
+        DELETE FROM portfolios
+        WHERE staff_id = #{staffId}
+    </delete>
+
+</mapper>
