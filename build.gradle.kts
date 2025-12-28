@@ -27,18 +27,22 @@ repositories {
 dependencies {
 
     // spring boot
+    implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
     // MyBatis
     implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:4.0.0")
 
+    // jackson
+    implementation("com.fasterxml.jackson.core:jackson-databind")
+
+    // PostgreSQL
+    implementation("org.postgresql:postgresql")
+
     // lombok
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
-
-    // PostgreSQL
-    runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")

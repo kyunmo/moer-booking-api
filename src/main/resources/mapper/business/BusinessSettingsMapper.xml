@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.business.repository.BusinessSettingsRepository">
+
+    <!-- ResultMap -->
+    <resultMap id="BusinessSettingsResultMap" type="io.moer.booking.domain.business.BusinessSettings">
+        <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <!-- 변경: JsonTypeHandler 경로 수정 -->
+        <result property="settings" column="settings"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 생성 -->
+    <insert id="save" parameterType="io.moer.booking.domain.business.BusinessSettings"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO business_settings (
+            business_id, settings
+        ) VALUES (
+                     #{businessId},
+                     #{settings, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb
+                 )
+    </insert>
+
+    <!-- 조회 -->
+    <select id="findByBusinessId" resultMap="BusinessSettingsResultMap">
+        SELECT * FROM business_settings
+        WHERE business_id = #{businessId}
+    </select>
+
+    <!-- 수정 -->
+    <update id="update">
+        UPDATE business_settings
+        SET
+            settings = #{settings, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE business_id = #{businessId}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="deleteByBusinessId">
+        DELETE FROM business_settings
+        WHERE business_id = #{businessId}
+    </delete>
+
+</mapper>

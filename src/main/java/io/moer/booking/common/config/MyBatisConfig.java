@@ -1,5 +1,6 @@
 package io.moer.booking.common.config;
 
+import io.moer.booking.common.mybatis.JsonTypeHandler;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.annotation.MapperScan;
@@ -26,6 +27,13 @@ public class MyBatisConfig {
 
         // Type Aliases 설정
         sessionFactory.setTypeAliasesPackage("io.moer.booking.domain");
+
+        // TypeHandler 등록
+        org.apache.ibatis.session.Configuration configuration =
+                new org.apache.ibatis.session.Configuration();
+        configuration.getTypeHandlerRegistry()
+                .register(JsonTypeHandler.class);
+        sessionFactory.setConfiguration(configuration);
 
         return sessionFactory.getObject();
     }

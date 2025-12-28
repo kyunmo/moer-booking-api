@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.business.repository.BusinessRepository">
+
+    <!-- ResultMap -->
+    <resultMap id="BusinessResultMap" type="io.moer.booking.domain.business.Business">
+        <id property="id" column="id"/>
+        <result property="ownerId" column="owner_id"/>
+        <result property="businessType" column="business_type" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="address" column="address"/>
+        <result property="addressDetail" column="address_detail"/>
+        <result property="zipCode" column="zip_code"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <!-- 변경: JsonTypeHandler 경로 수정 -->
+        <result property="openingHours" column="opening_hours"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="regularHolidays" column="regular_holidays"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="logoUrl" column="logo_url"/>
+        <result property="coverImageUrl" column="cover_image_url"/>
+        <result property="images" column="images"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="website" column="website"/>
+        <result property="instagram" column="instagram"/>
+        <result property="facebook" column="facebook"/>
+        <result property="status" column="status" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 생성 -->
+    <insert id="save" parameterType="io.moer.booking.domain.business.Business"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO businesses (
+            owner_id, business_type, name, description, phone, email,
+            address, address_detail, zip_code, latitude, longitude,
+            opening_hours, regular_holidays,
+            logo_url, cover_image_url, images,
+            website, instagram, facebook, status
+        ) VALUES (
+                     #{ownerId}, #{businessType}::VARCHAR, #{name}, #{description},
+                     #{phone}, #{email}, #{address}, #{addressDetail}, #{zipCode},
+                     #{latitude}, #{longitude},
+                     #{openingHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{regularHolidays, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{logoUrl}, #{coverImageUrl},
+                     #{images, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{website}, #{instagram}, #{facebook}, #{status}::VARCHAR
+                 )
+    </insert>
+
+    <!-- 단건 조회 -->
+    <select id="findById" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        WHERE id = #{id}
+    </select>
+
+    <!-- 목록 조회 -->
+    <select id="findAll" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND name LIKE '%' || #{keyword} || '%'
+            </if>
+            <if test="ownerId != null">
+                AND owner_id = #{ownerId}
+            </if>
+            <if test="businessType != null">
+                AND business_type = #{businessType}::VARCHAR
+            </if>
+            <if test="status != null">
+                AND status = #{status}::VARCHAR
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- 전체 개수 -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM businesses
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND name LIKE '%' || #{keyword} || '%'
+            </if>
+            <if test="ownerId != null">
+                AND owner_id = #{ownerId}
+            </if>
+            <if test="businessType != null">
+                AND business_type = #{businessType}::VARCHAR
+            </if>
+            <if test="status != null">
+                AND status = #{status}::VARCHAR
+            </if>
+        </where>
+    </select>
+
+    <!-- Owner의 매장 목록 -->
+    <select id="findByOwnerId" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        WHERE owner_id = #{ownerId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 수정 -->
+    <update id="update">
+        UPDATE businesses
+        SET
+        <if test="name != null">name = #{name},</if>
+        <if test="description != null">description = #{description},</if>
+        <if test="phone != null">phone = #{phone},</if>
+        <if test="email != null">email = #{email},</if>
+        <if test="address != null">address = #{address},</if>
+        <if test="addressDetail != null">address_detail = #{addressDetail},</if>
+        <if test="zipCode != null">zip_code = #{zipCode},</if>
+        <if test="latitude != null">latitude = #{latitude},</if>
+        <if test="longitude != null">longitude = #{longitude},</if>
+        <if test="openingHours != null">
+            opening_hours = #{openingHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        </if>
+        <if test="regularHolidays != null">
+            regular_holidays = #{regularHolidays, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        </if>
+        <if test="logoUrl != null">logo_url = #{logoUrl},</if>
+        <if test="coverImageUrl != null">cover_image_url = #{coverImageUrl},</if>
+        <if test="images != null">
+            images = #{images, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        </if>
+        <if test="website != null">website = #{website},</if>
+        <if test="instagram != null">instagram = #{instagram},</if>
+        <if test="facebook != null">facebook = #{facebook},</if>
+        <if test="status != null">status = #{status}::VARCHAR,</if>
+        updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="delete">
+        DELETE FROM businesses
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 존재 확인 -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM businesses WHERE id = #{id}
+        )
+    </select>
+
+    <!-- Owner의 매장 개수 -->
+    <select id="countByOwnerId" resultType="long">
+        SELECT COUNT(*) FROM businesses
+        WHERE owner_id = #{ownerId}
+    </select>
+
+</mapper>
