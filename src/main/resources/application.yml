@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: moer-booking-api
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/moer_dev
+    username: moer
+    password: moer2026@
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  sql:
+    init:
+      mode: never  # 나중에 schema.sql 사용 시 always로 변경
+
+mybatis:
+  type-aliases-package: io.moer.booking.domain
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+logging:
+  level:
+    root: INFO
+    com.moer.booking: DEBUG
+    org.springframework.web: DEBUG

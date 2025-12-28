@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # moer 전용 PostgreSQL
+  chatbot-db:
+    image: postgres:16
+    container_name: moer-postgresql
+    environment:
+      POSTGRES_DB: moer_dev
+      POSTGRES_USER: moer
+      POSTGRES_PASSWORD: moer2026@
+      POSTGRES_ROOT_PASSWORD: root2025@
+      TZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - C:/dev/db-environment/data/moer-postgresql:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d
+    networks:
+      - db-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+#
+#  chatbot-mail:
+#    image: mailhog/mailhog
+#    container_name: chatbot-mailhog
+#    ports:
+#      - "1025:1025"  # SMTP
+#      - "8025:8025"  # Web UI
+#    networks:
+#      - db-network
+#    restart: unless-stopped
+
+networks:
+  db-network:
+    external: true
