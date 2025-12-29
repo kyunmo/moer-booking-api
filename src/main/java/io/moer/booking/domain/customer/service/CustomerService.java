@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -64,6 +65,45 @@ public class CustomerService {
                 customer.getId(), businessId, customer.getName(), customer.getPhone());
 
         return CustomerResponse.from(customer);
+    }
+
+    /**
+     * Customer 조회 또는 자동 생성
+     * - 전화번호로 기존 고객 검색
+     * - 없으면 자동 생성 (이름 + 전화번호)
+     */
+    @Transactional
+    public Customer findOrCreateCustomer(Long businessId, String name, String phone) {
+        // Business 존재 확인
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        // 전화번호로 기존 고객 검색
+        Optional<Customer> existingCustomer = customerRepository.findByBusinessIdAndPhone(businessId, phone);
+
+        if (existingCustomer.isPresent()) {
+            log.info("Existing customer found: id={}, name={}, phone={}",
+                    existingCustomer.get().getId(), existingCustomer.get().getName(), phone);
+            return existingCustomer.get();
+        }
+
+        // 없으면 자동 생성
+        Customer newCustomer = Customer.builder()
+                .businessId(businessId)
+                .name(name)
+                .phone(phone)
+                .visitCount(0)
+                .totalSpent(0)
+                .tags(List.of("신규"))  // 자동으로 "신규" 태그 추가
+                .build();
+
+        customerRepository.save(newCustomer);
+
+        log.info("New customer auto-created: id={}, businessId={}, name={}, phone={}",
+                newCustomer.getId(), businessId, name, phone);
+
+        return newCustomer;
     }
 
     /**

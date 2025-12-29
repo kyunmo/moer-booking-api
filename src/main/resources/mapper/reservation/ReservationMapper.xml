@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.reservation.repository.ReservationRepository">
+
+    <!-- Result Map -->
+    <resultMap id="reservationResultMap" type="io.moer.booking.domain.reservation.Reservation">
+        <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="staffId" column="staff_id"/>
+        <result property="reservationNumber" column="reservation_number"/>
+        <result property="reservationDate" column="reservation_date"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="serviceIds" column="service_ids"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="serviceNames" column="service_names"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="totalDuration" column="total_duration"/>
+        <result property="totalPrice" column="total_price"/>
+        <result property="status" column="status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="customerRequest" column="customer_request"/>
+        <result property="adminMemo" column="admin_memo"/>
+        <result property="notificationSent" column="notification_sent"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 생성 -->
+    <insert id="save" parameterType="io.moer.booking.domain.reservation.Reservation"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO reservations (
+            business_id, customer_id, staff_id,
+            reservation_number, reservation_date, start_time, end_time,
+            service_ids, service_names, total_duration, total_price,
+            status, customer_request, admin_memo,
+            notification_sent, cancelled_at, cancel_reason
+        ) VALUES (
+                     #{businessId}, #{customerId}, #{staffId},
+                     #{reservationNumber}, #{reservationDate}, #{startTime}, #{endTime},
+                     #{serviceIds, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{serviceNames, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{totalDuration}, #{totalPrice},
+                     #{status, typeHandler=org.apache.ibatis.type.EnumTypeHandler},
+                     #{customerRequest}, #{adminMemo},
+                     #{notificationSent, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{cancelledAt}, #{cancelReason}
+                 )
+    </insert>
+
+    <!-- 단건 조회 (ID) -->
+    <select id="findById" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE id = #{id}
+    </select>
+
+    <!-- 단건 조회 (예약 번호) -->
+    <select id="findByReservationNumber" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE reservation_number = #{reservationNumber}
+    </select>
+
+    <!-- Business의 전체 예약 조회 -->
+    <select id="findByBusinessId" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE business_id = #{businessId}
+        ORDER BY reservation_date DESC, start_time DESC
+    </select>
+
+    <!-- Customer의 예약 조회 -->
+    <select id="findByCustomerId" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE customer_id = #{customerId}
+        ORDER BY reservation_date DESC, start_time DESC
+    </select>
+
+    <!-- Staff의 예약 조회 -->
+    <select id="findByStaffId" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE staff_id = #{staffId}
+        ORDER BY reservation_date DESC, start_time DESC
+    </select>
+
+    <!-- 날짜별 예약 조회 -->
+    <select id="findByBusinessIdAndDate" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date = #{reservationDate}
+        ORDER BY start_time
+    </select>
+
+    <!-- 조건별 검색 -->
+    <select id="findByCondition" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE business_id = #{businessId}
+        <if test="customerId != null">
+            AND customer_id = #{customerId}
+        </if>
+        <if test="staffId != null">
+            AND staff_id = #{staffId}
+        </if>
+        <if test="status != null">
+            AND status = #{status, typeHandler=org.apache.ibatis.type.EnumTypeHandler}
+        </if>
+        <if test="startDate != null">
+            AND reservation_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND reservation_date <![CDATA[<=]]> #{endDate}
+        </if>
+        ORDER BY reservation_date DESC, start_time DESC
+    </select>
+
+    <!-- 시간 겹침 확인 -->
+    <select id="findOverlappingReservations" resultMap="reservationResultMap">
+        SELECT * FROM reservations
+        WHERE business_id = #{businessId}
+        AND reservation_date = #{reservationDate}
+        AND status IN ('PENDING', 'CONFIRMED')
+        <if test="staffId != null">
+            AND staff_id = #{staffId}
+        </if>
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+        AND (
+        -- 새 예약의 시작 시간이 기존 예약 시간 내에 있는 경우
+        (#{startTime} >= start_time AND #{startTime} <![CDATA[<]]> end_time)
+        OR
+        -- 새 예약의 종료 시간이 기존 예약 시간 내에 있는 경우
+        (#{endTime} > start_time AND #{endTime} <![CDATA[<=]]> end_time)
+        OR
+        -- 새 예약이 기존 예약을 완전히 포함하는 경우
+        (#{startTime} <![CDATA[<=]]> start_time AND #{endTime} >= end_time)
+        )
+    </select>
+
+    <!-- 수정 -->
+    <update id="update">
+        UPDATE reservations
+        <set>
+            <if test="staffId != null">staff_id = #{staffId},</if>
+            <if test="reservationDate != null">reservation_date = #{reservationDate},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="serviceIds != null">
+                service_ids = #{serviceIds, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            </if>
+            <if test="serviceNames != null">
+                service_names = #{serviceNames, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            </if>
+            <if test="totalDuration != null">total_duration = #{totalDuration},</if>
+            <if test="totalPrice != null">total_price = #{totalPrice},</if>
+            <if test="status != null">
+                status = #{status, typeHandler=org.apache.ibatis.type.EnumTypeHandler},
+            </if>
+            <if test="customerRequest != null">customer_request = #{customerRequest},</if>
+            <if test="adminMemo != null">admin_memo = #{adminMemo},</if>
+            <if test="notificationSent != null">
+                notification_sent = #{notificationSent, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            </if>
+            <if test="cancelledAt != null">cancelled_at = #{cancelledAt},</if>
+            <if test="cancelReason != null">cancel_reason = #{cancelReason},</if>
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 상태만 수정 -->
+    <update id="updateStatus">
+        UPDATE reservations
+        SET status = #{status, typeHandler=org.apache.ibatis.type.EnumTypeHandler},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 삭제 -->
+    <delete id="delete">
+        DELETE FROM reservations
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 존재 확인 -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM reservations WHERE id = #{id}
+        )
+    </select>
+
+    <select id="existsByBusinessIdAndId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM reservations
+            WHERE business_id = #{businessId} AND id = #{id}
+        )
+    </select>
+
+    <!-- 예약 번호 시퀀스 조회 -->
+    <select id="getNextReservationNumber" resultType="long">
+        SELECT nextval('reservation_number_seq')
+    </select>
+
+</mapper>

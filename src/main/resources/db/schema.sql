@@ -389,3 +389,108 @@ INSERT INTO customers (business_id, name, phone, email, visit_count, total_spent
 (2, '강고객', '010-5555-5555', 'kang@example.com', 20, 800000, '2026-01-04',
 '["VIP"]'::jsonb,
 '1:1 수업 선호. 요가 매트 개인 소지');
+
+
+-- reservations 테이블
+CREATE TABLE reservations (
+id BIGSERIAL PRIMARY KEY,
+business_id BIGINT NOT NULL,
+customer_id BIGINT NOT NULL,
+staff_id BIGINT,  -- NULL 가능 (상관없음 선택 시)
+
+-- 예약 정보
+reservation_number VARCHAR(20) UNIQUE NOT NULL,  -- RES-20260106-0001
+reservation_date DATE NOT NULL,
+start_time TIME NOT NULL,
+end_time TIME NOT NULL,
+
+-- 서비스 (여러 개 선택 가능)
+service_ids JSONB NOT NULL,  -- [1, 2, 3]
+service_names JSONB NOT NULL,  -- ["여성컷", "볼륨펌"]
+total_duration INT NOT NULL,  -- 총 소요 시간 (분)
+total_price INT DEFAULT 0,
+
+-- 상태
+status VARCHAR(20) DEFAULT 'PENDING',
+-- PENDING(대기), CONFIRMED(확정), COMPLETED(완료), CANCELLED(취소), NOSHOW(노쇼)
+
+-- 메모
+customer_request TEXT,  -- 고객 요청사항
+admin_memo TEXT,  -- 관리자 메모
+
+-- 알림
+notification_sent JSONB,  -- {"confirmed": true, "reminder": true, "completed": false}
+
+-- 취소 정보
+cancelled_at TIMESTAMP,
+cancel_reason TEXT,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+FOREIGN KEY (staff_id) REFERENCES staffs(id) ON DELETE SET NULL
+);
+
+-- 인덱스
+CREATE INDEX idx_reservations_business ON reservations(business_id);
+CREATE INDEX idx_reservations_customer ON reservations(customer_id);
+CREATE INDEX idx_reservations_staff ON reservations(staff_id);
+CREATE INDEX idx_reservations_date ON reservations(business_id, reservation_date);
+CREATE INDEX idx_reservations_status ON reservations(business_id, status);
+CREATE INDEX idx_reservations_number ON reservations(reservation_number);
+
+-- 시간 겹침 방지용 복합 인덱스
+CREATE INDEX idx_reservations_time_check
+ON reservations(business_id, staff_id, reservation_date, start_time, end_time)
+WHERE status IN ('PENDING', 'CONFIRMED');
+
+-- 예약 번호 시퀀스
+CREATE SEQUENCE reservation_number_seq START 1;
+
+-- 테스트 데이터
+INSERT INTO reservations (
+business_id, customer_id, staff_id,
+reservation_number, reservation_date, start_time, end_time,
+service_ids, service_names, total_duration, total_price,
+status, customer_request, notification_sent
+) VALUES
+-- 오늘 예약들
+(1, 1, 1, 'RES-20260106-0001', '2026-01-06', '10:00', '11:00',
+'[1, 3]'::jsonb, '["여성컷", "볼륨펌"]'::jsonb, 150, 110000,
+'CONFIRMED', '펌 밝게 해주세요',
+'{"confirmed": true, "reminder": false}'::jsonb),
+
+(1, 2, 2, 'RES-20260106-0002', '2026-01-06', '14:00', '14:30',
+'[2]'::jsonb, '["남성컷"]'::jsonb, 30, 20000,
+'CONFIRMED', '',
+'{"confirmed": true, "reminder": false}'::jsonb),
+
+(1, 3, 1, 'RES-20260106-0003', '2026-01-06', '16:00', '16:30',
+'[1]'::jsonb, '["여성컷"]'::jsonb, 30, 30000,
+'PENDING', '짧게 잘라주세요',
+'{}'::jsonb),
+
+-- 내일 예약들
+(1, 1, 1, 'RES-20260107-0001', '2026-01-07', '10:00', '12:30',
+'[1, 3]'::jsonb, '["여성컷", "볼륨펌"]'::jsonb, 150, 110000,
+'CONFIRMED', '',
+'{"confirmed": true, "reminder": false}'::jsonb),
+
+(1, 4, 2, 'RES-20260107-0002', '2026-01-07', '15:00', '16:00',
+'[5]'::jsonb, '["전체염색"]'::jsonb, 90, 70000,
+'CONFIRMED', '밝은 갈색으로',
+'{"confirmed": true, "reminder": false}'::jsonb),
+
+-- 과거 완료된 예약
+(1, 1, 1, 'RES-20260105-0001', '2026-01-05', '10:00', '10:30',
+'[1]'::jsonb, '["여성컷"]'::jsonb, 30, 30000,
+'COMPLETED', '',
+'{"confirmed": true, "reminder": true, "completed": true}'::jsonb),
+
+-- 취소된 예약
+(1, 2, 2, 'RES-20260108-0001', '2026-01-08', '14:00', '14:30',
+'[2]'::jsonb, '["남성컷"]'::jsonb, 30, 20000,
+'CANCELLED', '일정 변경으로 취소',
+'{"confirmed": true, "reminder": false}'::jsonb);
