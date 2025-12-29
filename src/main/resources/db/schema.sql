@@ -494,3 +494,87 @@ status, customer_request, notification_sent
 '[2]'::jsonb, '["남성컷"]'::jsonb, 30, 20000,
 'CANCELLED', '일정 변경으로 취소',
 '{"confirmed": true, "reminder": false}'::jsonb);
+
+
+-- customer_histories 테이블
+CREATE TABLE customer_histories (
+id BIGSERIAL PRIMARY KEY,
+customer_id BIGINT NOT NULL,
+business_id BIGINT NOT NULL,
+reservation_id BIGINT,
+staff_id BIGINT,
+
+visit_date DATE NOT NULL,
+services JSONB NOT NULL,  -- [{"id": 1, "name": "여성컷", "price": 30000}, ...]
+total_price INT DEFAULT 0,
+
+-- 상세 메모 (미용실 특화)
+details JSONB,  -- {"color": "밝은 갈색", "length": "어깨선", "style": "레이어드"}
+before_image_url VARCHAR(255),
+after_image_url VARCHAR(255),
+
+admin_memo TEXT,
+
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL,
+FOREIGN KEY (staff_id) REFERENCES staffs(id) ON DELETE SET NULL
+);
+
+-- 인덱스
+CREATE INDEX idx_histories_customer ON customer_histories(customer_id);
+CREATE INDEX idx_histories_business ON customer_histories(business_id);
+CREATE INDEX idx_histories_date ON customer_histories(visit_date DESC);
+CREATE INDEX idx_histories_reservation ON customer_histories(reservation_id);
+
+-- 테스트 데이터
+INSERT INTO customer_histories (
+customer_id, business_id, reservation_id, staff_id,
+visit_date, services, total_price, details, admin_memo
+) VALUES
+-- 김고객 이력 (VIP, 15회 방문)
+(1, 1, 6, 1, '2025-12-05',
+'[{"id": 1, "name": "여성컷", "price": 30000}]'::jsonb, 30000,
+'{"length": "어깨선", "style": "레이어드"}'::jsonb,
+'레이어드 컷으로 볼륨감 살림'),
+
+(1, 1, NULL, 1, '2025-11-10',
+'[{"id": 3, "name": "볼륨펌", "price": 80000}]'::jsonb, 80000,
+'{"perm_type": "볼륨펌", "curl_strength": "중간"}'::jsonb,
+'볼륨펌. 다음에 더 밝게 해달라고 하심'),
+
+(1, 1, NULL, 1, '2025-10-15',
+'[{"id": 5, "name": "전체염색", "price": 70000}]'::jsonb, 70000,
+'{"color": "밝은 갈색", "brand": "웰라"}'::jsonb,
+'밝은 갈색 염색. 만족도 높음'),
+
+-- 이고객 이력 (단골, 8회 방문)
+(2, 1, NULL, 2, '2025-12-20',
+'[{"id": 2, "name": "남성컷", "price": 20000}]'::jsonb, 20000,
+'{"length": "짧게", "style": "투블럭"}'::jsonb,
+'투블럭 스타일 선호'),
+
+(2, 1, NULL, 2, '2025-11-25',
+'[{"id": 2, "name": "남성컷", "price": 20000}]'::jsonb, 20000,
+'{"length": "짧게"}'::jsonb,
+'짧게 선호'),
+
+-- 박고객 이력 (신규, 1회)
+(3, 1, NULL, 1, '2025-12-28',
+'[{"id": 1, "name": "여성컷", "price": 30000}]'::jsonb, 30000,
+'{"length": "짧게", "style": "단발"}'::jsonb,
+'첫 방문. 짧게 잘라달라고 하심'),
+
+-- 최고객 이력 (단골, 3회)
+(4, 1, NULL, 1, '2025-12-15',
+'[{"id": 1, "name": "여성컷", "price": 30000}, {"id": 4, "name": "트리트먼트", "price": 20000}]'::jsonb, 50000,
+'{"length": "중간", "treatment": "케라틴"}'::jsonb,
+'컷 + 트리트먼트'),
+
+-- 강고객 이력 (2회)
+(5, 1, NULL, 2, '2025-12-10',
+'[{"id": 2, "name": "남성컷", "price": 20000}]'::jsonb, 20000,
+NULL,
+'일반 컷');

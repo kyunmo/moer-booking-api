@@ -7,6 +7,7 @@ import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.customer.Customer;
 import io.moer.booking.domain.customer.repository.CustomerRepository;
+import io.moer.booking.domain.customer.service.CustomerHistoryService;
 import io.moer.booking.domain.customer.service.CustomerService;
 import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.holiday.repository.SpecialHolidayRepository;
@@ -44,6 +45,7 @@ public class ReservationService {
     private final StaffRepository staffRepository;
     private final ServiceRepository serviceRepository;
     private final SpecialHolidayRepository specialHolidayRepository;
+    private final CustomerHistoryService customerHistoryService;
 
     /**
      * 예약 생성 (Customer 자동 생성 지원)
@@ -412,11 +414,23 @@ public class ReservationService {
                     "확정된 예약만 완료할 수 있습니다");
         }
 
+        // 예약 상태 변경
         reservationRepository.updateStatus(reservationId, ReservationStatus.COMPLETED);
 
-        // TODO: Customer 방문 통계 업데이트
+        // CustomerHistory 자동 생성
+        customerHistoryService.createHistoryFromReservation(
+                businessId,
+                reservation.getCustomerId(),
+                reservationId,
+                reservation.getStaffId(),
+                reservation.getReservationDate(),
+                reservation.getServiceIds(),
+                reservation.getServiceNames(),
+                reservation.getTotalPrice()
+        );
 
-        log.info("Reservation completed: id={}, businessId={}", reservationId, businessId);
+        log.info("Reservation completed and history created: id={}, businessId={}",
+                reservationId, businessId);
 
         return getReservation(businessId, reservationId);
     }
