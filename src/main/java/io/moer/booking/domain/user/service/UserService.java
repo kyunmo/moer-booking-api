@@ -1,16 +1,19 @@
 package io.moer.booking.domain.user.service;
 
-import io.moer.booking.common.dto.PageInfo;
 import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.user.User;
 import io.moer.booking.domain.user.UserStatus;
-import io.moer.booking.domain.user.dto.*;
+import io.moer.booking.domain.user.dto.UserCreateRequest;
+import io.moer.booking.domain.user.dto.UserResponse;
+import io.moer.booking.domain.user.dto.UserSearchCondition;
+import io.moer.booking.domain.user.dto.UserUpdateRequest;
 import io.moer.booking.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,126 +27,108 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    /**
-     * 회원 생성
-     */
     @Transactional
     public UserResponse createUser(UserCreateRequest request) {
-        // 이메일 중복 체크
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
-        // User 엔티티 생성
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
         User user = User.builder()
                 .email(request.getEmail())
-                .password(request.getPassword()) // TODO: 나중에 암호화
+                .password(encodedPassword)
                 .name(request.getName())
                 .phone(request.getPhone())
                 .role(request.getRole())
                 .status(UserStatus.ACTIVE)
+                .staffId(request.getStaffId())
+                .businessId(request.getBusinessId())
                 .emailVerified(false)
                 .build();
 
-        // 저장
         userRepository.save(user);
 
-        log.info("User created: id={}, email={}", user.getId(), user.getEmail());
+        log.info("User created: id={}, email={}, role={}",
+                user.getId(), user.getEmail(), user.getRole());
 
         return UserResponse.from(user);
     }
 
-    /**
-     * 회원 단건 조회
-     */
-    public UserResponse getUser(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
-
-        return UserResponse.from(user);
-    }
-
-    /**
-     * 회원 목록 조회 (페이징)
-     */
-    public PageResponse<UserResponse> getUsers(UserSearchCondition condition) {
-        // 데이터 조회
-        List<UserResponse> content = userRepository.findAll(condition).stream()
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
                 .map(UserResponse::from)
                 .collect(Collectors.toList());
-
-        // 전체 개수
-        long totalElements = userRepository.countAll(condition);
-
-        // 페이징 정보
-        PageInfo pageInfo = new PageInfo(
-                condition.getPage(),
-                condition.getSize(),
-                totalElements
-        );
-
-        return PageResponse.of(content, pageInfo);
     }
 
-    /**
-     * 회원 수정
-     */
+    public UserResponse getUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
+
+    public UserResponse getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
+
     @Transactional
-    public UserResponse updateUser(Long id, UserUpdateRequest request) {
-        // 존재 확인
-        User user = userRepository.findById(id)
+    public UserResponse updateUser(Long userId, UserUpdateRequest request) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
-        // 수정할 필드만 업데이트
         User updatedUser = User.builder()
                 .id(user.getId())
+                .email(user.getEmail())
+                .password(user.getPassword())
                 .name(request.getName() != null ? request.getName() : user.getName())
                 .phone(request.getPhone() != null ? request.getPhone() : user.getPhone())
-                .password(request.getPassword() != null ? request.getPassword() : user.getPassword())
+                .role(user.getRole())
                 .status(user.getStatus())
+                .staffId(request.getStaffId() != null ? request.getStaffId() : user.getStaffId())
+                .businessId(request.getBusinessId() != null ? request.getBusinessId() : user.getBusinessId())
+                .emailVerified(user.getEmailVerified())
+                .lastLoginAt(user.getLastLoginAt())
                 .build();
 
         userRepository.update(updatedUser);
 
-        log.info("User updated: id={}", id);
+        log.info("User updated: id={}, email={}", userId, user.getEmail());
 
-        // 업데이트된 데이터 재조회
-        return getUser(id);
+        return getUser(userId);
     }
 
-    /**
-     * 회원 삭제
-     */
     @Transactional
-    public void deleteUser(Long id) {
-        // 존재 확인
-        if (!userRepository.findById(id).isPresent()) {
+    public UserResponse updateUserStatus(Long userId, UserStatus status) {
+        if (!userRepository.findById(userId).isPresent()) {
             throw new EntityNotFoundException(ErrorCode.USER_NOT_FOUND);
         }
 
-        userRepository.delete(id);
+        userRepository.updateStatus(userId, status);
 
-        log.info("User deleted: id={}", id);
+        log.info("User status updated: id={}, status={}", userId, status);
+
+        return getUser(userId);
+    }
+
+    public boolean checkEmailExists(String email) {
+        return userRepository.existsByEmail(email);
     }
 
     /**
-     * 회원 상태 변경
+     * User 검색 (페이징 포함)
      */
-    @Transactional
-    public UserResponse changeUserStatus(Long id, UserStatus status) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+    public PageResponse<UserResponse> searchUsers(UserSearchCondition condition) {
+        List<User> users = userRepository.search(condition);
+        long totalElements = userRepository.countSearch(condition);
 
-        User updatedUser = User.builder()
-                .id(user.getId())
-                .status(status)
-                .build();
+        List<UserResponse> content = users.stream()
+                .map(UserResponse::from)
+                .collect(Collectors.toList());
 
-        userRepository.update(updatedUser);
-
-        log.info("User status changed: id={}, status={}", id, status);
-
-        return getUser(id);
+        return PageResponse.of(content, condition.getPage(), condition.getSize(), totalElements);
     }
 }

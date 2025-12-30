@@ -1,119 +1,148 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="io.moer.booking.domain.user.repository.UserRepository">
 
-    <!-- ResultMap -->
+    <!-- Result Map -->
     <resultMap id="UserResultMap" type="io.moer.booking.domain.user.User">
         <id property="id" column="id"/>
         <result property="email" column="email"/>
         <result property="password" column="password"/>
         <result property="name" column="name"/>
         <result property="phone" column="phone"/>
-        <result property="role" column="role" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
-        <result property="status" column="status" typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="role" column="role"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="status" column="status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="staffId" column="staff_id"/>
+        <result property="businessId" column="business_id"/>
         <result property="emailVerified" column="email_verified"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
-    <!-- 생성 -->
-    <insert id="save" parameterType="io.moer.booking.domain.user.User"
-            useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (
-            email, password, name, phone, role, status, email_verified
-        ) VALUES (
-             #{email}, #{password}, #{name}, #{phone},
-             #{role}::VARCHAR, #{status}::VARCHAR, #{emailVerified}
-         )
-    </insert>
+    <!-- Base Column List -->
+    <sql id="baseColumns">
+        id, email, password, name, phone, role, status,
+        staff_id, business_id, email_verified,
+        last_login_at, created_at, updated_at
+    </sql>
 
-    <!-- 단건 조회 (ID) -->
+    <!-- 전체 조회 -->
+    <select id="findAll" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM users
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- ID로 조회 -->
     <select id="findById" resultMap="UserResultMap">
-        SELECT * FROM users
+        SELECT <include refid="baseColumns"/>
+        FROM users
         WHERE id = #{id}
     </select>
 
-    <!-- 단건 조회 (Email) -->
+    <!-- 이메일로 조회 -->
     <select id="findByEmail" resultMap="UserResultMap">
-        SELECT * FROM users
+        SELECT <include refid="baseColumns"/>
+        FROM users
         WHERE email = #{email}
     </select>
 
-    <!-- 목록 조회 -->
-    <select id="findAll" resultMap="UserResultMap">
-        SELECT * FROM users
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (
-                name LIKE '%' || #{keyword} || '%'
-                OR email LIKE '%' || #{keyword} || '%'
-                )
-            </if>
-            <if test="role != null">
-                AND role = #{role}::VARCHAR
-            </if>
-            <if test="status != null">
-                AND status = #{status}::VARCHAR
-            </if>
-        </where>
-        ORDER BY created_at DESC
-        LIMIT #{size} OFFSET #{offset}
-    </select>
-
-    <!-- 전체 개수 -->
-    <select id="countAll" resultType="long">
-        SELECT COUNT(*) FROM users
-        <where>
-            <if test="keyword != null and keyword != ''">
-                AND (
-                name LIKE '%' || #{keyword} || '%'
-                OR email LIKE '%' || #{keyword} || '%'
-                )
-            </if>
-            <if test="role != null">
-                AND role = #{role}::VARCHAR
-            </if>
-            <if test="status != null">
-                AND status = #{status}::VARCHAR
-            </if>
-        </where>
-    </select>
-
-    <!-- 수정 -->
-    <update id="update">
-        UPDATE users
-        SET
-        <if test="name != null">name = #{name},</if>
-        <if test="phone != null">phone = #{phone},</if>
-        <if test="password != null">password = #{password},</if>
-        <if test="status != null">status = #{status}::VARCHAR,</if>
-        <if test="lastLoginAt != null">last_login_at = #{lastLoginAt},</if>
-        updated_at = CURRENT_TIMESTAMP
-        WHERE id = #{id}
-    </update>
-
-    <!-- 삭제 -->
-    <delete id="delete">
-        DELETE FROM users
-        WHERE id = #{id}
-    </delete>
-
-    <!-- 이메일 중복 체크 -->
+    <!-- 이메일 존재 여부 -->
     <select id="existsByEmail" resultType="boolean">
         SELECT EXISTS(
             SELECT 1 FROM users WHERE email = #{email}
         )
     </select>
 
-    <!-- 이메일 중복 체크 (본인 제외) -->
-    <select id="existsByEmailAndIdNot" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM users
-            WHERE email = #{email} AND id != #{id}
-        )
+    <!-- 저장 -->
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (
+            email, password, name, phone, role, status,
+            staff_id, business_id, email_verified
+        ) VALUES (
+                     #{email}, #{password}, #{name}, #{phone},
+                     #{role}::user_role, #{status}::user_status,
+                     #{staffId}, #{businessId}, #{emailVerified}
+                 )
+    </insert>
+
+    <!-- 수정 -->
+    <update id="update">
+        UPDATE users
+        SET name = #{name},
+            phone = #{phone},
+            staff_id = #{staffId},
+            business_id = #{businessId},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 상태 변경 -->
+    <update id="updateStatus">
+        UPDATE users
+        SET status = #{status}::user_status,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 마지막 로그인 시간 업데이트 -->
+    <update id="updateLastLoginAt">
+        UPDATE users
+        SET last_login_at = #{lastLoginAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 검색 (페이징 포함) -->
+    <select id="search" resultMap="UserResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM users
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                name LIKE '%' || #{keyword} || '%'
+                OR email LIKE '%' || #{keyword} || '%'
+                )
+            </if>
+            <if test="role != null">
+                AND role = #{role}::user_role
+            </if>
+            <if test="status != null">
+                AND status = #{status}::user_status
+            </if>
+            <if test="businessId != null">
+                AND business_id = #{businessId}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- 검색 결과 총 개수 -->
+    <select id="countSearch" resultType="long">
+        SELECT COUNT(*)
+        FROM users
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                name LIKE '%' || #{keyword} || '%'
+                OR email LIKE '%' || #{keyword} || '%'
+                )
+            </if>
+            <if test="role != null">
+                AND role = #{role}::user_role
+            </if>
+            <if test="status != null">
+                AND status = #{status}::user_status
+            </if>
+            <if test="businessId != null">
+                AND business_id = #{businessId}
+            </if>
+        </where>
     </select>
 
 </mapper>

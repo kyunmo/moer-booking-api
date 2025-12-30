@@ -578,3 +578,48 @@ visit_date, services, total_price, details, admin_memo
 '[{"id": 2, "name": "남성컷", "price": 20000}]'::jsonb, 20000,
 NULL,
 '일반 컷');
+
+
+-- users 테이블에 staffId, businessId 추가
+ALTER TABLE users
+    ADD COLUMN staff_id BIGINT,
+ADD COLUMN business_id BIGINT;
+
+-- 외래키 추가
+ALTER TABLE users
+    ADD CONSTRAINT fk_users_staff
+        FOREIGN KEY (staff_id) REFERENCES staffs(id) ON DELETE SET NULL;
+
+ALTER TABLE users
+    ADD CONSTRAINT fk_users_business
+        FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL;
+
+-- 인덱스 추가
+CREATE INDEX idx_users_staff ON users(staff_id);
+CREATE INDEX idx_users_business ON users(business_id);
+
+COMMENT ON COLUMN users.staff_id IS 'STAFF 역할인 경우 연결된 Staff ID';
+COMMENT ON COLUMN users.business_id IS 'OWNER/STAFF가 소속된 Business ID';
+
+
+-- refresh_tokens 테이블 생성
+CREATE TABLE refresh_tokens (
+id BIGSERIAL PRIMARY KEY,
+user_id BIGINT NOT NULL,
+token VARCHAR(500) NOT NULL,
+expires_at TIMESTAMP NOT NULL,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id)
+REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 인덱스
+CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+
+COMMENT ON TABLE refresh_tokens IS 'Refresh Token 저장';
+COMMENT ON COLUMN refresh_tokens.user_id IS '사용자 ID';
+COMMENT ON COLUMN refresh_tokens.token IS 'Refresh Token';
+COMMENT ON COLUMN refresh_tokens.expires_at IS '만료 시간';

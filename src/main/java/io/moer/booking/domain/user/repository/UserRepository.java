@@ -1,32 +1,35 @@
 package io.moer.booking.domain.user.repository;
 
 import io.moer.booking.domain.user.User;
+import io.moer.booking.domain.user.UserStatus;
 import io.moer.booking.domain.user.dto.UserSearchCondition;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Mapper
 public interface UserRepository {
 
-    // 생성
+    List<User> findAll();
+
+    Optional<User> findById(Long id);
+
+    Optional<User> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
     void save(User user);
 
-    // 조회
-    Optional<User> findById(Long id);
-    Optional<User> findByEmail(String email);
-    List<User> findAll(UserSearchCondition condition);
-    long countAll(UserSearchCondition condition);
-
-    // 수정
     void update(User user);
 
-    // 삭제
-    void delete(Long id);
+    void updateStatus(@Param("id") Long id, @Param("status") UserStatus status);
 
-    // 중복 체크
-    boolean existsByEmail(String email);
-    boolean existsByEmailAndIdNot(@Param("email") String email, @Param("id") Long id);
+    void updateLastLoginAt(@Param("id") Long id, @Param("lastLoginAt") LocalDateTime lastLoginAt);
+
+    List<User> search(UserSearchCondition condition);
+
+    long countSearch(UserSearchCondition condition);  // ← 추가
 }

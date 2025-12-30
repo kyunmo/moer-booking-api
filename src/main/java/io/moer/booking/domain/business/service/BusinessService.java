@@ -116,7 +116,8 @@ public class BusinessService {
                 totalElements
         );
 
-        return PageResponse.of(content, pageInfo);
+        //return PageResponse.of(content, pageInfo);
+        return PageResponse.of(content, condition.getPage(), condition.getSize(), totalElements);
     }
 
     /**

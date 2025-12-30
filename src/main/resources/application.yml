@@ -21,16 +21,32 @@ mybatis:
   mapper-locations: classpath:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
     default-fetch-size: 100
     default-statement-timeout: 30
 
 server:
   port: 8080
-  servlet:
-    context-path: /api
 
 logging:
   level:
     root: INFO
     com.moer.booking: DEBUG
     org.springframework.web: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET:moer-booking-system-secret-key-change-this-in-production-minimum-256-bits}
+  access-token-expiration: 3600000  # 1시간 (밀리초)
+  refresh-token-expiration: 604800000  # 7일 (밀리초)
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+    doc-expansion: none
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
