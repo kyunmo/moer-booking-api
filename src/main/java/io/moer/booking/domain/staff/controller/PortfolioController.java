@@ -19,7 +19,7 @@ public class PortfolioController {
     /**
      * Portfolio 생성
      */
-    @PostMapping("/staffs/{staffId}/portfolios")
+    @PostMapping("/api/staffs/{staffId}/portfolios")
     public ApiResponse<PortfolioResponse> createPortfolio(
             @PathVariable Long staffId,
             @Valid @RequestBody PortfolioCreateRequest request) {
@@ -30,7 +30,7 @@ public class PortfolioController {
     /**
      * Staff의 Portfolio 목록 조회 (관리자용 - 전체)
      */
-    @GetMapping("/staffs/{staffId}/portfolios")
+    @GetMapping("/api/staffs/{staffId}/portfolios")
     public ApiResponse<List<PortfolioResponse>> getPortfoliosByStaff(
             @PathVariable Long staffId) {
         List<PortfolioResponse> response = portfolioService.getPortfoliosByStaff(staffId);
@@ -40,7 +40,7 @@ public class PortfolioController {
     /**
      * Staff의 공개 Portfolio 목록 조회 (고객용)
      */
-    @GetMapping("/staffs/{staffId}/portfolios/visible")
+    @GetMapping("/api/staffs/{staffId}/portfolios/visible")
     public ApiResponse<List<PortfolioResponse>> getVisiblePortfoliosByStaff(
             @PathVariable Long staffId) {
         List<PortfolioResponse> response = portfolioService.getVisiblePortfoliosByStaff(staffId);
@@ -50,7 +50,7 @@ public class PortfolioController {
     /**
      * Business의 전체 Portfolio 목록 조회
      */
-    @GetMapping("/businesses/{businessId}/portfolios")
+    @GetMapping("/api/businesses/{businessId}/portfolios")
     public ApiResponse<List<PortfolioResponse>> getPortfoliosByBusiness(
             @PathVariable Long businessId) {
         List<PortfolioResponse> response = portfolioService.getPortfoliosByBusiness(businessId);
@@ -60,7 +60,7 @@ public class PortfolioController {
     /**
      * Portfolio 공개/비공개 전환
      */
-    @PatchMapping("/portfolios/{portfolioId}/toggle-visibility")
+    @PatchMapping("/api/portfolios/{portfolioId}/toggle-visibility")
     public ApiResponse<PortfolioResponse> togglePortfolioVisibility(
             @PathVariable Long portfolioId) {
         PortfolioResponse response = portfolioService.togglePortfolioVisibility(portfolioId);
@@ -70,7 +70,7 @@ public class PortfolioController {
     /**
      * Portfolio 삭제
      */
-    @DeleteMapping("/portfolios/{portfolioId}")
+    @DeleteMapping("/api/portfolios/{portfolioId}")
     public ApiResponse<Void> deletePortfolio(@PathVariable Long portfolioId) {
         portfolioService.deletePortfolio(portfolioId);
         return ApiResponse.success();
