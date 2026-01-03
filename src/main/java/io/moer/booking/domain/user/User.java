@@ -7,6 +7,10 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * 사용자 엔티티
+ * DB 테이블: users
+ */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,16 +21,36 @@ public class User {
     private String password;
     private String name;
     private String phone;
+
+    /**
+     * 역할 (Enum)
+     * DB: VARCHAR(20)
+     */
     private UserRole role;
+
+    /**
+     * 상태 (Enum)
+     * DB: VARCHAR(20)
+     */
     private UserStatus status;
-    private Long staffId;        // STAFF 역할인 경우
-    private Long businessId;     // OWNER/STAFF 소속 매장
-    private Boolean emailVerified;
+
+    private Long staffId;
+    private Long businessId;
+
+    /**
+     * 이메일 인증 여부 (Y/N)
+     * DB: CHAR(1)
+     */
+    private String emailVerified;
+
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 권한 체크 헬퍼 메서드
+    // ========================================
+    // 헬퍼 메서드 - 역할 확인
+    // ========================================
+
     public boolean isAdmin() {
         return this.role == UserRole.ADMIN;
     }
@@ -39,6 +63,25 @@ public class User {
         return this.role == UserRole.STAFF;
     }
 
+    // ========================================
+    // 헬퍼 메서드 - 상태 확인
+    // ========================================
+
+    public boolean isEmailVerified() {
+        return "Y".equals(this.emailVerified);
+    }
+
+    public boolean isActive() {
+        return this.status == UserStatus.ACTIVE;
+    }
+
+    // ========================================
+    // 헬퍼 메서드 - 권한 확인
+    // ========================================
+
+    /**
+     * 특정 Business에 접근 가능한지 확인
+     */
     public boolean canAccessBusiness(Long businessId) {
         if (isAdmin()) {
             return true;
@@ -46,12 +89,15 @@ public class User {
         return this.businessId != null && this.businessId.equals(businessId);
     }
 
+    /**
+     * 특정 Staff에 접근 가능한지 확인
+     */
     public boolean canAccessStaff(Long staffId) {
         if (isAdmin()) {
             return true;
         }
         if (isOwner()) {
-            return true; // 같은 매장이면 OK (서비스 레이어에서 추가 검증)
+            return true;
         }
         if (isStaff()) {
             return this.staffId != null && this.staffId.equals(staffId);

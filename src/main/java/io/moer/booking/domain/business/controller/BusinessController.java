@@ -2,16 +2,22 @@ package io.moer.booking.domain.business.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
+import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
-import io.moer.booking.domain.business.dto.*;
+import io.moer.booking.domain.business.dto.BusinessCreateRequest;
+import io.moer.booking.domain.business.dto.BusinessResponse;
+import io.moer.booking.domain.business.dto.BusinessSearchCondition;
+import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
 import io.moer.booking.domain.business.service.BusinessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
+/**
+ * 매장 관리 Controller
+ */
 @RestController
 @RequestMapping("/api/businesses")
 @RequiredArgsConstructor
@@ -72,7 +78,7 @@ public class BusinessController {
     @PatchMapping("/{id}/settings")
     public ApiResponse<BusinessResponse> updateBusinessSettings(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> settings) {
+            @RequestBody BusinessSettings settings) {
         BusinessResponse response = businessService.updateBusinessSettings(id, settings);
         return ApiResponse.success(response);
     }

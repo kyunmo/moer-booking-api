@@ -18,7 +18,8 @@ public class RefreshToken {
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
 
+    // 헬퍼 메서드
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
+        return LocalDateTime.now().isAfter(this.expiresAt);
     }
 }

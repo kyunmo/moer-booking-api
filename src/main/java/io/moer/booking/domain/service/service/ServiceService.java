@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 서비스 관리 Service
+ */
 @Slf4j
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
@@ -26,31 +29,28 @@ public class ServiceService {
     private final BusinessRepository businessRepository;
 
     /**
-     * Service 생성
+     * 서비스 생성
      */
     @Transactional
     public ServiceResponse createService(Long businessId, ServiceCreateRequest request) {
-        // Business 존재 확인
         if (!businessRepository.existsById(businessId)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        // Service 엔티티 생성
+        // List<Long> → String 변환
+        String staffIdsString = Service.staffIdsToString(request.getStaffIds());
+
         Service service = Service.builder()
                 .businessId(businessId)
                 .category(request.getCategory())
                 .name(request.getName())
                 .description(request.getDescription())
-                .price(request.getPrice())
                 .duration(request.getDuration())
-                .imageUrl(request.getImageUrl())
-                .options(request.getOptions())
-                .availableStaffIds(request.getAvailableStaffIds())
-                .isActive(true)
-                .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
+                .price(request.getPrice())
+                .staffIds(staffIdsString)
+                .isActive("Y")
                 .build();
 
-        // 저장
         serviceRepository.save(service);
 
         log.info("Service created: id={}, businessId={}, name={}",
@@ -60,25 +60,23 @@ public class ServiceService {
     }
 
     /**
-     * Service 단건 조회
+     * 서비스 단건 조회
      */
     public ServiceResponse getService(Long businessId, Long serviceId) {
-        // Business의 Service인지 확인
         if (!serviceRepository.existsByBusinessIdAndId(businessId, serviceId)) {
-            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+            throw new EntityNotFoundException(ErrorCode.SERVICE_NOT_FOUND);
         }
 
         Service service = serviceRepository.findById(serviceId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.SERVICE_NOT_FOUND));
 
         return ServiceResponse.from(service);
     }
 
     /**
-     * Business의 Service 목록 조회
+     * Business의 전체 서비스 조회
      */
     public List<ServiceResponse> getServicesByBusiness(Long businessId) {
-        // Business 존재 확인
         if (!businessRepository.existsById(businessId)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
@@ -89,24 +87,22 @@ public class ServiceService {
     }
 
     /**
-     * Business의 활성 Service 목록 조회
+     * Business의 활성 서비스만 조회
      */
     public List<ServiceResponse> getActiveServicesByBusiness(Long businessId) {
-        // Business 존재 확인
         if (!businessRepository.existsById(businessId)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        return serviceRepository.findByBusinessIdAndActive(businessId, true).stream()
+        return serviceRepository.findActiveByBusinessId(businessId).stream()
                 .map(ServiceResponse::from)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 카테고리별 Service 목록 조회
+     * 카테고리별 서비스 조회
      */
     public List<ServiceResponse> getServicesByCategory(Long businessId, String category) {
-        // Business 존재 확인
         if (!businessRepository.existsById(businessId)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
@@ -117,46 +113,46 @@ public class ServiceService {
     }
 
     /**
-     * 조건별 Service 검색
+     * 조건별 서비스 검색
      */
     public List<ServiceResponse> searchServices(ServiceSearchCondition condition) {
-        // Business 존재 확인
         if (!businessRepository.existsById(condition.getBusinessId())) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        return serviceRepository.findByCondition(condition).stream()
+        return serviceRepository.search(condition).stream()
                 .map(ServiceResponse::from)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Service 수정
+     * 서비스 수정
      */
     @Transactional
     public ServiceResponse updateService(Long businessId, Long serviceId, ServiceUpdateRequest request) {
-        // Business의 Service인지 확인
         if (!serviceRepository.existsByBusinessIdAndId(businessId, serviceId)) {
-            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+            throw new EntityNotFoundException(ErrorCode.SERVICE_NOT_FOUND);
         }
 
         Service service = serviceRepository.findById(serviceId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.SERVICE_NOT_FOUND));
 
-        // 수정할 필드만 업데이트
+        // List<Long> → String 변환
+        String staffIdsString = request.getStaffIds() != null
+                ? Service.staffIdsToString(request.getStaffIds())
+                : service.getStaffIds();
+
         Service updatedService = Service.builder()
                 .id(service.getId())
+                .businessId(service.getBusinessId())
                 .category(request.getCategory() != null ? request.getCategory() : service.getCategory())
                 .name(request.getName() != null ? request.getName() : service.getName())
                 .description(request.getDescription() != null ? request.getDescription() : service.getDescription())
-                .price(request.getPrice() != null ? request.getPrice() : service.getPrice())
                 .duration(request.getDuration() != null ? request.getDuration() : service.getDuration())
-                .imageUrl(request.getImageUrl() != null ? request.getImageUrl() : service.getImageUrl())
-                .options(request.getOptions() != null ? request.getOptions() : service.getOptions())
-                .availableStaffIds(request.getAvailableStaffIds() != null ?
-                        request.getAvailableStaffIds() : service.getAvailableStaffIds())
-                .displayOrder(request.getDisplayOrder() != null ?
-                        request.getDisplayOrder() : service.getDisplayOrder())
+                .price(request.getPrice() != null ? request.getPrice() : service.getPrice())
+                .staffIds(staffIdsString)
+                .isActive(service.getIsActive())
+                .createdAt(service.getCreatedAt())
                 .build();
 
         serviceRepository.update(updatedService);
@@ -167,38 +163,28 @@ public class ServiceService {
     }
 
     /**
-     * Service 활성/비활성 전환
+     * 서비스 활성/비활성 토글
      */
     @Transactional
     public ServiceResponse toggleServiceActive(Long businessId, Long serviceId) {
-        // Business의 Service인지 확인
         if (!serviceRepository.existsByBusinessIdAndId(businessId, serviceId)) {
-            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+            throw new EntityNotFoundException(ErrorCode.SERVICE_NOT_FOUND);
         }
 
-        Service service = serviceRepository.findById(serviceId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+        serviceRepository.toggleActive(serviceId);
 
-        Service updated = Service.builder()
-                .id(service.getId())
-                .isActive(!service.getIsActive())
-                .build();
-
-        serviceRepository.update(updated);
-
-        log.info("Service active toggled: id={}, isActive={}", serviceId, !service.getIsActive());
+        log.info("Service active toggled: id={}, businessId={}", serviceId, businessId);
 
         return getService(businessId, serviceId);
     }
 
     /**
-     * Service 삭제
+     * 서비스 삭제
      */
     @Transactional
     public void deleteService(Long businessId, Long serviceId) {
-        // Business의 Service인지 확인
         if (!serviceRepository.existsByBusinessIdAndId(businessId, serviceId)) {
-            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+            throw new EntityNotFoundException(ErrorCode.SERVICE_NOT_FOUND);
         }
 
         serviceRepository.delete(serviceId);

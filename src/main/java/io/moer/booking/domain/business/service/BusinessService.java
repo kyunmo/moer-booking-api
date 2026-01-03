@@ -1,13 +1,15 @@
 package io.moer.booking.domain.business.service;
 
-import io.moer.booking.common.dto.PageInfo;
 import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
-import io.moer.booking.domain.business.dto.*;
+import io.moer.booking.domain.business.dto.BusinessCreateRequest;
+import io.moer.booking.domain.business.dto.BusinessResponse;
+import io.moer.booking.domain.business.dto.BusinessSearchCondition;
+import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
 import io.moer.booking.domain.user.repository.UserRepository;
@@ -16,11 +18,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 매장 서비스
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -45,36 +48,39 @@ public class BusinessService {
                 .ownerId(request.getOwnerId())
                 .businessType(request.getBusinessType())
                 .name(request.getName())
-                .description(request.getDescription())
                 .phone(request.getPhone())
-                .email(request.getEmail())
                 .address(request.getAddress())
-                .addressDetail(request.getAddressDetail())
-                .zipCode(request.getZipCode())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .openingHours(request.getOpeningHours())
-                .regularHolidays(request.getRegularHolidays())
-                .logoUrl(request.getLogoUrl())
-                .coverImageUrl(request.getCoverImageUrl())
-                .images(request.getImages())
-                .website(request.getWebsite())
-                .instagram(request.getInstagram())
-                .facebook(request.getFacebook())
+                .description(request.getDescription())
+                .businessHours(request.getBusinessHours())
                 .status(BusinessStatus.ACTIVE)
                 .build();
 
-        // 저장
         businessRepository.save(business);
 
-        // Settings 저장 (있으면)
-        if (request.getSettings() != null && !request.getSettings().isEmpty()) {
-            BusinessSettings settings = BusinessSettings.builder()
-                    .businessId(business.getId())
-                    .settings(request.getSettings())
-                    .build();
-            businessSettingsRepository.save(settings);
-        }
+        // BusinessSettings 기본값으로 생성
+        BusinessSettings settings = BusinessSettings.builder()
+                .businessId(business.getId())
+                .bookingInterval(30)
+                .autoConfirm("N")
+                .allowOnlineBooking("Y")
+                .maxAdvanceBookingDays(30)
+                .minAdvanceBookingHours(2)
+                .sendConfirmationSms("Y")
+                .sendReminderSms("Y")
+                .reminderHoursBefore(24)
+                .sendCancelSms("Y")
+                .kakaoEnabled("N")
+                .paymentMethods("CARD,CASH")
+                .requireDeposit("N")
+                .depositAmount(0)
+                .allowCancellation("Y")
+                .cancelDeadlineHours(24)
+                .noShowPenaltyEnabled("N")
+                .timezone("Asia/Seoul")
+                .language("ko")
+                .build();
+
+        businessSettingsRepository.save(settings);
 
         log.info("Business created: id={}, name={}, ownerId={}",
                 business.getId(), business.getName(), business.getOwnerId());
@@ -93,30 +99,17 @@ public class BusinessService {
      * 매장 목록 조회 (페이징)
      */
     public PageResponse<BusinessResponse> getBusinesses(BusinessSearchCondition condition) {
-        // 데이터 조회
         List<BusinessResponse> content = businessRepository.findAll(condition).stream()
                 .map(business -> {
-                    // Settings 조회
-                    Map<String, Object> settings = businessSettingsRepository
+                    BusinessSettings settings = businessSettingsRepository
                             .findByBusinessId(business.getId())
-                            .map(BusinessSettings::getSettings)
-                            .orElse(new HashMap<>());
-
+                            .orElse(null);
                     return BusinessResponse.from(business, settings);
                 })
                 .collect(Collectors.toList());
 
-        // 전체 개수
         long totalElements = businessRepository.countAll(condition);
 
-        // 페이징 정보
-        PageInfo pageInfo = new PageInfo(
-                condition.getPage(),
-                condition.getSize(),
-                totalElements
-        );
-
-        //return PageResponse.of(content, pageInfo);
         return PageResponse.of(content, condition.getPage(), condition.getSize(), totalElements);
     }
 
@@ -124,17 +117,14 @@ public class BusinessService {
      * Owner의 매장 목록 조회
      */
     public List<BusinessResponse> getBusinessesByOwner(Long ownerId) {
-        // Owner 존재 확인
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
         return businessRepository.findByOwnerId(ownerId).stream()
                 .map(business -> {
-                    Map<String, Object> settings = businessSettingsRepository
+                    BusinessSettings settings = businessSettingsRepository
                             .findByBusinessId(business.getId())
-                            .map(BusinessSettings::getSettings)
-                            .orElse(new HashMap<>());
-
+                            .orElse(null);
                     return BusinessResponse.from(business, settings);
                 })
                 .collect(Collectors.toList());
@@ -145,30 +135,20 @@ public class BusinessService {
      */
     @Transactional
     public BusinessResponse updateBusiness(Long id, BusinessUpdateRequest request) {
-        // 존재 확인
         Business business = businessRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
-        // 수정할 필드만 업데이트
         Business updatedBusiness = Business.builder()
                 .id(business.getId())
+                .ownerId(business.getOwnerId())
+                .businessType(business.getBusinessType())
                 .name(request.getName() != null ? request.getName() : business.getName())
-                .description(request.getDescription() != null ? request.getDescription() : business.getDescription())
                 .phone(request.getPhone() != null ? request.getPhone() : business.getPhone())
-                .email(request.getEmail() != null ? request.getEmail() : business.getEmail())
                 .address(request.getAddress() != null ? request.getAddress() : business.getAddress())
-                .addressDetail(request.getAddressDetail())
-                .zipCode(request.getZipCode())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .openingHours(request.getOpeningHours())
-                .regularHolidays(request.getRegularHolidays())
-                .logoUrl(request.getLogoUrl())
-                .coverImageUrl(request.getCoverImageUrl())
-                .images(request.getImages())
-                .website(request.getWebsite())
-                .instagram(request.getInstagram())
-                .facebook(request.getFacebook())
+                .description(request.getDescription() != null ? request.getDescription() : business.getDescription())
+                .businessHours(request.getBusinessHours() != null ? request.getBusinessHours() : business.getBusinessHours())
+                .status(business.getStatus())
+                .createdAt(business.getCreatedAt())
                 .build();
 
         businessRepository.update(updatedBusiness);
@@ -182,33 +162,43 @@ public class BusinessService {
      * 매장 Settings 수정
      */
     @Transactional
-    public BusinessResponse updateBusinessSettings(Long id, Map<String, Object> newSettings) {
-        // Business 존재 확인
+    public BusinessResponse updateBusinessSettings(Long id, BusinessSettings newSettings) {
         if (!businessRepository.existsById(id)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        // Settings 조회 또는 생성
-        BusinessSettings settings = businessSettingsRepository.findByBusinessId(id)
-                .orElse(BusinessSettings.builder()
-                        .businessId(id)
-                        .settings(new HashMap<>())
-                        .build());
+        BusinessSettings existing = businessSettingsRepository.findByBusinessId(id)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Settings를 찾을 수 없습니다"));
 
-        // 기존 settings 업데이트
-        Map<String, Object> updatedSettings = new HashMap<>(settings.getSettings());
-        updatedSettings.putAll(newSettings);
-
+        // 업데이트할 필드만 변경
         BusinessSettings updated = BusinessSettings.builder()
+                .id(existing.getId())
                 .businessId(id)
-                .settings(updatedSettings)
+                .bookingInterval(newSettings.getBookingInterval() != null ? newSettings.getBookingInterval() : existing.getBookingInterval())
+                .autoConfirm(newSettings.getAutoConfirm() != null ? newSettings.getAutoConfirm() : existing.getAutoConfirm())
+                .allowOnlineBooking(newSettings.getAllowOnlineBooking() != null ? newSettings.getAllowOnlineBooking() : existing.getAllowOnlineBooking())
+                .maxAdvanceBookingDays(newSettings.getMaxAdvanceBookingDays() != null ? newSettings.getMaxAdvanceBookingDays() : existing.getMaxAdvanceBookingDays())
+                .minAdvanceBookingHours(newSettings.getMinAdvanceBookingHours() != null ? newSettings.getMinAdvanceBookingHours() : existing.getMinAdvanceBookingHours())
+                .sendConfirmationSms(newSettings.getSendConfirmationSms() != null ? newSettings.getSendConfirmationSms() : existing.getSendConfirmationSms())
+                .sendReminderSms(newSettings.getSendReminderSms() != null ? newSettings.getSendReminderSms() : existing.getSendReminderSms())
+                .reminderHoursBefore(newSettings.getReminderHoursBefore() != null ? newSettings.getReminderHoursBefore() : existing.getReminderHoursBefore())
+                .sendCancelSms(newSettings.getSendCancelSms() != null ? newSettings.getSendCancelSms() : existing.getSendCancelSms())
+                .kakaoChannelId(newSettings.getKakaoChannelId() != null ? newSettings.getKakaoChannelId() : existing.getKakaoChannelId())
+                .kakaoApiKey(newSettings.getKakaoApiKey() != null ? newSettings.getKakaoApiKey() : existing.getKakaoApiKey())
+                .kakaoEnabled(newSettings.getKakaoEnabled() != null ? newSettings.getKakaoEnabled() : existing.getKakaoEnabled())
+                .paymentMethods(newSettings.getPaymentMethods() != null ? newSettings.getPaymentMethods() : existing.getPaymentMethods())
+                .requireDeposit(newSettings.getRequireDeposit() != null ? newSettings.getRequireDeposit() : existing.getRequireDeposit())
+                .depositAmount(newSettings.getDepositAmount() != null ? newSettings.getDepositAmount() : existing.getDepositAmount())
+                .allowCancellation(newSettings.getAllowCancellation() != null ? newSettings.getAllowCancellation() : existing.getAllowCancellation())
+                .cancelDeadlineHours(newSettings.getCancelDeadlineHours() != null ? newSettings.getCancelDeadlineHours() : existing.getCancelDeadlineHours())
+                .noShowPenaltyEnabled(newSettings.getNoShowPenaltyEnabled() != null ? newSettings.getNoShowPenaltyEnabled() : existing.getNoShowPenaltyEnabled())
+                .timezone(newSettings.getTimezone() != null ? newSettings.getTimezone() : existing.getTimezone())
+                .language(newSettings.getLanguage() != null ? newSettings.getLanguage() : existing.getLanguage())
+                .createdAt(existing.getCreatedAt())
                 .build();
 
-        if (settings.getId() == null) {
-            businessSettingsRepository.save(updated);
-        } else {
-            businessSettingsRepository.update(updated);
-        }
+        businessSettingsRepository.update(updated);
 
         log.info("Business settings updated: businessId={}", id);
 
@@ -220,15 +210,11 @@ public class BusinessService {
      */
     @Transactional
     public void deleteBusiness(Long id) {
-        // 존재 확인
         if (!businessRepository.existsById(id)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        // Settings 먼저 삭제 (FK 제약)
         businessSettingsRepository.deleteByBusinessId(id);
-
-        // Business 삭제
         businessRepository.delete(id);
 
         log.info("Business deleted: id={}", id);
@@ -244,7 +230,15 @@ public class BusinessService {
 
         Business updated = Business.builder()
                 .id(business.getId())
+                .ownerId(business.getOwnerId())
+                .businessType(business.getBusinessType())
+                .name(business.getName())
+                .phone(business.getPhone())
+                .address(business.getAddress())
+                .description(business.getDescription())
+                .businessHours(business.getBusinessHours())
                 .status(status)
+                .createdAt(business.getCreatedAt())
                 .build();
 
         businessRepository.update(updated);
@@ -260,10 +254,9 @@ public class BusinessService {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
-        Map<String, Object> settings = businessSettingsRepository
+        BusinessSettings settings = businessSettingsRepository
                 .findByBusinessId(businessId)
-                .map(BusinessSettings::getSettings)
-                .orElse(new HashMap<>());
+                .orElse(null);
 
         return BusinessResponse.from(business, settings);
     }

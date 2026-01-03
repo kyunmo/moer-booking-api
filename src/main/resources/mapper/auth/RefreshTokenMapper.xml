@@ -4,6 +4,9 @@
 
 <mapper namespace="io.moer.booking.domain.auth.repository.RefreshTokenRepository">
 
+    <!-- ========================================
+         Result Map
+         ======================================== -->
     <resultMap id="RefreshTokenResultMap" type="io.moer.booking.domain.auth.RefreshToken">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
@@ -12,36 +15,47 @@
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
-    <!-- 저장 -->
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
     <insert id="save" parameterType="io.moer.booking.domain.auth.RefreshToken"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO refresh_tokens (user_id, token, expires_at, created_at)
-        VALUES (#{userId}, #{token}, #{expiresAt}, CURRENT_TIMESTAMP)
+        INSERT INTO refresh_tokens (
+            user_id, token, expires_at
+        ) VALUES (
+                     #{userId}, #{token}, #{expiresAt}
+                 )
     </insert>
 
-    <!-- 토큰으로 조회 -->
+    <!-- ========================================
+         조회 - 단건
+         ======================================== -->
+
+    <!-- Token으로 조회 -->
     <select id="findByToken" resultMap="RefreshTokenResultMap">
-        SELECT *
-        FROM refresh_tokens
+        SELECT * FROM refresh_tokens
         WHERE token = #{token}
     </select>
 
-    <!-- 사용자 ID로 조회 -->
+    <!-- User ID로 조회 -->
     <select id="findByUserId" resultMap="RefreshTokenResultMap">
-        SELECT *
-        FROM refresh_tokens
+        SELECT * FROM refresh_tokens
         WHERE user_id = #{userId}
         ORDER BY created_at DESC
             LIMIT 1
     </select>
 
-    <!-- 사용자 ID로 삭제 -->
+    <!-- ========================================
+         삭제 (DELETE)
+         ======================================== -->
+
+    <!-- User ID로 삭제 -->
     <delete id="deleteByUserId">
         DELETE FROM refresh_tokens
         WHERE user_id = #{userId}
     </delete>
 
-    <!-- 토큰으로 삭제 -->
+    <!-- Token으로 삭제 -->
     <delete id="deleteByToken">
         DELETE FROM refresh_tokens
         WHERE token = #{token}
@@ -50,7 +64,7 @@
     <!-- 만료된 토큰 삭제 -->
     <delete id="deleteExpiredTokens">
         DELETE FROM refresh_tokens
-        WHERE expires_at &lt; CURRENT_TIMESTAMP
+        WHERE expires_at <![CDATA[<]]> CURRENT_TIMESTAMP
     </delete>
 
 </mapper>

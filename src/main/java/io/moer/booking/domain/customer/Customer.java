@@ -7,78 +7,96 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * 고객 엔티티
+ * DB 테이블: customers
+ */
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Customer {
-
     private Long id;
     private Long businessId;
-
-    // 기본 정보
     private String name;
     private String phone;
     private String email;
+    private LocalDate birthDate;
+    private String gender;
 
-    // 통계
     private Integer visitCount;
     private Integer totalSpent;
     private LocalDate lastVisitDate;
 
-    // 태그
-    private List<String> tags;
+    /**
+     * 태그 (콤마 구분 TEXT)
+     * DB: TEXT
+     * 예: "VIP,단골,신규"
+     */
+    private String tags;
 
-    // 관리자 메모
-    private String adminMemo;
-
-    // 카카오톡
-    private String kakaoUserKey;
+    private String memo;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    /**
-     * 방문 횟수 증가
-     */
-    public void incrementVisitCount() {
-        this.visitCount = (this.visitCount != null ? this.visitCount : 0) + 1;
-    }
+    // ========================================
+    // 헬퍼 메서드 - 고객 타입 판별
+    // ========================================
 
     /**
-     * 결제 금액 추가
-     */
-    public void addSpent(int amount) {
-        this.totalSpent = (this.totalSpent != null ? this.totalSpent : 0) + amount;
-    }
-
-    /**
-     * 최근 방문일 업데이트
-     */
-    public void updateLastVisitDate(LocalDate date) {
-        this.lastVisitDate = date;
-    }
-
-    /**
-     * VIP 고객 여부 확인 (10회 이상 방문)
+     * VIP 고객 여부 (10회 이상 방문)
      */
     public boolean isVip() {
         return visitCount != null && visitCount >= 10;
     }
 
     /**
-     * 신규 고객 여부 확인 (1회 방문)
+     * 신규 고객 여부 (1회 방문)
      */
     public boolean isNew() {
         return visitCount != null && visitCount == 1;
     }
 
     /**
-     * 단골 고객 여부 확인 (3회 이상 방문)
+     * 단골 고객 여부 (3회 이상 방문)
      */
     public boolean isRegular() {
         return visitCount != null && visitCount >= 3;
+    }
+
+    // ========================================
+    // 헬퍼 메서드 - tags 변환
+    // ========================================
+
+    /**
+     * tags String → List<String> 변환
+     * "VIP,단골,신규" → ["VIP", "단골", "신규"]
+     */
+    public List<String> getTagList() {
+        if (tags == null || tags.trim().isEmpty()) {
+            return List.of();
+        }
+
+        return Arrays.stream(tags.split(","))
+                .map(String::trim)
+                .filter(tag -> !tag.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * List<String> → tags String 변환
+     * ["VIP", "단골", "신규"] → "VIP,단골,신규"
+     */
+    public static String tagsToString(List<String> tagList) {
+        if (tagList == null || tagList.isEmpty()) {
+            return null;
+        }
+
+        return String.join(",", tagList);
     }
 }

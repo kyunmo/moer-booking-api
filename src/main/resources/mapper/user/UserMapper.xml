@@ -65,7 +65,7 @@
             staff_id, business_id, email_verified
         ) VALUES (
                      #{email}, #{password}, #{name}, #{phone},
-                     #{role}::user_role, #{status}::user_status,
+                     #{role}, #{status},
                      #{staffId}, #{businessId}, #{emailVerified}
                  )
     </insert>
@@ -84,7 +84,7 @@
     <!-- 상태 변경 -->
     <update id="updateStatus">
         UPDATE users
-        SET status = #{status}::user_status,
+        SET status = #{status},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -109,10 +109,10 @@
                 )
             </if>
             <if test="role != null">
-                AND role = #{role}::user_role
+                AND role = #{role}
             </if>
             <if test="status != null">
-                AND status = #{status}::user_status
+                AND status = #{status}
             </if>
             <if test="businessId != null">
                 AND business_id = #{businessId}
@@ -134,10 +134,10 @@
                 )
             </if>
             <if test="role != null">
-                AND role = #{role}::user_role
+                AND role = #{role}
             </if>
             <if test="status != null">
-                AND status = #{status}::user_status
+                AND status = #{status}
             </if>
             <if test="businessId != null">
                 AND business_id = #{businessId}

@@ -8,8 +8,10 @@ import lombok.Getter;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
+/**
+ * 서비스 응답 DTO
+ */
 @Getter
 @Builder
 @AllArgsConstructor
@@ -25,12 +27,16 @@ public class ServiceResponse {
     private Integer price;
     private Integer duration;
 
-    private String imageUrl;
-    private Map<String, Object> options;
-    private List<Long> availableStaffIds;
+    /**
+     * 담당 가능 직원 ID 목록
+     * DB의 콤마 구분 문자열을 List로 변환
+     */
+    private List<Long> staffIds;
 
+    /**
+     * 활성 여부
+     */
     private Boolean isActive;
-    private Integer displayOrder;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -38,6 +44,9 @@ public class ServiceResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
 
+    /**
+     * Entity → DTO 변환
+     */
     public static ServiceResponse from(Service service) {
         return ServiceResponse.builder()
                 .id(service.getId())
@@ -47,11 +56,8 @@ public class ServiceResponse {
                 .description(service.getDescription())
                 .price(service.getPrice())
                 .duration(service.getDuration())
-                .imageUrl(service.getImageUrl())
-                .options(service.getOptions())
-                .availableStaffIds(service.getAvailableStaffIds())
-                .isActive(service.getIsActive())
-                .displayOrder(service.getDisplayOrder())
+                .staffIds(service.getStaffIdList())  // String → List 변환
+                .isActive(service.isActive())  // "Y" → true 변환
                 .createdAt(service.getCreatedAt())
                 .updatedAt(service.getUpdatedAt())
                 .build();

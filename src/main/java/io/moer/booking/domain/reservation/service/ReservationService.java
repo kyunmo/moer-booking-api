@@ -27,11 +27,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 예약 서비스
+ */
 @Slf4j
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
@@ -41,11 +45,15 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final BusinessRepository businessRepository;
     private final CustomerRepository customerRepository;
-    private final CustomerService customerService;  // 추가
+    private final CustomerService customerService;
     private final StaffRepository staffRepository;
     private final ServiceRepository serviceRepository;
     private final SpecialHolidayRepository specialHolidayRepository;
     private final CustomerHistoryService customerHistoryService;
+
+    // ========================================
+    // 생성
+    // ========================================
 
     /**
      * 예약 생성 (Customer 자동 생성 지원)
@@ -61,8 +69,12 @@ public class ReservationService {
 
         // 3. Staff 존재 확인 (선택 시)
         if (request.getStaffId() != null) {
-            if (!staffRepository.existsById(request.getStaffId())) {
-                throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND, "직원을 찾을 수 없습니다");
+            Staff staff = staffRepository.findById(request.getStaffId())
+                    .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND, "직원을 찾을 수 없습니다"));
+
+            // Business 일치 확인
+            if (!staff.getBusinessId().equals(businessId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "다른 매장의 직원입니다");
             }
         }
 
@@ -73,6 +85,14 @@ public class ReservationService {
                                 "서비스를 찾을 수 없습니다: " + serviceId)))
                 .collect(Collectors.toList());
 
+        // Business 일치 확인
+        services.forEach(service -> {
+            if (!service.getBusinessId().equals(businessId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                        "다른 매장의 서비스입니다: " + service.getName());
+            }
+        });
+
         // 5. 총 시간 및 가격 계산
         int totalDuration = services.stream()
                 .mapToInt(Service::getDuration)
@@ -81,10 +101,6 @@ public class ReservationService {
         int totalPrice = services.stream()
                 .mapToInt(Service::getPrice)
                 .sum();
-
-        List<String> serviceNames = services.stream()
-                .map(Service::getName)
-                .collect(Collectors.toList());
 
         // 6. 종료 시간 계산
         LocalTime endTime = request.getStartTime().plusMinutes(totalDuration);
@@ -96,37 +112,43 @@ public class ReservationService {
         // 8. 예약 번호 생성
         String reservationNumber = generateReservationNumber(request.getReservationDate());
 
-        // 9. Reservation 엔티티 생성
-        Map<String, Object> notificationSent = new HashMap<>();
-        notificationSent.put("confirmed", false);
-        notificationSent.put("reminder", false);
-        notificationSent.put("completed", false);
+        // 9. services JSONB 데이터 생성
+        List<Map<String, Object>> servicesJsonb = services.stream()
+                .map(service -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", service.getId());
+                    map.put("name", service.getName());
+                    map.put("price", service.getPrice());
+                    map.put("duration", service.getDuration());
+                    return map;
+                })
+                .collect(Collectors.toList());
 
+        // 10. Reservation 엔티티 생성
         Reservation reservation = Reservation.builder()
                 .businessId(businessId)
-                .customerId(customer.getId())  // 자동 생성된 또는 기존 Customer ID
+                .customerId(customer.getId())
                 .staffId(request.getStaffId())
                 .reservationNumber(reservationNumber)
                 .reservationDate(request.getReservationDate())
                 .startTime(request.getStartTime())
                 .endTime(endTime)
-                .serviceIds(request.getServiceIds())
-                .serviceNames(serviceNames)
+                .services(servicesJsonb)
                 .totalDuration(totalDuration)
                 .totalPrice(totalPrice)
                 .status(ReservationStatus.PENDING)
-                .customerRequest(request.getCustomerRequest())
-                .notificationSent(notificationSent)
+                .customerMemo(request.getCustomerMemo())
+                .staffMemo(null)
                 .build();
 
-        // 10. 저장
+        // 11. 저장
         reservationRepository.save(reservation);
 
         log.info("Reservation created: id={}, businessId={}, customerId={} ({}), date={}, time={}",
                 reservation.getId(), businessId, customer.getId(),
                 customer.getName(), request.getReservationDate(), request.getStartTime());
 
-        return ReservationResponse.from(reservation);
+        return getReservation(businessId, reservation.getId());
     }
 
     /**
@@ -161,41 +183,41 @@ public class ReservationService {
     }
 
     /**
-     * 예약 가능 여부 검증
+     * 예약 번호 생성
+     * 형식: YYMMDD-RANDOM4 (예: 250115-A3B9)
      */
-    private void validateReservation(Long businessId, Long staffId, LocalDate date,
-                                     LocalTime startTime, LocalTime endTime, Long excludeId) {
-        // 1. 휴무일 확인
-        Optional<SpecialHoliday> holiday = specialHolidayRepository.findByBusinessIdAndDate(businessId, date);
-        if (holiday.isPresent() && holiday.get().getIsClosed()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
-                    "해당 날짜는 휴무일입니다: " + date);
+    private String generateReservationNumber(LocalDate date) {
+        String datePrefix = date.format(DateTimeFormatter.ofPattern("yyMMdd"));
+        String randomSuffix = generateRandomString(4);
+        String reservationNumber = datePrefix + "-" + randomSuffix;
+
+        // 중복 체크 (만약 중복이면 재생성)
+        int attempts = 0;
+        while (reservationRepository.existsByReservationNumber(reservationNumber) && attempts < 10) {
+            randomSuffix = generateRandomString(4);
+            reservationNumber = datePrefix + "-" + randomSuffix;
+            attempts++;
         }
 
-        // 2. 과거 날짜 확인
-        if (date.isBefore(LocalDate.now())) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "과거 날짜는 예약할 수 없습니다");
-        }
-
-        // 3. 시간 겹침 확인
-        List<Reservation> overlapping = reservationRepository.findOverlappingReservations(
-                businessId, staffId, date, startTime, endTime, excludeId);
-
-        if (!overlapping.isEmpty()) {
-            throw new BusinessException(ErrorCode.RESERVATION_TIME_CONFLICT,
-                    "해당 시간에 이미 예약이 있습니다");
-        }
+        return reservationNumber;
     }
 
     /**
-     * 예약 번호 생성
-     * 형식: RES-YYYYMMDD-0001
+     * 랜덤 문자열 생성 (영문 대문자 + 숫자)
      */
-    private String generateReservationNumber(LocalDate date) {
-        Long sequence = reservationRepository.getNextReservationNumber();
-        String dateStr = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        return String.format("RES-%s-%04d", dateStr, sequence);
+    private String generateRandomString(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
+
+    // ========================================
+    // 조회
+    // ========================================
 
     /**
      * 예약 단건 조회
@@ -212,12 +234,12 @@ public class ReservationService {
     }
 
     /**
-     * 예약 번호로 조회
+     * 예약번호로 조회
      */
     public ReservationResponse getReservationByNumber(String reservationNumber) {
         Reservation reservation = reservationRepository.findByReservationNumber(reservationNumber)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
-                        "예약을 찾을 수 없습니다: " + reservationNumber));
+                        "예약을 찾을 수 없습니다"));
 
         return ReservationResponse.from(reservation);
     }
@@ -230,7 +252,8 @@ public class ReservationService {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        return reservationRepository.findByBusinessId(businessId).stream()
+        List<Reservation> reservations = reservationRepository.findByBusinessId(businessId);
+        return reservations.stream()
                 .map(ReservationResponse::from)
                 .collect(Collectors.toList());
     }
@@ -243,7 +266,8 @@ public class ReservationService {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        return reservationRepository.findByBusinessIdAndDate(businessId, date).stream()
+        List<Reservation> reservations = reservationRepository.findByBusinessIdAndDate(businessId, date);
+        return reservations.stream()
                 .map(ReservationResponse::from)
                 .collect(Collectors.toList());
     }
@@ -256,7 +280,8 @@ public class ReservationService {
             throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND, "고객을 찾을 수 없습니다");
         }
 
-        return reservationRepository.findByCustomerId(customerId).stream()
+        List<Reservation> reservations = reservationRepository.findByCustomerId(customerId);
+        return reservations.stream()
                 .map(ReservationResponse::from)
                 .collect(Collectors.toList());
     }
@@ -269,7 +294,8 @@ public class ReservationService {
             throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND, "직원을 찾을 수 없습니다");
         }
 
-        return reservationRepository.findByStaffId(staffId).stream()
+        List<Reservation> reservations = reservationRepository.findByStaffId(staffId);
+        return reservations.stream()
                 .map(ReservationResponse::from)
                 .collect(Collectors.toList());
     }
@@ -278,14 +304,15 @@ public class ReservationService {
      * 조건별 예약 검색
      */
     public List<ReservationResponse> searchReservations(ReservationSearchCondition condition) {
-        if (!businessRepository.existsById(condition.getBusinessId())) {
-            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
-        }
-
-        return reservationRepository.findByCondition(condition).stream()
+        List<Reservation> reservations = reservationRepository.search(condition);
+        return reservations.stream()
                 .map(ReservationResponse::from)
                 .collect(Collectors.toList());
     }
+
+    // ========================================
+    // 수정
+    // ========================================
 
     /**
      * 예약 수정
@@ -308,8 +335,14 @@ public class ReservationService {
         }
 
         // Staff 변경 시 존재 확인
-        if (request.getStaffId() != null && !staffRepository.existsById(request.getStaffId())) {
-            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND, "직원을 찾을 수 없습니다");
+        Long newStaffId = request.getStaffId() != null ? request.getStaffId() : reservation.getStaffId();
+        if (request.getStaffId() != null) {
+            Staff staff = staffRepository.findById(request.getStaffId())
+                    .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND, "직원을 찾을 수 없습니다"));
+
+            if (!staff.getBusinessId().equals(businessId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "다른 매장의 직원입니다");
+            }
         }
 
         // 날짜/시간 변경 시 재계산
@@ -318,50 +351,70 @@ public class ReservationService {
         LocalTime newStartTime = request.getStartTime() != null ?
                 request.getStartTime() : reservation.getStartTime();
 
-        List<Long> newServiceIds = request.getServiceIds() != null ?
-                request.getServiceIds() : reservation.getServiceIds();
-
         // 서비스 변경 시 시간/가격 재계산
         int totalDuration = reservation.getTotalDuration();
         int totalPrice = reservation.getTotalPrice();
-        List<String> serviceNames = reservation.getServiceNames();
+        List<Map<String, Object>> servicesJsonb = reservation.getServices();
 
-        if (request.getServiceIds() != null) {
+        if (request.getServiceIds() != null && !request.getServiceIds().isEmpty()) {
             List<Service> services = request.getServiceIds().stream()
                     .map(serviceId -> serviceRepository.findById(serviceId)
                             .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
                                     "서비스를 찾을 수 없습니다: " + serviceId)))
                     .collect(Collectors.toList());
 
+            // Business 일치 확인
+            services.forEach(service -> {
+                if (!service.getBusinessId().equals(businessId)) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "다른 매장의 서비스입니다: " + service.getName());
+                }
+            });
+
             totalDuration = services.stream().mapToInt(Service::getDuration).sum();
             totalPrice = services.stream().mapToInt(Service::getPrice).sum();
-            serviceNames = services.stream().map(Service::getName).collect(Collectors.toList());
+
+            servicesJsonb = services.stream()
+                    .map(service -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("id", service.getId());
+                        map.put("name", service.getName());
+                        map.put("price", service.getPrice());
+                        map.put("duration", service.getDuration());
+                        return map;
+                    })
+                    .collect(Collectors.toList());
         }
 
         LocalTime newEndTime = newStartTime.plusMinutes(totalDuration);
 
-        // 시간 겹침 검증
+        // 시간 겹침 검증 (날짜/시간/서비스가 변경된 경우만)
         if (request.getReservationDate() != null || request.getStartTime() != null ||
-                request.getServiceIds() != null) {
-            Long staffId = request.getStaffId() != null ? request.getStaffId() : reservation.getStaffId();
-            validateReservation(businessId, staffId, newDate, newStartTime, newEndTime, reservationId);
+                request.getServiceIds() != null || request.getStaffId() != null) {
+            validateReservation(businessId, newStaffId, newDate, newStartTime, newEndTime, reservationId);
         }
 
         // 수정
         Reservation updatedReservation = Reservation.builder()
                 .id(reservation.getId())
-                .staffId(request.getStaffId() != null ? request.getStaffId() : reservation.getStaffId())
+                .businessId(reservation.getBusinessId())
+                .customerId(reservation.getCustomerId())
+                .staffId(newStaffId)
+                .reservationNumber(reservation.getReservationNumber())
                 .reservationDate(newDate)
                 .startTime(newStartTime)
                 .endTime(newEndTime)
-                .serviceIds(newServiceIds)
-                .serviceNames(serviceNames)
+                .services(servicesJsonb)
                 .totalDuration(totalDuration)
                 .totalPrice(totalPrice)
-                .customerRequest(request.getCustomerRequest() != null ?
-                        request.getCustomerRequest() : reservation.getCustomerRequest())
-                .adminMemo(request.getAdminMemo() != null ?
-                        request.getAdminMemo() : reservation.getAdminMemo())
+                .status(reservation.getStatus())
+                .customerMemo(request.getCustomerMemo() != null ?
+                        request.getCustomerMemo() : reservation.getCustomerMemo())
+                .staffMemo(request.getStaffMemo() != null ?
+                        request.getStaffMemo() : reservation.getStaffMemo())
+                .cancelledAt(reservation.getCancelledAt())
+                .cancelReason(reservation.getCancelReason())
+                .createdAt(reservation.getCreatedAt())
                 .build();
 
         reservationRepository.update(updatedReservation);
@@ -370,6 +423,10 @@ public class ReservationService {
 
         return getReservation(businessId, reservationId);
     }
+
+    // ========================================
+    // 상태 변경
+    // ========================================
 
     /**
      * 예약 확정
@@ -452,16 +509,15 @@ public class ReservationService {
                     "대기 또는 확정 상태의 예약만 취소할 수 있습니다");
         }
 
-        reservation.cancel(reason);
-
-        Reservation updatedReservation = Reservation.builder()
+        // 취소 정보 업데이트
+        Reservation cancelledReservation = Reservation.builder()
                 .id(reservation.getId())
                 .status(ReservationStatus.CANCELLED)
-                .cancelledAt(reservation.getCancelledAt())
-                .cancelReason(reservation.getCancelReason())
+                .cancelledAt(LocalDateTime.now())
+                .cancelReason(reason)
                 .build();
 
-        reservationRepository.update(updatedReservation);
+        reservationRepository.updateCancellation(cancelledReservation);
 
         // TODO: 카카오톡 알림 발송
 
@@ -470,6 +526,34 @@ public class ReservationService {
 
         return getReservation(businessId, reservationId);
     }
+
+    /**
+     * 노쇼 처리
+     */
+    @Transactional
+    public ReservationResponse markAsNoShow(Long businessId, Long reservationId) {
+        if (!reservationRepository.existsByBusinessIdAndId(businessId, reservationId)) {
+            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+        }
+
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+
+        if (!reservation.canMarkAsNoShow()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                    "확정된 예약만 노쇼 처리할 수 있습니다");
+        }
+
+        reservationRepository.updateStatus(reservationId, ReservationStatus.NO_SHOW);
+
+        log.info("Reservation marked as no-show: id={}, businessId={}", reservationId, businessId);
+
+        return getReservation(businessId, reservationId);
+    }
+
+    // ========================================
+    // 삭제
+    // ========================================
 
     /**
      * 예약 삭제
@@ -483,5 +567,50 @@ public class ReservationService {
         reservationRepository.delete(reservationId);
 
         log.info("Reservation deleted: id={}, businessId={}", reservationId, businessId);
+    }
+
+    // ========================================
+    // 검증
+    // ========================================
+
+    /**
+     * 예약 가능 여부 검증
+     */
+    private void validateReservation(Long businessId, Long staffId, LocalDate date,
+                                     LocalTime startTime, LocalTime endTime, Long excludeId) {
+        // 1. 휴무일 확인
+        Optional<SpecialHoliday> holiday = specialHolidayRepository.findByBusinessIdAndDate(businessId, date);
+        if (holiday.isPresent()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                    "해당 날짜는 휴무일입니다: " + date +
+                            (holiday.get().getReason() != null ? " (" + holiday.get().getReason() + ")" : ""));
+        }
+
+        // 2. 과거 날짜 확인
+        if (date.isBefore(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "과거 날짜는 예약할 수 없습니다");
+        }
+
+        // 3. 시간 충돌 확인 (staffId가 있는 경우만)
+        if (staffId != null) {
+            List<Reservation> conflicting = reservationRepository.findConflictingReservations(
+                    staffId, date, startTime, endTime);
+
+            // excludeId가 있으면 해당 예약은 제외 (수정 시)
+            if (excludeId != null) {
+                conflicting = conflicting.stream()
+                        .filter(r -> !r.getId().equals(excludeId))
+                        .collect(Collectors.toList());
+            }
+
+            if (!conflicting.isEmpty()) {
+                Reservation conflict = conflicting.get(0);
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                        String.format("해당 시간에 이미 예약이 있습니다 (%s %s-%s)",
+                                conflict.getReservationDate(),
+                                conflict.getStartTime(),
+                                conflict.getEndTime()));
+            }
+        }
     }
 }

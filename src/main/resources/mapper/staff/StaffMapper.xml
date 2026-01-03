@@ -4,102 +4,113 @@
 
 <mapper namespace="io.moer.booking.domain.staff.repository.StaffRepository">
 
-    <!-- ResultMap -->
+    <!-- ========================================
+         Result Map
+         ======================================== -->
     <resultMap id="StaffResultMap" type="io.moer.booking.domain.staff.Staff">
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
-        <result property="userId" column="user_id"/>
         <result property="name" column="name"/>
-        <result property="nickname" column="nickname"/>
+        <result property="position" column="position"/>
         <result property="phone" column="phone"/>
         <result property="email" column="email"/>
+        <result property="specialty" column="specialty"/>
+        <result property="careerYears" column="career_years"/>
         <result property="profileImageUrl" column="profile_image_url"/>
         <result property="introduction" column="introduction"/>
-        <result property="careerYears" column="career_years"/>
-        <result property="specialties" column="specialties"
-                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
-        <result property="workSchedule" column="work_schedule"
-                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
         <result property="isActive" column="is_active"/>
-        <result property="displayOrder" column="display_order"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
-    <!-- 생성 -->
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
     <insert id="save" parameterType="io.moer.booking.domain.staff.Staff"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO staffs (
-            business_id, user_id, name, nickname, phone, email,
-            profile_image_url, introduction, career_years, specialties,
-            work_schedule, is_active, display_order
+            business_id, name, position, phone, email, specialty,
+            career_years, profile_image_url, introduction, is_active
         ) VALUES (
-                     #{businessId}, #{userId}, #{name}, #{nickname}, #{phone}, #{email},
-                     #{profileImageUrl}, #{introduction}, #{careerYears},
-                     #{specialties, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     #{workSchedule, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     COALESCE(#{isActive}, true), COALESCE(#{displayOrder}, 0)
+                     #{businessId}, #{name}, #{position}, #{phone}, #{email}, #{specialty},
+                     #{careerYears}, #{profileImageUrl}, #{introduction}, #{isActive}
                  )
     </insert>
 
-    <!-- 단건 조회 -->
-    <select id="findById" resultMap="StaffResultMap">
-        SELECT * FROM staffs
-        WHERE id = #{id}
-    </select>
+    <!-- ========================================
+         수정 (UPDATE)
+         ======================================== -->
 
-    <!-- Business의 Staff 목록 -->
-    <select id="findByBusinessId" resultMap="StaffResultMap">
-        SELECT * FROM staffs
-        WHERE business_id = #{businessId}
-        ORDER BY display_order ASC, created_at ASC
-    </select>
-
-    <!-- Business의 활성 Staff 목록 -->
-    <select id="findByBusinessIdAndActive" resultMap="StaffResultMap">
-        SELECT * FROM staffs
-        WHERE business_id = #{businessId}
-          AND is_active = #{isActive}
-        ORDER BY display_order ASC, created_at ASC
-    </select>
-
-    <!-- 수정 -->
+    <!-- 전체 필드 수정 -->
     <update id="update">
         UPDATE staffs
-        SET
-        <if test="name != null">name = #{name},</if>
-        <if test="nickname != null">nickname = #{nickname},</if>
-        <if test="phone != null">phone = #{phone},</if>
-        <if test="email != null">email = #{email},</if>
-        <if test="profileImageUrl != null">profile_image_url = #{profileImageUrl},</if>
-        <if test="introduction != null">introduction = #{introduction},</if>
-        <if test="careerYears != null">career_years = #{careerYears},</if>
-        <if test="specialties != null">
-            specialties = #{specialties, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-        </if>
-        <if test="workSchedule != null">
-            work_schedule = #{workSchedule, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-        </if>
-        <if test="isActive != null">is_active = #{isActive},</if>
-        <if test="displayOrder != null">display_order = #{displayOrder},</if>
-        updated_at = CURRENT_TIMESTAMP
+        SET name = #{name},
+            position = #{position},
+            phone = #{phone},
+            email = #{email},
+            specialty = #{specialty},
+            career_years = #{careerYears},
+            profile_image_url = #{profileImageUrl},
+            introduction = #{introduction},
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
 
-    <!-- 삭제 -->
+    <!-- 활성 여부 토글 -->
+    <update id="toggleActive">
+        UPDATE staffs
+        SET is_active = CASE WHEN is_active = 'Y' THEN 'N' ELSE 'Y' END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========================================
+         삭제 (DELETE)
+         ======================================== -->
     <delete id="delete">
         DELETE FROM staffs
         WHERE id = #{id}
     </delete>
 
-    <!-- 존재 확인 -->
-    <select id="existsById" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM staffs WHERE id = #{id}
-        )
+    <!-- ========================================
+         조회 - 단건
+         ======================================== -->
+
+    <!-- ID로 조회 -->
+    <select id="findById" resultMap="StaffResultMap">
+        SELECT * FROM staffs
+        WHERE id = #{id}
     </select>
 
-    <!-- Business의 Staff 존재 확인 -->
+    <!-- ========================================
+         조회 - 목록
+         ======================================== -->
+
+    <!-- Business의 전체 Staff 조회 -->
+    <select id="findByBusinessId" resultMap="StaffResultMap">
+        SELECT * FROM staffs
+        WHERE business_id = #{businessId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- Business의 활성 Staff 조회 -->
+    <select id="findActiveByBusinessId" resultMap="StaffResultMap">
+        SELECT * FROM staffs
+        WHERE business_id = #{businessId}
+          AND is_active = 'Y'
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- ========================================
+         검증 쿼리
+         ======================================== -->
+
+    <!-- ID 존재 확인 -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM staffs WHERE id = #{id})
+    </select>
+
+    <!-- Business의 직원 존재 확인 -->
     <select id="existsByBusinessIdAndId" resultType="boolean">
         SELECT EXISTS(
             SELECT 1 FROM staffs
@@ -107,7 +118,7 @@
         )
     </select>
 
-    <!-- Business의 Staff 개수 -->
+    <!-- Business의 직원 수 조회 -->
     <select id="countByBusinessId" resultType="long">
         SELECT COUNT(*) FROM staffs
         WHERE business_id = #{businessId}

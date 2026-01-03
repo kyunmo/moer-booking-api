@@ -11,13 +11,13 @@
         <result property="name" column="name"/>
         <result property="phone" column="phone"/>
         <result property="email" column="email"/>
+        <result property="birthDate" column="birth_date"/>
+        <result property="gender" column="gender"/>
         <result property="visitCount" column="visit_count"/>
         <result property="totalSpent" column="total_spent"/>
         <result property="lastVisitDate" column="last_visit_date"/>
-        <result property="tags" column="tags"
-                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
-        <result property="adminMemo" column="admin_memo"/>
-        <result property="kakaoUserKey" column="kakao_user_key"/>
+        <result property="tags" column="tags"/>
+        <result property="memo" column="memo"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -26,13 +26,11 @@
     <insert id="save" parameterType="io.moer.booking.domain.customer.Customer"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO customers (
-            business_id, name, phone, email, visit_count, total_spent, last_visit_date,
-            tags, admin_memo, kakao_user_key
+            business_id, name, phone, email, birth_date, gender,
+            visit_count, total_spent, last_visit_date, tags, memo
         ) VALUES (
-                     #{businessId}, #{name}, #{phone}, #{email},
-                     COALESCE(#{visitCount}, 0), COALESCE(#{totalSpent}, 0), #{lastVisitDate},
-                     #{tags, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     #{adminMemo}, #{kakaoUserKey}
+                     #{businessId}, #{name}, #{phone}, #{email}, #{birthDate}, #{gender},
+                     #{visitCount}, #{totalSpent}, #{lastVisitDate}, #{tags}, #{memo}
                  )
     </insert>
 
@@ -42,21 +40,21 @@
         WHERE id = #{id}
     </select>
 
-    <!-- Business의 Customer 목록 -->
+    <!-- Business의 전체 고객 조회 -->
     <select id="findByBusinessId" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
-        ORDER BY visit_count DESC, created_at DESC
+        ORDER BY created_at DESC
     </select>
 
-    <!-- Business + 전화번호로 고객 조회 (중복 체크용) -->
+    <!-- 전화번호로 고객 조회 -->
     <select id="findByBusinessIdAndPhone" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
           AND phone = #{phone}
     </select>
 
-    <!-- 조건별 검색 (동적 쿼리) -->
+    <!-- 조건별 고객 검색 -->
     <select id="findByCondition" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
@@ -67,34 +65,25 @@
             AND phone LIKE '%' || #{phone} || '%'
         </if>
         <if test="tag != null and tag != ''">
-            AND tags @> #{tag}::text::jsonb
+            AND tags LIKE '%' || #{tag} || '%'
         </if>
         <if test="minVisitCount != null">
             AND visit_count >= #{minVisitCount}
         </if>
         ORDER BY
         <choose>
-            <when test="sortBy == 'total_spent'">
-                total_spent
-            </when>
-            <when test="sortBy == 'last_visit_date'">
-                last_visit_date
-            </when>
-            <otherwise>
-                visit_count
-            </otherwise>
+            <when test="sortBy == 'name'">name</when>
+            <when test="sortBy == 'total_spent'">total_spent</when>
+            <when test="sortBy == 'last_visit_date'">last_visit_date</when>
+            <otherwise>visit_count</otherwise>
         </choose>
         <choose>
-            <when test="sortOrder == 'asc'">
-                ASC
-            </when>
-            <otherwise>
-                DESC
-            </otherwise>
+            <when test="sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
         </choose>
     </select>
 
-    <!-- VIP 고객 조회 (10회 이상) -->
+    <!-- VIP 고객 조회 -->
     <select id="findVipCustomers" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
@@ -102,7 +91,7 @@
         ORDER BY visit_count DESC
     </select>
 
-    <!-- 신규 고객 조회 (1회) -->
+    <!-- 신규 고객 조회 -->
     <select id="findNewCustomers" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
@@ -110,7 +99,7 @@
         ORDER BY created_at DESC
     </select>
 
-    <!-- 단골 고객 조회 (3회 이상) -->
+    <!-- 단골 고객 조회 -->
     <select id="findRegularCustomers" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
@@ -121,24 +110,21 @@
     <!-- 수정 -->
     <update id="update">
         UPDATE customers
-        SET
-        <if test="name != null">name = #{name},</if>
-        <if test="phone != null">phone = #{phone},</if>
-        <if test="email != null">email = #{email},</if>
-        <if test="tags != null">
-            tags = #{tags, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-        </if>
-        <if test="adminMemo != null">admin_memo = #{adminMemo},</if>
-        <if test="kakaoUserKey != null">kakao_user_key = #{kakaoUserKey},</if>
-        updated_at = CURRENT_TIMESTAMP
+        SET name = #{name},
+            phone = #{phone},
+            email = #{email},
+            birth_date = #{birthDate},
+            gender = #{gender},
+            tags = #{tags},
+            memo = #{memo},
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
 
-    <!-- 방문 통계 업데이트 (예약 완료 시 호출) -->
+    <!-- 방문 통계 업데이트 -->
     <update id="updateVisitStats">
         UPDATE customers
-        SET
-            visit_count = #{visitCount},
+        SET visit_count = #{visitCount},
             total_spent = #{totalSpent},
             last_visit_date = #{lastVisitDate},
             updated_at = CURRENT_TIMESTAMP
@@ -151,23 +137,18 @@
         WHERE id = #{id}
     </delete>
 
-    <!-- 존재 확인 -->
+    <!-- 검증 -->
     <select id="existsById" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM customers WHERE id = #{id}
-        )
+        SELECT EXISTS(SELECT 1 FROM customers WHERE id = #{id})
     </select>
 
-    <!-- Business + 전화번호 중복 확인 -->
     <select id="existsByBusinessIdAndPhone" resultType="boolean">
         SELECT EXISTS(
             SELECT 1 FROM customers
-            WHERE business_id = #{businessId}
-              AND phone = #{phone}
+            WHERE business_id = #{businessId} AND phone = #{phone}
         )
     </select>
 
-    <!-- Business의 Customer 존재 확인 -->
     <select id="existsByBusinessIdAndId" resultType="boolean">
         SELECT EXISTS(
             SELECT 1 FROM customers
@@ -175,7 +156,6 @@
         )
     </select>
 
-    <!-- Business의 Customer 개수 -->
     <select id="countByBusinessId" resultType="long">
         SELECT COUNT(*) FROM customers
         WHERE business_id = #{businessId}

@@ -5,34 +5,34 @@ import io.moer.booking.domain.staff.Staff;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
+/**
+ * 직원 응답 DTO
+ */
 @Getter
-@Builder
+@NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class StaffResponse {
-
     private Long id;
     private Long businessId;
-    private Long userId;
     private String name;
-    private String nickname;
+    private String position;
     private String phone;
     private String email;
-
-    // 프로필
+    private String specialty;
+    private Integer careerYears;
     private String profileImageUrl;
     private String introduction;
-    private Integer careerYears;
-    private List<String> specialties;
 
-    // 근무 정보
-    private Map<String, Object> workSchedule;
+    /**
+     * 활성 여부
+     * DB의 Y/N을 boolean으로 변환
+     */
     private Boolean isActive;
-    private Integer displayOrder;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -40,22 +40,22 @@ public class StaffResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
 
+    /**
+     * Entity → DTO 변환
+     */
     public static StaffResponse from(Staff staff) {
         return StaffResponse.builder()
                 .id(staff.getId())
                 .businessId(staff.getBusinessId())
-                .userId(staff.getUserId())
                 .name(staff.getName())
-                .nickname(staff.getNickname())
+                .position(staff.getPosition())
                 .phone(staff.getPhone())
                 .email(staff.getEmail())
+                .specialty(staff.getSpecialty())
+                .careerYears(staff.getCareerYears())
                 .profileImageUrl(staff.getProfileImageUrl())
                 .introduction(staff.getIntroduction())
-                .careerYears(staff.getCareerYears())
-                .specialties(staff.getSpecialties())
-                .workSchedule(staff.getWorkSchedule())
-                .isActive(staff.getIsActive())
-                .displayOrder(staff.getDisplayOrder())
+                .isActive("Y".equals(staff.getIsActive()))  // Y/N → boolean
                 .createdAt(staff.getCreatedAt())
                 .updatedAt(staff.getUpdatedAt())
                 .build();

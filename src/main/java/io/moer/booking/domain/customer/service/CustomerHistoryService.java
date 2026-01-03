@@ -60,18 +60,18 @@ public class CustomerHistoryService {
                 .details(request.getDetails())
                 .beforeImageUrl(request.getBeforeImageUrl())
                 .afterImageUrl(request.getAfterImageUrl())
-                .adminMemo(request.getAdminMemo())
+                //.adminMemo(request.getAdminMemo())
                 .build();
 
         // 저장
         historyRepository.save(history);
 
         // Customer 방문 통계 업데이트
-        customerService.updateVisitStats(
+        /*customerService.updateVisitStats(
                 request.getCustomerId(),
                 request.getTotalPrice(),
                 request.getVisitDate()
-        );
+        );*/
 
         log.info("CustomerHistory created: id={}, customerId={}, businessId={}, visitDate={}",
                 history.getId(), request.getCustomerId(), businessId, request.getVisitDate());
@@ -209,8 +209,7 @@ public class CustomerHistoryService {
                         request.getBeforeImageUrl() : history.getBeforeImageUrl())
                 .afterImageUrl(request.getAfterImageUrl() != null ?
                         request.getAfterImageUrl() : history.getAfterImageUrl())
-                .adminMemo(request.getAdminMemo() != null ?
-                        request.getAdminMemo() : history.getAdminMemo())
+                //.adminMemo(request.getAdminMemo() != null ? request.getAdminMemo() : history.getAdminMemo())
                 .build();
 
         historyRepository.update(updatedHistory);

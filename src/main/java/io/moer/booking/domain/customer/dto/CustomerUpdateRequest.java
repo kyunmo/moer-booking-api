@@ -7,8 +7,12 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 고객 수정 요청 DTO
+ */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,7 +27,8 @@ public class CustomerUpdateRequest {
     @Email(message = "이메일 형식이 올바르지 않습니다")
     private String email;
 
+    private LocalDate birthDate;
+    private String gender;
     private List<String> tags;
-    private String adminMemo;
-    private String kakaoUserKey;
+    private String memo;
 }

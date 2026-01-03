@@ -20,8 +20,7 @@ public class SpecialHolidayResponse {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate holidayDate;
 
-    private String title;
-    private Boolean isClosed;
+    private String reason;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -31,8 +30,7 @@ public class SpecialHolidayResponse {
                 .id(holiday.getId())
                 .businessId(holiday.getBusinessId())
                 .holidayDate(holiday.getHolidayDate())
-                .title(holiday.getTitle())
-                .isClosed(holiday.getIsClosed())
+                .reason(holiday.getReason())
                 .createdAt(holiday.getCreatedAt())
                 .build();
     }

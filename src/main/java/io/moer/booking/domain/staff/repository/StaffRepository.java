@@ -7,27 +7,74 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 직원 Repository
+ */
 @Mapper
 public interface StaffRepository {
 
-    // 생성
+    // ========================================
+    // CUD
+    // ========================================
+
+    /**
+     * 직원 생성
+     */
     void save(Staff staff);
 
-    // 조회
-    Optional<Staff> findById(Long id);
-    List<Staff> findByBusinessId(Long businessId);
-    List<Staff> findByBusinessIdAndActive(@Param("businessId") Long businessId,
-                                          @Param("isActive") Boolean isActive);
-
-    // 수정
+    /**
+     * 직원 수정
+     */
     void update(Staff staff);
 
-    // 삭제
+    /**
+     * 직원 활성/비활성 전환
+     */
+    void toggleActive(Long id);
+
+    /**
+     * 직원 삭제
+     */
     void delete(Long id);
 
+    // ========================================
+    // 조회
+    // ========================================
+
+    /**
+     * ID로 조회
+     */
+    Optional<Staff> findById(Long id);
+
+    /**
+     * Business의 전체 직원 조회
+     */
+    List<Staff> findByBusinessId(Long businessId);
+
+    /**
+     * Business의 활성 직원 조회
+     */
+    List<Staff> findActiveByBusinessId(Long businessId);
+
+    // ========================================
     // 검증
+    // ========================================
+
+    /**
+     * ID 존재 확인
+     */
     boolean existsById(Long id);
-    boolean existsByBusinessIdAndId(@Param("businessId") Long businessId,
-                                    @Param("id") Long id);
+
+    /**
+     * Business의 직원 존재 확인
+     */
+    boolean existsByBusinessIdAndId(
+            @Param("businessId") Long businessId,
+            @Param("id") Long id
+    );
+
+    /**
+     * Business의 직원 수 조회
+     */
     long countByBusinessId(Long businessId);
 }

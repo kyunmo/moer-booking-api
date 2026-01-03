@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
+/**
+ * 예약 검색 조건 DTO
+ */
 @Getter
 @Builder
 @NoArgsConstructor

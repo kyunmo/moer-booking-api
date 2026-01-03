@@ -15,6 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 예약 관리 Controller
+ * Business 기준 예약 CRUD
+ */
 @RestController
 @RequestMapping("/api/businesses/{businessId}/reservations")
 @RequiredArgsConstructor
@@ -22,8 +26,13 @@ public class ReservationController {
 
     private final ReservationService reservationService;
 
+    // ========================================
+    // 생성
+    // ========================================
+
     /**
      * 예약 생성
+     * POST /api/businesses/{businessId}/reservations
      */
     @PostMapping
     public ApiResponse<ReservationResponse> createReservation(
@@ -33,8 +42,13 @@ public class ReservationController {
         return ApiResponse.success(response);
     }
 
+    // ========================================
+    // 조회
+    // ========================================
+
     /**
      * 예약 단건 조회
+     * GET /api/businesses/{businessId}/reservations/{reservationId}
      */
     @GetMapping("/{reservationId}")
     public ApiResponse<ReservationResponse> getReservation(
@@ -46,6 +60,7 @@ public class ReservationController {
 
     /**
      * Business의 전체 예약 조회
+     * GET /api/businesses/{businessId}/reservations
      */
     @GetMapping
     public ApiResponse<List<ReservationResponse>> getReservationsByBusiness(
@@ -56,6 +71,7 @@ public class ReservationController {
 
     /**
      * 날짜별 예약 조회
+     * GET /api/businesses/{businessId}/reservations/date/{date}
      */
     @GetMapping("/date/{date}")
     public ApiResponse<List<ReservationResponse>> getReservationsByDate(
@@ -67,6 +83,7 @@ public class ReservationController {
 
     /**
      * 예약 검색 (조건별)
+     * GET /api/businesses/{businessId}/reservations/search
      */
     @GetMapping("/search")
     public ApiResponse<List<ReservationResponse>> searchReservations(
@@ -90,8 +107,13 @@ public class ReservationController {
         return ApiResponse.success(response);
     }
 
+    // ========================================
+    // 수정
+    // ========================================
+
     /**
      * 예약 수정
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}
      */
     @PatchMapping("/{reservationId}")
     public ApiResponse<ReservationResponse> updateReservation(
@@ -102,8 +124,13 @@ public class ReservationController {
         return ApiResponse.success(response);
     }
 
+    // ========================================
+    // 상태 변경
+    // ========================================
+
     /**
      * 예약 확정
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}/confirm
      */
     @PatchMapping("/{reservationId}/confirm")
     public ApiResponse<ReservationResponse> confirmReservation(
@@ -115,6 +142,7 @@ public class ReservationController {
 
     /**
      * 예약 완료
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}/complete
      */
     @PatchMapping("/{reservationId}/complete")
     public ApiResponse<ReservationResponse> completeReservation(
@@ -126,6 +154,7 @@ public class ReservationController {
 
     /**
      * 예약 취소
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}/cancel
      */
     @PatchMapping("/{reservationId}/cancel")
     public ApiResponse<ReservationResponse> cancelReservation(
@@ -137,7 +166,24 @@ public class ReservationController {
     }
 
     /**
+     * 노쇼 처리
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}/no-show
+     */
+    @PatchMapping("/{reservationId}/no-show")
+    public ApiResponse<ReservationResponse> markAsNoShow(
+            @PathVariable Long businessId,
+            @PathVariable Long reservationId) {
+        ReservationResponse response = reservationService.markAsNoShow(businessId, reservationId);
+        return ApiResponse.success(response);
+    }
+
+    // ========================================
+    // 삭제
+    // ========================================
+
+    /**
      * 예약 삭제
+     * DELETE /api/businesses/{businessId}/reservations/{reservationId}
      */
     @DeleteMapping("/{reservationId}")
     public ApiResponse<Void> deleteReservation(

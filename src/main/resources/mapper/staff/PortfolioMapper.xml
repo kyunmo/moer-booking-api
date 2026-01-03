@@ -4,7 +4,9 @@
 
 <mapper namespace="io.moer.booking.domain.staff.repository.PortfolioRepository">
 
-    <!-- ResultMap -->
+    <!-- ========================================
+         Result Map
+         ======================================== -->
     <resultMap id="PortfolioResultMap" type="io.moer.booking.domain.staff.Portfolio">
         <id property="id" column="id"/>
         <result property="staffId" column="staff_id"/>
@@ -12,81 +14,93 @@
         <result property="title" column="title"/>
         <result property="description" column="description"/>
         <result property="imageUrl" column="image_url"/>
-        <result property="tags" column="tags"
-                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
-        <result property="displayOrder" column="display_order"/>
+        <result property="tags" column="tags"/>
         <result property="isVisible" column="is_visible"/>
         <result property="createdAt" column="created_at"/>
-        <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
-    <!-- 생성 -->
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
     <insert id="save" parameterType="io.moer.booking.domain.staff.Portfolio"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO portfolios (
-            staff_id, business_id, title, description, image_url, tags,
-            display_order, is_visible
+            staff_id, title, description, image_url, tags, is_visible
         ) VALUES (
-                     #{staffId}, #{businessId}, #{title}, #{description}, #{imageUrl},
-                     #{tags, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     COALESCE(#{displayOrder}, 0), COALESCE(#{isVisible}, true)
+                     #{staffId}, #{title}, #{description}, #{imageUrl}, #{tags}, #{isVisible}
                  )
     </insert>
 
-    <!-- 단건 조회 -->
-    <select id="findById" resultMap="PortfolioResultMap">
-        SELECT * FROM portfolios
-        WHERE id = #{id}
-    </select>
+    <!-- ========================================
+         수정 (UPDATE)
+         ======================================== -->
 
-    <!-- Staff의 포트폴리오 목록 -->
-    <select id="findByStaffId" resultMap="PortfolioResultMap">
-        SELECT * FROM portfolios
-        WHERE staff_id = #{staffId}
-        ORDER BY display_order ASC, created_at DESC
-    </select>
-
-    <!-- Business의 포트폴리오 목록 -->
-    <select id="findByBusinessId" resultMap="PortfolioResultMap">
-        SELECT * FROM portfolios
-        WHERE business_id = #{businessId}
-        ORDER BY display_order ASC, created_at DESC
-    </select>
-
-    <!-- Staff의 공개 포트폴리오 -->
-    <select id="findByStaffIdAndVisible" resultMap="PortfolioResultMap">
-        SELECT * FROM portfolios
-        WHERE staff_id = #{staffId}
-          AND is_visible = #{isVisible}
-        ORDER BY display_order ASC, created_at DESC
-    </select>
-
-    <!-- 수정 -->
-    <update id="update">
+    <!-- 공개 여부 토글 -->
+    <update id="toggleVisibility">
         UPDATE portfolios
-        SET
-        <if test="title != null">title = #{title},</if>
-        <if test="description != null">description = #{description},</if>
-        <if test="imageUrl != null">image_url = #{imageUrl},</if>
-        <if test="tags != null">
-            tags = #{tags, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-        </if>
-        <if test="displayOrder != null">display_order = #{displayOrder},</if>
-        <if test="isVisible != null">is_visible = #{isVisible},</if>
-        updated_at = CURRENT_TIMESTAMP
+        SET is_visible = CASE WHEN is_visible = 'Y' THEN 'N' ELSE 'Y' END
         WHERE id = #{id}
     </update>
 
-    <!-- 삭제 -->
+    <!-- ========================================
+         삭제 (DELETE)
+         ======================================== -->
     <delete id="delete">
         DELETE FROM portfolios
         WHERE id = #{id}
     </delete>
 
-    <!-- Staff의 모든 포트폴리오 삭제 -->
-    <delete id="deleteByStaffId">
-        DELETE FROM portfolios
-        WHERE staff_id = #{staffId}
-    </delete>
+    <!-- ========================================
+         조회 - 단건
+         ======================================== -->
+
+    <!-- ID로 조회 (businessId JOIN) -->
+    <select id="findById" resultMap="PortfolioResultMap">
+        SELECT p.*, s.business_id
+        FROM portfolios p
+                 INNER JOIN staffs s ON p.staff_id = s.id
+        WHERE p.id = #{id}
+    </select>
+
+    <!-- ========================================
+         조회 - 목록
+         ======================================== -->
+
+    <!-- Staff의 전체 Portfolio 조회 (businessId JOIN) -->
+    <select id="findByStaffId" resultMap="PortfolioResultMap">
+        SELECT p.*, s.business_id
+        FROM portfolios p
+                 INNER JOIN staffs s ON p.staff_id = s.id
+        WHERE p.staff_id = #{staffId}
+        ORDER BY p.created_at DESC
+    </select>
+
+    <!-- Staff의 공개 Portfolio 조회 (businessId JOIN) -->
+    <select id="findVisibleByStaffId" resultMap="PortfolioResultMap">
+        SELECT p.*, s.business_id
+        FROM portfolios p
+                 INNER JOIN staffs s ON p.staff_id = s.id
+        WHERE p.staff_id = #{staffId}
+          AND p.is_visible = 'Y'
+        ORDER BY p.created_at DESC
+    </select>
+
+    <!-- Business의 전체 Portfolio 조회 -->
+    <select id="findByBusinessId" resultMap="PortfolioResultMap">
+        SELECT p.*, s.business_id
+        FROM portfolios p
+                 INNER JOIN staffs s ON p.staff_id = s.id
+        WHERE s.business_id = #{businessId}
+        ORDER BY p.created_at DESC
+    </select>
+
+    <!-- ========================================
+         검증 쿼리
+         ======================================== -->
+
+    <!-- ID 존재 확인 -->
+    <select id="existsById" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM portfolios WHERE id = #{id})
+    </select>
 
 </mapper>

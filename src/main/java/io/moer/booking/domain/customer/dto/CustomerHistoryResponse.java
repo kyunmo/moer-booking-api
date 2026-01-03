@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 고객 이력 응답 DTO
+ */
 @Getter
 @Builder
 @AllArgsConstructor
@@ -22,24 +25,40 @@ public class CustomerHistoryResponse {
     private Long reservationId;
     private Long staffId;
 
-    // 직원 이름 (조인 필요 - 추후)
+    /**
+     * 직원 이름 (JOIN 필요 - 추후 구현)
+     */
     private String staffName;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate visitDate;
 
+    /**
+     * 서비스 목록 (JSONB)
+     */
     private List<Map<String, Object>> services;
+
     private Integer totalPrice;
 
+    /**
+     * 결제 수단
+     */
+    private String paymentMethod;
+
+    /**
+     * 상세 정보 (JSONB)
+     */
     private Map<String, Object> details;
+
     private String beforeImageUrl;
     private String afterImageUrl;
-
-    private String adminMemo;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
+    /**
+     * Entity → DTO 변환
+     */
     public static CustomerHistoryResponse from(CustomerHistory history) {
         return CustomerHistoryResponse.builder()
                 .id(history.getId())
@@ -50,10 +69,10 @@ public class CustomerHistoryResponse {
                 .visitDate(history.getVisitDate())
                 .services(history.getServices())
                 .totalPrice(history.getTotalPrice())
+                .paymentMethod(history.getPaymentMethod())
                 .details(history.getDetails())
                 .beforeImageUrl(history.getBeforeImageUrl())
                 .afterImageUrl(history.getAfterImageUrl())
-                .adminMemo(history.getAdminMemo())
                 .createdAt(history.getCreatedAt())
                 .build();
     }

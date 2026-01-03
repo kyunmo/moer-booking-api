@@ -6,31 +6,54 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-import java.util.Map;
-
+/**
+ * 직원 수정 요청 DTO
+ * 모든 필드 선택 (null이면 기존 값 유지)
+ */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 public class StaffUpdateRequest {
 
+    /**
+     * 이름
+     */
     @Size(min = 2, max = 50, message = "이름은 2~50자 사이여야 합니다")
     private String name;
 
-    private String nickname;
+    /**
+     * 직급
+     */
+    private String position;
+
+    /**
+     * 전화번호
+     */
     private String phone;
+
+    /**
+     * 이메일
+     */
     private String email;
 
-    // 프로필
-    private String profileImageUrl;
-    private String introduction;
+    /**
+     * 전문분야
+     */
+    private String specialty;
 
+    /**
+     * 경력 (년)
+     */
     @Min(value = 0, message = "경력은 0년 이상이어야 합니다")
     private Integer careerYears;
 
-    private List<String> specialties;
+    /**
+     * 프로필 이미지 URL
+     */
+    private String profileImageUrl;
 
-    // 근무 정보
-    private Map<String, Object> workSchedule;
-    private Integer displayOrder;
+    /**
+     * 소개글
+     */
+    private String introduction;
 }

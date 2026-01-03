@@ -6,59 +6,82 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
+/**
+ * 서비스(메뉴) 엔티티
+ * DB 테이블: services
+ */
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Service {
-
     private Long id;
     private Long businessId;
-
-    private String category;  // "컷", "펌", "염색", "1:1수업", "그룹수업"
+    private String category;
     private String name;
     private String description;
-
-    // 가격/시간
+    private Integer duration;
     private Integer price;
-    private Integer duration;  // 소요 시간 (분)
 
-    // 이미지
-    private String imageUrl;
+    /**
+     * 담당 가능 직원 ID 목록 (콤마 구분 TEXT)
+     * DB: TEXT
+     * 예: "1,2,3"
+     */
+    private String staffIds;
 
-    // 옵션 (업종별로 다름)
-    private Map<String, Object> options;
-
-    // 가능한 직원 (NULL이면 모든 직원 가능)
-    private List<Long> availableStaffIds;
-
-    // 표시
-    private Boolean isActive;
-    private Integer displayOrder;
+    /**
+     * 활성 여부 (Y/N)
+     * DB: CHAR(1)
+     */
+    private String isActive;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 비즈니스 로직
-    public void activate() {
-        this.isActive = true;
+    // ========================================
+    // 헬퍼 메서드 - 활성 여부
+    // ========================================
+
+    public boolean isActive() {
+        return "Y".equals(this.isActive);
     }
 
-    public void deactivate() {
-        this.isActive = false;
+    // ========================================
+    // 헬퍼 메서드 - staffIds 변환
+    // ========================================
+
+    /**
+     * staffIds String → List<Long> 변환
+     * "1,2,3" → [1L, 2L, 3L]
+     */
+    public List<Long> getStaffIdList() {
+        if (staffIds == null || staffIds.trim().isEmpty()) {
+            return List.of();
+        }
+
+        return Arrays.stream(staffIds.split(","))
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
     }
 
     /**
-     * 특정 Staff가 이 서비스를 제공할 수 있는지 확인
+     * List<Long> → staffIds String 변환
+     * [1L, 2L, 3L] → "1,2,3"
      */
-    public boolean isAvailableForStaff(Long staffId) {
-        // availableStaffIds가 null이면 모든 직원 가능
-        if (availableStaffIds == null || availableStaffIds.isEmpty()) {
-            return true;
+    public static String staffIdsToString(List<Long> staffIdList) {
+        if (staffIdList == null || staffIdList.isEmpty()) {
+            return null;
         }
-        return availableStaffIds.contains(staffId);
+
+        return staffIdList.stream()
+                .map(String::valueOf)
+                .collect(Collectors.joining(","));
     }
 }

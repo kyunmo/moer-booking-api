@@ -11,101 +11,139 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 예약 엔티티
+ * DB 테이블: reservations
+ */
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Reservation {
-
     private Long id;
     private Long businessId;
     private Long customerId;
     private Long staffId;
-
-    // 예약 정보
-    private String reservationNumber;
     private LocalDate reservationDate;
     private LocalTime startTime;
     private LocalTime endTime;
 
-    // 서비스
-    private List<Long> serviceIds;
-    private List<String> serviceNames;
-    private Integer totalDuration;  // 총 소요 시간 (분)
+    // JSONB 컬럼 - services 정보를 담는 List
+    // [{id: 1, name: "커트", price: 20000, duration: 30}, ...]
+    private List<Map<String, Object>> services;
+
+    private Integer totalDuration;
     private Integer totalPrice;
 
-    // 상태
+    // Enum 타입으로 변경
     private ReservationStatus status;
 
-    // 메모
-    private String customerRequest;
-    private String adminMemo;
-
-    // 알림
-    private Map<String, Object> notificationSent;
-
-    // 취소 정보
+    private String reservationNumber;
+    private String customerMemo;  // 고객 요청사항
+    private String staffMemo;     // 직원 메모
     private LocalDateTime cancelledAt;
     private String cancelReason;
-
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    /**
-     * 예약 확정
-     */
-    public void confirm() {
-        this.status = ReservationStatus.CONFIRMED;
+    // ========================================
+    // 헬퍼 메서드 - 상태 체크
+    // ========================================
+
+    public boolean isPending() {
+        return ReservationStatus.PENDING.equals(this.status);
     }
 
-    /**
-     * 예약 완료
-     */
-    public void complete() {
-        this.status = ReservationStatus.COMPLETED;
+    public boolean isConfirmed() {
+        return ReservationStatus.CONFIRMED.equals(this.status);
     }
 
-    /**
-     * 예약 취소
-     */
-    public void cancel(String reason) {
-        this.status = ReservationStatus.CANCELLED;
-        this.cancelReason = reason;
-        this.cancelledAt = LocalDateTime.now();
+    public boolean isCompleted() {
+        return ReservationStatus.COMPLETED.equals(this.status);
     }
 
-    /**
-     * 노쇼 처리
-     */
-    public void noshow() {
-        this.status = ReservationStatus.NOSHOW;
+    public boolean isCancelled() {
+        return ReservationStatus.CANCELLED.equals(this.status);
     }
 
+    public boolean isNoShow() {
+        return ReservationStatus.NO_SHOW.equals(this.status);
+    }
+
+    // ========================================
+    // 비즈니스 로직 - 상태 전환 가능 여부
+    // ========================================
+
     /**
-     * 예약 확정 가능 여부
+     * 확정 가능 여부
+     * PENDING → CONFIRMED
      */
     public boolean canConfirm() {
-        return status == ReservationStatus.PENDING;
+        return ReservationStatus.PENDING.equals(this.status);
     }
 
     /**
-     * 예약 취소 가능 여부
-     */
-    public boolean canCancel() {
-        return status == ReservationStatus.PENDING || status == ReservationStatus.CONFIRMED;
-    }
-
-    /**
-     * 예약 완료 가능 여부
+     * 완료 가능 여부
+     * CONFIRMED → COMPLETED
      */
     public boolean canComplete() {
-        return status == ReservationStatus.CONFIRMED;
+        return ReservationStatus.CONFIRMED.equals(this.status);
     }
 
     /**
-     * 예약이 활성 상태인지 확인
+     * 취소 가능 여부
+     * PENDING, CONFIRMED → CANCELLED
      */
-    public boolean isActive() {
-        return status == ReservationStatus.PENDING || status == ReservationStatus.CONFIRMED;
+    public boolean canCancel() {
+        return ReservationStatus.PENDING.equals(this.status) ||
+                ReservationStatus.CONFIRMED.equals(this.status);
+    }
+
+    /**
+     * 노쇼 처리 가능 여부
+     * CONFIRMED → NO_SHOW
+     */
+    public boolean canMarkAsNoShow() {
+        return ReservationStatus.CONFIRMED.equals(this.status);
+    }
+
+    // ========================================
+    // 헬퍼 메서드 - services JSONB 추출
+    // ========================================
+
+    /**
+     * services JSONB에서 service ID 목록 추출
+     */
+    public List<Long> getServiceIds() {
+        if (services == null || services.isEmpty()) {
+            return List.of();
+        }
+
+        return services.stream()
+                .map(service -> {
+                    Object id = service.get("id");
+                    if (id instanceof Integer) {
+                        return ((Integer) id).longValue();
+                    } else if (id instanceof Long) {
+                        return (Long) id;
+                    }
+                    return null;
+                })
+                .filter(id -> id != null)
+                .toList();
+    }
+
+    /**
+     * services JSONB에서 service 이름 목록 추출
+     */
+    public List<String> getServiceNames() {
+        if (services == null || services.isEmpty()) {
+            return List.of();
+        }
+
+        return services.stream()
+                .map(service -> (String) service.get("name"))
+                .filter(name -> name != null)
+                .toList();
     }
 }

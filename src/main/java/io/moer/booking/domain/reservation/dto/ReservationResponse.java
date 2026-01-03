@@ -11,8 +11,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
 
+/**
+ * 예약 응답 DTO
+ */
 @Getter
 @Builder
 @AllArgsConstructor
@@ -23,7 +25,7 @@ public class ReservationResponse {
     private Long customerId;
     private Long staffId;
 
-    // 고객/직원 이름 (조인 필요 - 추후)
+    // 고객/직원 이름 (조인 필요 - 추후 구현)
     private String customerName;
     private String staffName;
 
@@ -38,6 +40,7 @@ public class ReservationResponse {
     @JsonFormat(pattern = "HH:mm")
     private LocalTime endTime;
 
+    // 서비스 정보
     private List<Long> serviceIds;
     private List<String> serviceNames;
     private Integer totalDuration;
@@ -45,11 +48,11 @@ public class ReservationResponse {
 
     private ReservationStatus status;
 
-    private String customerRequest;
-    private String adminMemo;
+    // 메모
+    private String customerMemo;  // 고객 요청사항
+    private String staffMemo;     // 직원 메모
 
-    private Map<String, Object> notificationSent;
-
+    // 취소 정보
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime cancelledAt;
     private String cancelReason;
@@ -60,6 +63,9 @@ public class ReservationResponse {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
 
+    /**
+     * Entity → DTO 변환
+     */
     public static ReservationResponse from(Reservation reservation) {
         return ReservationResponse.builder()
                 .id(reservation.getId())
@@ -75,9 +81,8 @@ public class ReservationResponse {
                 .totalDuration(reservation.getTotalDuration())
                 .totalPrice(reservation.getTotalPrice())
                 .status(reservation.getStatus())
-                .customerRequest(reservation.getCustomerRequest())
-                .adminMemo(reservation.getAdminMemo())
-                .notificationSent(reservation.getNotificationSent())
+                .customerMemo(reservation.getCustomerMemo())
+                .staffMemo(reservation.getStaffMemo())
                 .cancelledAt(reservation.getCancelledAt())
                 .cancelReason(reservation.getCancelReason())
                 .createdAt(reservation.getCreatedAt())

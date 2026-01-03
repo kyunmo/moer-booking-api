@@ -20,13 +20,13 @@ public class UserResponse {
     private String email;
     private String name;
     private String phone;
-    private UserRole role;
+    private UserRole role;  // Enum 그대로
     private String roleDescription;
-    private UserStatus status;
+    private UserStatus status;  // Enum 그대로
     private String statusDescription;
     private Long staffId;
     private Long businessId;
-    private Boolean emailVerified;
+    private Boolean emailVerified;  // boolean
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime lastLoginAt;
@@ -44,12 +44,12 @@ public class UserResponse {
                 .name(user.getName())
                 .phone(user.getPhone())
                 .role(user.getRole())
-                .roleDescription(user.getRole().getDescription())
+                .roleDescription(user.getRole().getDescription())  // Enum 사용
                 .status(user.getStatus())
-                .statusDescription(user.getStatus().getDescription())
+                .statusDescription(user.getStatus().getDescription())  // Enum 사용
                 .staffId(user.getStaffId())
                 .businessId(user.getBusinessId())
-                .emailVerified(user.getEmailVerified())
+                .emailVerified("Y".equals(user.getEmailVerified()))
                 .lastLoginAt(user.getLastLoginAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

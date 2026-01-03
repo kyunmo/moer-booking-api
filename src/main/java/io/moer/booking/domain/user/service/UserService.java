@@ -5,6 +5,7 @@ import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.user.User;
+import io.moer.booking.domain.user.UserRole;
 import io.moer.booking.domain.user.UserStatus;
 import io.moer.booking.domain.user.dto.UserCreateRequest;
 import io.moer.booking.domain.user.dto.UserResponse;
@@ -46,7 +47,7 @@ public class UserService {
                 .status(UserStatus.ACTIVE)
                 .staffId(request.getStaffId())
                 .businessId(request.getBusinessId())
-                .emailVerified(false)
+                .emailVerified("N")  // boolean → String 'N'
                 .build();
 
         userRepository.save(user);
@@ -118,9 +119,6 @@ public class UserService {
         return userRepository.existsByEmail(email);
     }
 
-    /**
-     * User 검색 (페이징 포함)
-     */
     public PageResponse<UserResponse> searchUsers(UserSearchCondition condition) {
         List<User> users = userRepository.search(condition);
         long totalElements = userRepository.countSearch(condition);

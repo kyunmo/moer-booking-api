@@ -5,21 +5,21 @@
 <mapper namespace="io.moer.booking.domain.customer.repository.CustomerHistoryRepository">
 
     <!-- Result Map -->
-    <resultMap id="customerHistoryResultMap" type="io.moer.booking.domain.customer.CustomerHistory">
+    <resultMap id="CustomerHistoryResultMap" type="io.moer.booking.domain.customer.CustomerHistory">
         <id property="id" column="id"/>
-        <result property="customerId" column="customer_id"/>
         <result property="businessId" column="business_id"/>
-        <result property="reservationId" column="reservation_id"/>
+        <result property="customerId" column="customer_id"/>
         <result property="staffId" column="staff_id"/>
+        <result property="reservationId" column="reservation_id"/>
         <result property="visitDate" column="visit_date"/>
         <result property="services" column="services"
                 typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
         <result property="totalPrice" column="total_price"/>
+        <result property="paymentMethod" column="payment_method"/>
         <result property="details" column="details"
                 typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
         <result property="beforeImageUrl" column="before_image_url"/>
         <result property="afterImageUrl" column="after_image_url"/>
-        <result property="adminMemo" column="admin_memo"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
@@ -27,47 +27,47 @@
     <insert id="save" parameterType="io.moer.booking.domain.customer.CustomerHistory"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO customer_histories (
-            customer_id, business_id, reservation_id, staff_id,
-            visit_date, services, total_price,
-            details, before_image_url, after_image_url, admin_memo
+            business_id, customer_id, staff_id, reservation_id,
+            visit_date, services, total_price, payment_method,
+            details, before_image_url, after_image_url
         ) VALUES (
-                     #{customerId}, #{businessId}, #{reservationId}, #{staffId},
+                     #{businessId}, #{customerId}, #{staffId}, #{reservationId},
                      #{visitDate},
                      #{services, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     #{totalPrice},
+                     #{totalPrice}, #{paymentMethod},
                      #{details, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     #{beforeImageUrl}, #{afterImageUrl}, #{adminMemo}
+                     #{beforeImageUrl}, #{afterImageUrl}
                  )
     </insert>
 
     <!-- 단건 조회 -->
-    <select id="findById" resultMap="customerHistoryResultMap">
+    <select id="findById" resultMap="CustomerHistoryResultMap">
         SELECT * FROM customer_histories
         WHERE id = #{id}
     </select>
 
-    <!-- Customer의 전체 이력 조회 (최신순) -->
-    <select id="findByCustomerId" resultMap="customerHistoryResultMap">
+    <!-- Customer의 전체 이력 조회 -->
+    <select id="findByCustomerId" resultMap="CustomerHistoryResultMap">
         SELECT * FROM customer_histories
         WHERE customer_id = #{customerId}
         ORDER BY visit_date DESC, created_at DESC
     </select>
 
     <!-- Business의 전체 이력 조회 -->
-    <select id="findByBusinessId" resultMap="customerHistoryResultMap">
+    <select id="findByBusinessId" resultMap="CustomerHistoryResultMap">
         SELECT * FROM customer_histories
         WHERE business_id = #{businessId}
         ORDER BY visit_date DESC, created_at DESC
     </select>
 
     <!-- Reservation의 이력 조회 -->
-    <select id="findByReservationId" resultMap="customerHistoryResultMap">
+    <select id="findByReservationId" resultMap="CustomerHistoryResultMap">
         SELECT * FROM customer_histories
         WHERE reservation_id = #{reservationId}
     </select>
 
     <!-- 기간별 이력 조회 -->
-    <select id="findByCustomerIdAndDateRange" resultMap="customerHistoryResultMap">
+    <select id="findByCustomerIdAndDateRange" resultMap="CustomerHistoryResultMap">
         SELECT * FROM customer_histories
         WHERE customer_id = #{customerId}
         <if test="startDate != null">
@@ -80,7 +80,7 @@
     </select>
 
     <!-- 최근 방문 이력 조회 -->
-    <select id="findLatestByCustomerId" resultMap="customerHistoryResultMap">
+    <select id="findLatestByCustomerId" resultMap="CustomerHistoryResultMap">
         SELECT * FROM customer_histories
         WHERE customer_id = #{customerId}
         ORDER BY visit_date DESC, created_at DESC
@@ -90,20 +90,14 @@
     <!-- 수정 -->
     <update id="update">
         UPDATE customer_histories
-        <set>
-            <if test="staffId != null">staff_id = #{staffId},</if>
-            <if test="visitDate != null">visit_date = #{visitDate},</if>
-            <if test="services != null">
-                services = #{services, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-            </if>
-            <if test="totalPrice != null">total_price = #{totalPrice},</if>
-            <if test="details != null">
-                details = #{details, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-            </if>
-            <if test="beforeImageUrl != null">before_image_url = #{beforeImageUrl},</if>
-            <if test="afterImageUrl != null">after_image_url = #{afterImageUrl},</if>
-            <if test="adminMemo != null">admin_memo = #{adminMemo},</if>
-        </set>
+        SET staff_id = #{staffId},
+            visit_date = #{visitDate},
+            services = #{services, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            total_price = #{totalPrice},
+            payment_method = #{paymentMethod},
+            details = #{details, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            before_image_url = #{beforeImageUrl},
+            after_image_url = #{afterImageUrl}
         WHERE id = #{id}
     </update>
 
@@ -113,11 +107,9 @@
         WHERE id = #{id}
     </delete>
 
-    <!-- 존재 확인 -->
+    <!-- 검증 -->
     <select id="existsById" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM customer_histories WHERE id = #{id}
-        )
+        SELECT EXISTS(SELECT 1 FROM customer_histories WHERE id = #{id})
     </select>
 
     <select id="existsByBusinessIdAndId" resultType="boolean">

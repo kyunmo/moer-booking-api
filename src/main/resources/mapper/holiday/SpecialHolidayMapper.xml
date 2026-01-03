@@ -9,8 +9,7 @@
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
         <result property="holidayDate" column="holiday_date"/>
-        <result property="title" column="title"/>
-        <result property="isClosed" column="is_closed"/>
+        <result property="reason" column="reason"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
@@ -18,10 +17,9 @@
     <insert id="save" parameterType="io.moer.booking.domain.holiday.SpecialHoliday"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO special_holidays (
-            business_id, holiday_date, title, is_closed
+            business_id, holiday_date, reason
         ) VALUES (
-                     #{businessId}, #{holidayDate}, #{title},
-                     COALESCE(#{isClosed}, true)
+                     #{businessId}, #{holidayDate}, #{reason}
                  )
     </insert>
 

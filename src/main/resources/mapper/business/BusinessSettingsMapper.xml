@@ -4,44 +4,115 @@
 
 <mapper namespace="io.moer.booking.domain.business.repository.BusinessSettingsRepository">
 
-    <!-- ResultMap -->
+    <!-- ========================================
+         Result Map
+         ======================================== -->
     <resultMap id="BusinessSettingsResultMap" type="io.moer.booking.domain.business.BusinessSettings">
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
-        <!-- 변경: JsonTypeHandler 경로 수정 -->
-        <result property="settings" column="settings"
-                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+
+        <!-- 예약 설정 -->
+        <result property="bookingInterval" column="booking_interval"/>
+        <result property="autoConfirm" column="auto_confirm"/>
+        <result property="allowOnlineBooking" column="allow_online_booking"/>
+        <result property="maxAdvanceBookingDays" column="max_advance_booking_days"/>
+        <result property="minAdvanceBookingHours" column="min_advance_booking_hours"/>
+
+        <!-- 알림 설정 -->
+        <result property="sendConfirmationSms" column="send_confirmation_sms"/>
+        <result property="sendReminderSms" column="send_reminder_sms"/>
+        <result property="reminderHoursBefore" column="reminder_hours_before"/>
+        <result property="sendCancelSms" column="send_cancel_sms"/>
+
+        <!-- 카카오톡 설정 -->
+        <result property="kakaoChannelId" column="kakao_channel_id"/>
+        <result property="kakaoApiKey" column="kakao_api_key"/>
+        <result property="kakaoEnabled" column="kakao_enabled"/>
+
+        <!-- 결제 설정 -->
+        <result property="paymentMethods" column="payment_methods"/>
+        <result property="requireDeposit" column="require_deposit"/>
+        <result property="depositAmount" column="deposit_amount"/>
+
+        <!-- 취소 정책 -->
+        <result property="allowCancellation" column="allow_cancellation"/>
+        <result property="cancelDeadlineHours" column="cancel_deadline_hours"/>
+        <result property="noShowPenaltyEnabled" column="no_show_penalty_enabled"/>
+
+        <!-- 기타 -->
+        <result property="timezone" column="timezone"/>
+        <result property="language" column="language"/>
+
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
-    <!-- 생성 -->
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
     <insert id="save" parameterType="io.moer.booking.domain.business.BusinessSettings"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO business_settings (
-            business_id, settings
+            business_id,
+            booking_interval, auto_confirm, allow_online_booking,
+            max_advance_booking_days, min_advance_booking_hours,
+            send_confirmation_sms, send_reminder_sms, reminder_hours_before, send_cancel_sms,
+            kakao_channel_id, kakao_api_key, kakao_enabled,
+            payment_methods, require_deposit, deposit_amount,
+            allow_cancellation, cancel_deadline_hours, no_show_penalty_enabled,
+            timezone, language
         ) VALUES (
                      #{businessId},
-                     #{settings, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb
+                     #{bookingInterval}, #{autoConfirm}, #{allowOnlineBooking},
+                     #{maxAdvanceBookingDays}, #{minAdvanceBookingHours},
+                     #{sendConfirmationSms}, #{sendReminderSms}, #{reminderHoursBefore}, #{sendCancelSms},
+                     #{kakaoChannelId}, #{kakaoApiKey}, #{kakaoEnabled},
+                     #{paymentMethods}, #{requireDeposit}, #{depositAmount},
+                     #{allowCancellation}, #{cancelDeadlineHours}, #{noShowPenaltyEnabled},
+                     #{timezone}, #{language}
                  )
     </insert>
 
-    <!-- 조회 -->
+    <!-- ========================================
+         조회
+         ======================================== -->
     <select id="findByBusinessId" resultMap="BusinessSettingsResultMap">
         SELECT * FROM business_settings
         WHERE business_id = #{businessId}
     </select>
 
-    <!-- 수정 -->
+    <!-- ========================================
+         수정 (UPDATE)
+         ======================================== -->
     <update id="update">
         UPDATE business_settings
-        SET
-            settings = #{settings, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+        SET booking_interval = #{bookingInterval},
+            auto_confirm = #{autoConfirm},
+            allow_online_booking = #{allowOnlineBooking},
+            max_advance_booking_days = #{maxAdvanceBookingDays},
+            min_advance_booking_hours = #{minAdvanceBookingHours},
+            send_confirmation_sms = #{sendConfirmationSms},
+            send_reminder_sms = #{sendReminderSms},
+            reminder_hours_before = #{reminderHoursBefore},
+            send_cancel_sms = #{sendCancelSms},
+            kakao_channel_id = #{kakaoChannelId},
+            kakao_api_key = #{kakaoApiKey},
+            kakao_enabled = #{kakaoEnabled},
+            payment_methods = #{paymentMethods},
+            require_deposit = #{requireDeposit},
+            deposit_amount = #{depositAmount},
+            allow_cancellation = #{allowCancellation},
+            cancel_deadline_hours = #{cancelDeadlineHours},
+            no_show_penalty_enabled = #{noShowPenaltyEnabled},
+            timezone = #{timezone},
+            language = #{language},
             updated_at = CURRENT_TIMESTAMP
-        WHERE business_id = #{businessId}
+        WHERE id = #{id}
     </update>
 
-    <!-- 삭제 -->
+    <!-- ========================================
+         삭제 (DELETE)
+         ======================================== -->
     <delete id="deleteByBusinessId">
         DELETE FROM business_settings
         WHERE business_id = #{businessId}

@@ -6,43 +6,40 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
+/**
+ * 직원 엔티티
+ * DB 테이블: staffs
+ */
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Staff {
-
     private Long id;
     private Long businessId;
-    private Long userId;
     private String name;
-    private String nickname;
+    private String position;
     private String phone;
     private String email;
-
-    // 프로필
+    private String specialty;
+    private Integer careerYears;
     private String profileImageUrl;
     private String introduction;
-    private Integer careerYears;
-    private List<String> specialties;
 
-    // 근무 정보
-    private Map<String, Object> workSchedule;
-    private Boolean isActive;
-    private Integer displayOrder;
+    /**
+     * 활성 여부 (Y/N)
+     * DB: CHAR(1)
+     */
+    private String isActive;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 비즈니스 로직
-    public void activate() {
-        this.isActive = true;
-    }
-
-    public void deactivate() {
-        this.isActive = false;
+    /**
+     * 활성 상태 확인
+     */
+    public boolean isActive() {
+        return "Y".equals(this.isActive);
     }
 }

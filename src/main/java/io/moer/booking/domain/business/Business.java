@@ -5,62 +5,77 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.List;
 
+/**
+ * 매장 엔티티
+ * DB 테이블: businesses
+ */
 @Getter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Business {
-
     private Long id;
     private Long ownerId;
-    private BusinessType businessType;
     private String name;
-    private String description;
+
+    /**
+     * 업종 (Enum)
+     * DB: VARCHAR(50)
+     */
+    private BusinessType businessType;
+
     private String phone;
-    private String email;
-
-    // 주소
     private String address;
-    private String addressDetail;
-    private String zipCode;
-    private BigDecimal latitude;
-    private BigDecimal longitude;
+    private String description;
 
-    // 영업 정보 (JSONB → Map)
-    private Map<String, Object> openingHours;
-    private List<String> regularHolidays;
+    /**
+     * 영업시간 (JSONB)
+     * DB: JSONB
+     * 예: {"mon":{"open":"09:00","close":"20:00"}, "tue":...}
+     */
+    private Map<String, Object> businessHours;
 
-    // 이미지
-    private String logoUrl;
-    private String coverImageUrl;
-    private List<String> images;
-
-    // 소셜/링크
-    private String website;
-    private String instagram;
-    private String facebook;
-
-    // 상태
+    /**
+     * 상태 (Enum)
+     * DB: VARCHAR(20)
+     */
     private BusinessStatus status;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 비즈니스 로직
-    public void activate() {
-        this.status = BusinessStatus.ACTIVE;
+    // ========================================
+    // 헬퍼 메서드 - 상태 확인
+    // ========================================
+
+    public boolean isActive() {
+        return BusinessStatus.ACTIVE.equals(this.status);
     }
 
-    public void deactivate() {
-        this.status = BusinessStatus.INACTIVE;
+    public boolean isInactive() {
+        return BusinessStatus.INACTIVE.equals(this.status);
     }
 
-    public void suspend() {
-        this.status = BusinessStatus.SUSPENDED;
+    public boolean isSuspended() {
+        return BusinessStatus.SUSPENDED.equals(this.status);
+    }
+
+    // ========================================
+    // 헬퍼 메서드 - 업종 확인
+    // ========================================
+
+    public boolean isBeautyShop() {
+        return BusinessType.BEAUTY_SHOP.equals(this.businessType);
+    }
+
+    public boolean isPilates() {
+        return BusinessType.PILATES.equals(this.businessType);
+    }
+
+    public boolean isCafe() {
+        return BusinessType.CAFE.equals(this.businessType);
     }
 }
