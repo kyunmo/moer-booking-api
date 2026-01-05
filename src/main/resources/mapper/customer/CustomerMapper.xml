@@ -161,4 +161,25 @@
         WHERE business_id = #{businessId}
     </select>
 
+    <!-- 기간별 신규 고객 수 -->
+    <select id="countByBusinessIdAndCreatedAtBetween" resultType="int">
+        SELECT COUNT(*)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND created_at BETWEEN #{startDateTime} AND #{endDateTime}
+    </select>
+
+    <!-- 최근 신규 고객 -->
+    <select id="findRecentByBusinessId" resultType="io.moer.booking.domain.dashboard.dto.RecentCustomer">
+        SELECT
+            id,
+            name,
+            phone,
+            visit_count AS visitCount,
+            TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS createdAt
+        FROM customers
+        WHERE business_id = #{businessId}
+        ORDER BY created_at DESC
+            LIMIT #{limit}
+    </select>
 </mapper>

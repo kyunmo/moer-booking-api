@@ -47,10 +47,14 @@ public interface CustomerRepository {
     long countByBusinessId(Long businessId);
 
 
-    // 기간별 신규 고객 수
+    /**
+     * 기간별 신규 고객 수
+     */
     int countByBusinessIdAndCreatedAtBetween(
             Long businessId, LocalDateTime startDateTime, LocalDateTime endDateTime);
 
-    // 최근 신규 고객
+    /**
+     * 최근 신규 고객
+     */
     List<RecentCustomer> findRecentByBusinessId(Long businessId, int limit);
 }

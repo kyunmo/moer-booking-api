@@ -144,25 +144,38 @@ public interface ReservationRepository {
     boolean existsByReservationNumber(String reservationNumber);
 
 
-    // 날짜별 예약 수
+    /**
+     * 날짜별 예약 수
+     */
     int countByBusinessIdAndDate(Long businessId, LocalDate date);
+
     int countByBusinessIdAndDateAndStatus(Long businessId, LocalDate date, ReservationStatus status);
 
-    // 기간별 예약 수
+    /**
+     * 기간별 예약 수
+     */
     int countByBusinessIdAndDateRange(Long businessId, LocalDate startDate, LocalDate endDate);
 
-    // 기간별 매출 합계
-    int sumTotalPriceByBusinessIdAndDateRangeAndStatus(
+    /**
+     * 기간별 매출 합계 (완료 상태만)
+     */
+    Integer sumTotalPriceByBusinessIdAndDateRangeAndStatus(
             Long businessId, LocalDate startDate, LocalDate endDate, ReservationStatus status);
 
-    // 오늘 예상 매출
-    int sumTotalPriceByBusinessIdAndDateAndStatusIn(
+    /**
+     * 오늘 예상 매출 (대기+확정)
+     */
+    Integer sumTotalPriceByBusinessIdAndDateAndStatusIn(
             Long businessId, LocalDate date, List<ReservationStatus> statuses);
 
-    // 일별 예약 건수
+    /**
+     * 일별 예약 건수 (그룹화)
+     */
     List<DailyCount> countByBusinessIdAndDateRangeGroupByDate(
             Long businessId, LocalDate startDate, LocalDate endDate);
 
-    // 최근 예약 목록
+    /**
+     * 최근 예약 목록
+     */
     List<RecentReservation> findRecentByBusinessIdAndDate(Long businessId, LocalDate date, int limit);
 }

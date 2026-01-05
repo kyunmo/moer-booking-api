@@ -227,4 +227,80 @@
         )
     </select>
 
+
+    <!-- 날짜별 예약 수 -->
+    <select id="countByBusinessIdAndDate" resultType="int">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date = #{date}
+    </select>
+
+    <!-- 날짜 + 상태별 예약 수 -->
+    <select id="countByBusinessIdAndDateAndStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date = #{date}
+          AND status = #{status}
+    </select>
+
+    <!-- 기간별 예약 수 -->
+    <select id="countByBusinessIdAndDateRange" resultType="int">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <!-- 기간별 매출 합계 -->
+    <select id="sumTotalPriceByBusinessIdAndDateRangeAndStatus" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status = #{status}
+    </select>
+
+    <!-- 오늘 예상 매출 (대기+확정) -->
+    <select id="sumTotalPriceByBusinessIdAndDateAndStatusIn" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE business_id = #{businessId}
+        AND reservation_date = #{date}
+        AND status IN
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+    </select>
+
+    <!-- 일별 예약 건수 그룹화 -->
+    <select id="countByBusinessIdAndDateRangeGroupByDate" resultType="io.moer.booking.domain.dashboard.dto.DailyCount">
+        SELECT
+            reservation_date AS date,
+        COUNT(*) AS count
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY reservation_date
+        ORDER BY reservation_date ASC
+    </select>
+
+    <!-- 최근 예약 목록 -->
+    <select id="findRecentByBusinessIdAndDate" resultType="io.moer.booking.domain.dashboard.dto.RecentReservation">
+        SELECT
+            r.id,
+            r.reservation_number AS reservationNumber,
+            c.name AS customerName,
+            r.reservation_date AS reservationDate,
+            r.start_time AS startTime,
+            r.end_time AS endTime,
+            r.status
+        FROM reservations r
+                 JOIN customers c ON r.customer_id = c.id
+        WHERE r.business_id = #{businessId}
+          AND r.reservation_date = #{date}
+        ORDER BY r.start_time ASC
+            LIMIT #{limit}
+    </select>
 </mapper>
