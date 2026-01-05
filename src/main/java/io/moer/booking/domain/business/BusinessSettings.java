@@ -159,30 +159,30 @@ public class BusinessSettings {
     private LocalDateTime updatedAt;
 
     // ========================================
-    // 헬퍼 메서드
+    // 헬퍼 메서드 (이름 변경하여 충돌 방지)
     // ========================================
 
-    public boolean isAutoConfirmEnabled() {
+    public boolean hasAutoConfirm() {
         return "Y".equals(this.autoConfirm);
     }
 
-    public boolean isOnlineBookingAllowed() {
+    public boolean allowsOnlineBooking() {
         return "Y".equals(this.allowOnlineBooking);
     }
 
-    public boolean isKakaoEnabled() {
+    public boolean hasKakaoEnabled() {
         return "Y".equals(this.kakaoEnabled);
     }
 
-    public boolean isDepositRequired() {
+    public boolean requiresDeposit() {
         return "Y".equals(this.requireDeposit);
     }
 
-    public boolean isCancellationAllowed() {
+    public boolean allowsCancellation() {
         return "Y".equals(this.allowCancellation);
     }
 
-    public boolean isNoShowPenaltyEnabled() {
+    public boolean hasNoShowPenalty() {
         return "Y".equals(this.noShowPenaltyEnabled);
     }
 }

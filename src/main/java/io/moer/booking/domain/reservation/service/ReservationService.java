@@ -175,6 +175,16 @@ public class ReservationService {
         }
 
         // Case 2: 이름/전화번호로 조회 또는 자동 생성
+        // 검증: customerId가 없으면 이름과 전화번호 필수
+        if (request.getCustomerName() == null || request.getCustomerName().isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                    "고객 ID 또는 고객 이름은 필수입니다");
+        }
+        if (request.getCustomerPhone() == null || request.getCustomerPhone().isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                    "고객 ID 또는 고객 전화번호는 필수입니다");
+        }
+
         return customerService.findOrCreateCustomer(
                 businessId,
                 request.getCustomerName(),
@@ -224,13 +234,15 @@ public class ReservationService {
      */
     public ReservationResponse getReservation(Long businessId, Long reservationId) {
         if (!reservationRepository.existsByBusinessIdAndId(businessId, reservationId)) {
-            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
+                    "예약을 찾을 수 없습니다");
         }
 
         Reservation reservation = reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
+                        "예약을 찾을 수 없습니다"));
 
-        return ReservationResponse.from(reservation);
+        return enrichReservationResponse(reservation);
     }
 
     /**
@@ -239,9 +251,9 @@ public class ReservationService {
     public ReservationResponse getReservationByNumber(String reservationNumber) {
         Reservation reservation = reservationRepository.findByReservationNumber(reservationNumber)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
-                        "예약을 찾을 수 없습니다"));
+                        "예약을 찾을 수 없습니다: " + reservationNumber));
 
-        return ReservationResponse.from(reservation);
+        return enrichReservationResponse(reservation);
     }
 
     /**
@@ -254,7 +266,7 @@ public class ReservationService {
 
         List<Reservation> reservations = reservationRepository.findByBusinessId(businessId);
         return reservations.stream()
-                .map(ReservationResponse::from)
+                .map(this::enrichReservationResponse)
                 .collect(Collectors.toList());
     }
 
@@ -268,9 +280,28 @@ public class ReservationService {
 
         List<Reservation> reservations = reservationRepository.findByBusinessIdAndDate(businessId, date);
         return reservations.stream()
-                .map(ReservationResponse::from)
+                .map(this::enrichReservationResponse)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * 기간별 예약 조회
+     */
+    public List<ReservationResponse> getReservationsByDateRange(Long businessId,
+                                                                LocalDate startDate,
+                                                                LocalDate endDate) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        List<Reservation> reservations = reservationRepository.findByBusinessIdAndDateRange(
+                businessId, startDate, endDate);
+
+        return reservations.stream()
+                .map(this::enrichReservationResponse)
+                .collect(Collectors.toList());
+    }
+
 
     /**
      * Customer의 예약 조회
@@ -282,7 +313,7 @@ public class ReservationService {
 
         List<Reservation> reservations = reservationRepository.findByCustomerId(customerId);
         return reservations.stream()
-                .map(ReservationResponse::from)
+                .map(this::enrichReservationResponse)
                 .collect(Collectors.toList());
     }
 
@@ -296,7 +327,7 @@ public class ReservationService {
 
         List<Reservation> reservations = reservationRepository.findByStaffId(staffId);
         return reservations.stream()
-                .map(ReservationResponse::from)
+                .map(this::enrichReservationResponse)
                 .collect(Collectors.toList());
     }
 
@@ -306,7 +337,7 @@ public class ReservationService {
     public List<ReservationResponse> searchReservations(ReservationSearchCondition condition) {
         List<Reservation> reservations = reservationRepository.search(condition);
         return reservations.stream()
-                .map(ReservationResponse::from)
+                .map(this::enrichReservationResponse)
                 .collect(Collectors.toList());
     }
 
@@ -427,6 +458,54 @@ public class ReservationService {
     // ========================================
     // 상태 변경
     // ========================================
+
+    /**
+     * 예약 상태 변경 (통합)
+     */
+    @Transactional
+    public ReservationResponse updateReservationStatus(Long businessId, Long reservationId, ReservationStatus newStatus) {
+        if (!reservationRepository.existsByBusinessIdAndId(businessId, reservationId)) {
+            throw new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND);
+        }
+
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+
+        // 상태별 검증
+        switch (newStatus) {
+            case CONFIRMED:
+                if (!reservation.canConfirm()) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "대기 상태의 예약만 확정할 수 있습니다");
+                }
+                break;
+            case COMPLETED:
+                if (!reservation.canComplete()) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "확정된 예약만 완료할 수 있습니다");
+                }
+                break;
+            case CANCELLED:
+                if (!reservation.canCancel()) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "이미 완료되거나 취소된 예약은 취소할 수 없습니다");
+                }
+                break;
+            case NO_SHOW:
+                if (!reservation.canMarkAsNoShow()) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "확정된 예약만 노쇼 처리할 수 있습니다");
+                }
+                break;
+        }
+
+        reservationRepository.updateStatus(reservationId, newStatus);
+
+        log.info("Reservation status updated: id={}, businessId={}, status={}",
+                reservationId, businessId, newStatus);
+
+        return getReservation(businessId, reservationId);
+    }
 
     /**
      * 예약 확정
@@ -612,5 +691,58 @@ public class ReservationService {
                                 conflict.getEndTime()));
             }
         }
+    }
+
+    /**
+     * Reservation → ReservationResponse 변환 (고객명, 직원명 포함)
+     */
+    private ReservationResponse enrichReservationResponse(Reservation reservation) {
+        // Customer 조회
+        String customerName = null;
+        String customerPhone = null;
+        if (reservation.getCustomerId() != null) {
+            Customer customer = customerRepository.findById(reservation.getCustomerId())
+                    .orElse(null);
+            if (customer != null) {
+                customerName = customer.getName();
+                customerPhone = customer.getPhone();
+            }
+        }
+
+        // Staff 조회
+        String staffName = null;
+        if (reservation.getStaffId() != null) {
+            Staff staff = staffRepository.findById(reservation.getStaffId())
+                    .orElse(null);
+            if (staff != null) {
+                staffName = staff.getName();
+            }
+        }
+
+        // Response 생성
+        return ReservationResponse.builder()
+                .id(reservation.getId())
+                .businessId(reservation.getBusinessId())
+                .customerId(reservation.getCustomerId())
+                .staffId(reservation.getStaffId())
+                .customerName(customerName)
+                .customerPhone(customerPhone)
+                .staffName(staffName)
+                .reservationNumber(reservation.getReservationNumber())
+                .reservationDate(reservation.getReservationDate())
+                .startTime(reservation.getStartTime())
+                .endTime(reservation.getEndTime())
+                .serviceIds(reservation.getServiceIds())
+                .serviceNames(reservation.getServiceNames())
+                .totalDuration(reservation.getTotalDuration())
+                .totalPrice(reservation.getTotalPrice())
+                .status(reservation.getStatus())
+                .customerMemo(reservation.getCustomerMemo())
+                .staffMemo(reservation.getStaffMemo())
+                .cancelledAt(reservation.getCancelledAt())
+                .cancelReason(reservation.getCancelReason())
+                .createdAt(reservation.getCreatedAt())
+                .updatedAt(reservation.getUpdatedAt())
+                .build();
     }
 }

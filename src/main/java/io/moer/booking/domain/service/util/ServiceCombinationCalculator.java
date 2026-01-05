@@ -57,7 +57,7 @@ public class ServiceCombinationCalculator {
      * 조합 가능 여부 확인
      * options의 can_combine이 모두 true인지 체크
      */
-    public static boolean canCombine(List<Service> services) {
+/*    public static boolean canCombine(List<Service> services) {
         return services.stream()
                 .allMatch(service -> {
                     if (service.getOptions() == null) {
@@ -66,5 +66,5 @@ public class ServiceCombinationCalculator {
                     Object canCombine = service.getOptions().get("can_combine");
                     return canCombine == null || (canCombine instanceof Boolean && (Boolean) canCombine);
                 });
-    }
+    }*/
 }

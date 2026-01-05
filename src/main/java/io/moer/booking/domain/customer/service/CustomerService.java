@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -217,5 +218,39 @@ public class CustomerService {
         customerRepository.delete(customerId);
 
         log.info("Customer deleted: id={}, businessId={}", customerId, businessId);
+    }
+
+    /**
+     * 고객 조회 또는 자동 생성
+     * 전화번호로 먼저 조회하고, 없으면 새로 생성
+     */
+    @Transactional
+    public Customer findOrCreateCustomer(Long businessId, String name, String phone) {
+        // 1. 전화번호로 기존 고객 조회
+        Optional<Customer> existingCustomer = customerRepository.findByBusinessIdAndPhone(businessId, phone);
+
+        if (existingCustomer.isPresent()) {
+            log.info("Found existing customer: id={}, name={}, phone={}",
+                    existingCustomer.get().getId(), existingCustomer.get().getName(), phone);
+            return existingCustomer.get();
+        }
+
+        // 2. 없으면 새로 생성
+        log.info("Creating new customer: name={}, phone={}", name, phone);
+
+        Customer newCustomer = Customer.builder()
+                .businessId(businessId)
+                .name(name)
+                .phone(phone)
+                .visitCount(0)
+                .totalSpent(0)
+                .build();
+
+        customerRepository.save(newCustomer);
+
+        log.info("Customer created: id={}, businessId={}, name={}, phone={}",
+                newCustomer.getId(), businessId, name, phone);
+
+        return newCustomer;
     }
 }

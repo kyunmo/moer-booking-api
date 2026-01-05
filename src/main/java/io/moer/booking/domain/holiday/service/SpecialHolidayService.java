@@ -32,21 +32,23 @@ public class SpecialHolidayService {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
 
-        if (holidayRepository.existsByBusinessIdAndDate(businessId, request.getHolidayDate())) {
+        if (holidayRepository.existsByBusinessIdAndDate(businessId, request.getDate())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
-                    "이미 등록된 휴무일입니다: " + request.getHolidayDate());
+                    "이미 등록된 휴무일입니다: " + request.getDate());
         }
 
         SpecialHoliday holiday = SpecialHoliday.builder()
                 .businessId(businessId)
-                .holidayDate(request.getHolidayDate())
+                .name(request.getName())
+                .date(request.getDate())
+                .type(request.getType())
                 .reason(request.getReason())
                 .build();
 
         holidayRepository.save(holiday);
 
-        log.info("SpecialHoliday created: id={}, businessId={}, date={}",
-                holiday.getId(), businessId, holiday.getHolidayDate());
+        log.info("SpecialHoliday created: id={}, businessId={}, name={}, date={}",
+                holiday.getId(), businessId, holiday.getName(), holiday.getDate());
 
         return SpecialHolidayResponse.from(holiday);
     }

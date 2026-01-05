@@ -47,6 +47,10 @@ public class User {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    public void updateBusinessId(Long businessId) {
+        this.businessId = businessId;
+    }
+
     // ========================================
     // 헬퍼 메서드 - 역할 확인
     // ========================================
@@ -67,7 +71,7 @@ public class User {
     // 헬퍼 메서드 - 상태 확인
     // ========================================
 
-    public boolean isEmailVerified() {
+    public boolean checkEmailVerified() {
         return "Y".equals(this.emailVerified);
     }
 

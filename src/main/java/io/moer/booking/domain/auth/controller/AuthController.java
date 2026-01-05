@@ -5,6 +5,8 @@ import io.moer.booking.common.security.CustomUserDetails;
 import io.moer.booking.domain.auth.dto.LoginRequest;
 import io.moer.booking.domain.auth.dto.LoginResponse;
 import io.moer.booking.domain.auth.dto.RefreshTokenRequest;
+import io.moer.booking.domain.auth.dto.RegisterRequest;  // 👈 추가
+import io.moer.booking.domain.auth.dto.RegisterResponse;  // 👈 추가
 import io.moer.booking.domain.auth.service.AuthService;
 import io.moer.booking.domain.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "인증", description = "로그인, 로그아웃, 토큰 갱신 API")
+@Tag(name = "인증", description = "로그인, 로그아웃, 토큰 갱신, 회원가입 API")  // 👈 수정
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -59,6 +61,16 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<UserResponse> getCurrentUser(@AuthenticationPrincipal CustomUserDetails userDetails) {
         UserResponse response = UserResponse.from(userDetails.getUser());
+        return ApiResponse.success(response);
+    }
+
+    @Operation(
+            summary = "회원가입",
+            description = "사용자와 매장을 동시에 생성하고 JWT 토큰을 발급받습니다."
+    )
+    @PostMapping("/register")
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+        RegisterResponse response = authService.register(request);
         return ApiResponse.success(response);
     }
 }

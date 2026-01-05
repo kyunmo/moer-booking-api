@@ -8,7 +8,9 @@
     <resultMap id="SpecialHolidayResultMap" type="io.moer.booking.domain.holiday.SpecialHoliday">
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
-        <result property="holidayDate" column="holiday_date"/>
+        <result property="name" column="name"/>
+        <result property="date" column="date"/>
+        <result property="type" column="type"/>
         <result property="reason" column="reason"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
@@ -17,9 +19,9 @@
     <insert id="save" parameterType="io.moer.booking.domain.holiday.SpecialHoliday"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO special_holidays (
-            business_id, holiday_date, reason
+            business_id, name, date, type, reason
         ) VALUES (
-                     #{businessId}, #{holidayDate}, #{reason}
+                     #{businessId}, #{name}, #{date}, #{type}, #{reason}
                  )
     </insert>
 
@@ -33,22 +35,40 @@
     <select id="findByBusinessId" resultMap="SpecialHolidayResultMap">
         SELECT * FROM special_holidays
         WHERE business_id = #{businessId}
-        ORDER BY holiday_date ASC
+        ORDER BY date ASC
     </select>
 
     <!-- Business의 특정 기간 휴무일 조회 -->
     <select id="findByBusinessIdAndDateRange" resultMap="SpecialHolidayResultMap">
         SELECT * FROM special_holidays
         WHERE business_id = #{businessId}
-          AND holiday_date BETWEEN #{startDate} AND #{endDate}
-        ORDER BY holiday_date ASC
+          AND date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY date ASC
     </select>
 
     <!-- Business의 특정 날짜 휴무일 조회 -->
     <select id="findByBusinessIdAndDate" resultMap="SpecialHolidayResultMap">
         SELECT * FROM special_holidays
         WHERE business_id = #{businessId}
-          AND holiday_date = #{holidayDate}
+          AND date = #{date}
+    </select>
+
+    <!-- 존재 여부 확인 (businessId + id) -->
+    <select id="existsByBusinessIdAndId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM special_holidays
+            WHERE business_id = #{businessId}
+              AND id = #{id}
+        )
+    </select>
+
+    <!-- 존재 여부 확인 (businessId + date) -->
+    <select id="existsByBusinessIdAndDate" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM special_holidays
+            WHERE business_id = #{businessId}
+              AND date = #{date}
+        )
     </select>
 
     <!-- 삭제 (ID) -->
@@ -57,35 +77,11 @@
         WHERE id = #{id}
     </delete>
 
-    <!-- 삭제 (Business + Date) -->
+    <!-- 삭제 (날짜) -->
     <delete id="deleteByBusinessIdAndDate">
         DELETE FROM special_holidays
         WHERE business_id = #{businessId}
-          AND holiday_date = #{holidayDate}
+          AND date = #{date}
     </delete>
-
-    <!-- 존재 확인 (ID) -->
-    <select id="existsById" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM special_holidays WHERE id = #{id}
-        )
-    </select>
-
-    <!-- 존재 확인 (Business + Date) -->
-    <select id="existsByBusinessIdAndDate" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM special_holidays
-            WHERE business_id = #{businessId}
-              AND holiday_date = #{holidayDate}
-        )
-    </select>
-
-    <!-- Business의 Holiday 존재 확인 -->
-    <select id="existsByBusinessIdAndId" resultType="boolean">
-        SELECT EXISTS(
-            SELECT 1 FROM special_holidays
-            WHERE business_id = #{businessId} AND id = #{id}
-        )
-    </select>
 
 </mapper>

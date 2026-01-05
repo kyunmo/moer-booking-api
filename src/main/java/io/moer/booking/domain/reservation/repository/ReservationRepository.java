@@ -1,5 +1,7 @@
 package io.moer.booking.domain.reservation.repository;
 
+import io.moer.booking.domain.dashboard.dto.DailyCount;
+import io.moer.booking.domain.dashboard.dto.RecentReservation;
 import io.moer.booking.domain.reservation.Reservation;
 import io.moer.booking.domain.reservation.ReservationStatus;
 import io.moer.booking.domain.reservation.dto.ReservationSearchCondition;
@@ -140,4 +142,27 @@ public interface ReservationRepository {
      * 예약번호 존재 확인
      */
     boolean existsByReservationNumber(String reservationNumber);
+
+
+    // 날짜별 예약 수
+    int countByBusinessIdAndDate(Long businessId, LocalDate date);
+    int countByBusinessIdAndDateAndStatus(Long businessId, LocalDate date, ReservationStatus status);
+
+    // 기간별 예약 수
+    int countByBusinessIdAndDateRange(Long businessId, LocalDate startDate, LocalDate endDate);
+
+    // 기간별 매출 합계
+    int sumTotalPriceByBusinessIdAndDateRangeAndStatus(
+            Long businessId, LocalDate startDate, LocalDate endDate, ReservationStatus status);
+
+    // 오늘 예상 매출
+    int sumTotalPriceByBusinessIdAndDateAndStatusIn(
+            Long businessId, LocalDate date, List<ReservationStatus> statuses);
+
+    // 일별 예약 건수
+    List<DailyCount> countByBusinessIdAndDateRangeGroupByDate(
+            Long businessId, LocalDate startDate, LocalDate endDate);
+
+    // 최근 예약 목록
+    List<RecentReservation> findRecentByBusinessIdAndDate(Long businessId, LocalDate date, int limit);
 }

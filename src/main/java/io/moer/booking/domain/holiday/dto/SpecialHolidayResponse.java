@@ -16,10 +16,12 @@ public class SpecialHolidayResponse {
 
     private Long id;
     private Long businessId;
+    private String name;
 
     @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDate holidayDate;
+    private LocalDate date;
 
+    private String type;
     private String reason;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -29,7 +31,9 @@ public class SpecialHolidayResponse {
         return SpecialHolidayResponse.builder()
                 .id(holiday.getId())
                 .businessId(holiday.getBusinessId())
-                .holidayDate(holiday.getHolidayDate())
+                .name(holiday.getName())
+                .date(holiday.getDate())
+                .type(holiday.getType())
                 .reason(holiday.getReason())
                 .createdAt(holiday.getCreatedAt())
                 .build();

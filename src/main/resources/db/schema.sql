@@ -289,7 +289,7 @@ CREATE TABLE reservations (
                               id BIGSERIAL PRIMARY KEY,
                               business_id BIGINT NOT NULL,
                               customer_id BIGINT NOT NULL,
-                              staff_id BIGINT NOT NULL,
+                              staff_id BIGINT,
                               reservation_date DATE NOT NULL,
                               start_time TIME NOT NULL,
                               end_time TIME NOT NULL,

@@ -1,6 +1,5 @@
 package io.moer.booking.domain.reservation.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -20,36 +19,25 @@ import java.util.List;
 @AllArgsConstructor
 public class ReservationCreateRequest {
 
-    // ========================================
-    // Case 1: 관리자가 기존 고객으로 예약 등록
-    // ========================================
     /**
      * 기존 고객 ID (있으면 사용, 없으면 자동 생성)
      */
     private Long customerId;
 
-    // ========================================
-    // Case 2: 고객 자동 생성 (온라인 예약 or 신규 고객)
-    // ========================================
     /**
-     * 고객 이름 (자동 생성용)
+     * 고객 이름 (customerId가 없을 때 필수)
      */
-    @NotBlank(message = "고객 이름은 필수입니다")
     private String customerName;
 
     /**
-     * 고객 전화번호 (자동 생성용)
+     * 고객 전화번호 (customerId가 없을 때 필수)
      */
-    @NotBlank(message = "고객 전화번호는 필수입니다")
-    @Pattern(regexp = "^010-\\d{4}-\\d{4}$",
+    @Pattern(regexp = "^$|^010-\\d{4}-\\d{4}$",
             message = "전화번호 형식이 올바르지 않습니다 (예: 010-1234-5678)")
     private String customerPhone;
 
-    // ========================================
-    // 예약 정보
-    // ========================================
     /**
-     * 담당 직원 ID (NULL 가능 - 상관없음)
+     * 담당 직원 ID (NULL 가능)
      */
     private Long staffId;
 

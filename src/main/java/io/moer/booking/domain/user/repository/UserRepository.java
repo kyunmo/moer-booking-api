@@ -31,5 +31,7 @@ public interface UserRepository {
 
     List<User> search(UserSearchCondition condition);
 
-    long countSearch(UserSearchCondition condition);  // ← 추가
+    long countSearch(UserSearchCondition condition);
+
+    void updateBusinessId(@Param("userId") Long userId, @Param("businessId") Long businessId);
 }

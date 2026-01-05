@@ -2,9 +2,11 @@ package io.moer.booking.domain.customer.repository;
 
 import io.moer.booking.domain.customer.Customer;
 import io.moer.booking.domain.customer.dto.CustomerSearchCondition;
+import io.moer.booking.domain.dashboard.dto.RecentCustomer;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,4 +45,12 @@ public interface CustomerRepository {
     boolean existsByBusinessIdAndId(@Param("businessId") Long businessId,
                                     @Param("id") Long id);
     long countByBusinessId(Long businessId);
+
+
+    // 기간별 신규 고객 수
+    int countByBusinessIdAndCreatedAtBetween(
+            Long businessId, LocalDateTime startDateTime, LocalDateTime endDateTime);
+
+    // 최근 신규 고객
+    List<RecentCustomer> findRecentByBusinessId(Long businessId, int limit);
 }

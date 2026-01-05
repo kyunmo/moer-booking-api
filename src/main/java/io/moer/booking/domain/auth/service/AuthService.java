@@ -8,8 +8,17 @@ import io.moer.booking.domain.auth.RefreshToken;
 import io.moer.booking.domain.auth.dto.LoginRequest;
 import io.moer.booking.domain.auth.dto.LoginResponse;
 import io.moer.booking.domain.auth.dto.RefreshTokenRequest;
+import io.moer.booking.domain.auth.dto.RegisterRequest;  // 👈 추가
+import io.moer.booking.domain.auth.dto.RegisterResponse;  // 👈 추가
 import io.moer.booking.domain.auth.repository.RefreshTokenRepository;
+import io.moer.booking.domain.business.Business;  // 👈 추가
+import io.moer.booking.domain.business.BusinessStatus;  // 👈 추가
+import io.moer.booking.domain.business.dto.BusinessResponse;  // 👈 추가
+import io.moer.booking.domain.business.repository.BusinessRepository;  // 👈 추가
 import io.moer.booking.domain.user.User;
+import io.moer.booking.domain.user.UserRole;  // 👈 추가
+import io.moer.booking.domain.user.UserStatus;  // 👈 추가
+import io.moer.booking.domain.user.dto.UserResponse;  // 👈 추가
 import io.moer.booking.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +36,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final BusinessRepository businessRepository;  // 👈 추가
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
@@ -72,13 +82,8 @@ public class AuthService {
         log.info("User logged in: email={}, userId={}, role={}",
                 user.getEmail(), user.getId(), user.getRole());
 
-        // 7. 응답 생성 (expiresIn은 초 단위)
-        return LoginResponse.of(
-                accessToken,
-                refreshToken,
-                3600L,  // 1시간 = 3600초
-                user
-        );
+        // 7. 응답 생성
+        return LoginResponse.of(accessToken, refreshToken, 3600L, user);
     }
 
     /**
@@ -86,40 +91,27 @@ public class AuthService {
      */
     @Transactional
     public LoginResponse refreshAccessToken(RefreshTokenRequest request) {
-        String refreshTokenStr = request.getRefreshToken();
+        // 1. Refresh Token 조회
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
-        // 1. Refresh Token 검증
-        if (!tokenProvider.validateToken(refreshTokenStr)) {
-            throw new BusinessException(ErrorCode.EXPIRED_TOKEN, "Refresh Token이 유효하지 않습니다");
+        // 2. 토큰 만료 확인
+        if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            refreshTokenRepository.deleteByToken(request.getRefreshToken());
+            throw new BusinessException(ErrorCode.EXPIRED_TOKEN);
         }
 
-        // 2. DB에서 Refresh Token 조회
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenStr)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        ErrorCode.TOKEN_NOT_FOUND, "Refresh Token을 찾을 수 없습니다"));
-
-        // 3. 만료 확인
-        if (refreshToken.isExpired()) {
-            refreshTokenRepository.deleteByToken(refreshTokenStr);
-            throw new BusinessException(ErrorCode.EXPIRED_TOKEN, "Refresh Token이 만료되었습니다");
-        }
-
-        // 4. 사용자 조회
+        // 3. 사용자 조회
         User user = userRepository.findById(refreshToken.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
-        // 5. 새 Access Token 생성
+        // 4. 새 Access Token 생성
         String newAccessToken = tokenProvider.generateAccessToken(user);
 
         log.info("Access token refreshed: userId={}", user.getId());
 
-        // 6. 응답 (Refresh Token은 그대로 유지)
-        return LoginResponse.of(
-                newAccessToken,
-                refreshTokenStr,
-                3600L,
-                user
-        );
+        // 5. 응답 (기존 Refresh Token 유지)
+        return LoginResponse.of(newAccessToken, request.getRefreshToken(), 3600L, user);
     }
 
     /**
@@ -129,5 +121,74 @@ public class AuthService {
     public void logout(Long userId) {
         refreshTokenRepository.deleteByUserId(userId);
         log.info("User logged out: userId={}", userId);
+    }
+
+    /**
+     * 🆕 회원가입 (사용자 + 매장 통합 생성)
+     */
+    @Transactional
+    public RegisterResponse register(RegisterRequest request) {
+        // 1. 이메일 중복 확인
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
+        }
+
+        // 2. User 생성
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(encodedPassword)
+                .name(request.getName())
+                .phone(request.getPhone())
+                .role(UserRole.OWNER)
+                .status(UserStatus.ACTIVE)
+                .emailVerified("N")
+                .build();
+
+        userRepository.save(user);
+        log.info("User created: id={}, email={}", user.getId(), user.getEmail());
+
+        // 3. Business 생성
+        Business business = Business.builder()
+                .ownerId(user.getId())
+                .name(request.getBusinessName())
+                .businessType(request.getBusinessType())
+                .status(BusinessStatus.ACTIVE)
+                .build();
+
+        businessRepository.save(business);
+        log.info("Business created: id={}, name={}, ownerId={}",
+                business.getId(), business.getName(), user.getId());
+
+        // 4. User에 businessId 업데이트
+        userRepository.updateBusinessId(user.getId(), business.getId());
+        user.updateBusinessId(business.getId());
+
+        // 5. JWT 토큰 생성
+        String accessToken = tokenProvider.generateAccessToken(user);
+        String refreshToken = tokenProvider.generateRefreshToken(user);
+
+        // 6. Refresh Token 저장
+        RefreshToken refreshTokenEntity = RefreshToken.builder()
+                .userId(user.getId())
+                .token(refreshToken)
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+        refreshTokenRepository.save(refreshTokenEntity);
+
+        // 7. 응답 생성
+        UserResponse userResponse = UserResponse.from(user);
+        BusinessResponse businessResponse = BusinessResponse.from(business);
+
+        log.info("Registration completed: userId={}, businessId={}", user.getId(), business.getId());
+
+        return RegisterResponse.of(
+                accessToken,
+                refreshToken,
+                3600L,
+                userResponse,
+                businessResponse
+        );
     }
 }

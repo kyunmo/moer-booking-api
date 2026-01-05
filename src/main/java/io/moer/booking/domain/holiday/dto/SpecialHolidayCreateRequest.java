@@ -1,5 +1,6 @@
 package io.moer.booking.domain.holiday.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,8 +15,14 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class SpecialHolidayCreateRequest {
 
-    @NotNull(message = "휴무 날짜는 필수입니다")
-    private LocalDate holidayDate;
+    @NotBlank(message = "휴무일 이름은 필수입니다")
+    private String name;
 
-    private String reason;  // 휴무 사유 (예: 설날, 추석, 개인 사정)
+    @NotNull(message = "휴무 날짜는 필수입니다")
+    private LocalDate date;
+
+    @NotBlank(message = "휴무일 유형은 필수입니다")
+    private String type;  // REGULAR, TEMPORARY, NATIONAL
+
+    private String reason;  // 상세 사유 (선택)
 }

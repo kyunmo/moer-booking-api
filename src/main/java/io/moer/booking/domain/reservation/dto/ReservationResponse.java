@@ -25,8 +25,9 @@ public class ReservationResponse {
     private Long customerId;
     private Long staffId;
 
-    // 고객/직원 이름 (조인 필요 - 추후 구현)
+    // 고객/직원 이름
     private String customerName;
+    private String customerPhone;
     private String staffName;
 
     private String reservationNumber;

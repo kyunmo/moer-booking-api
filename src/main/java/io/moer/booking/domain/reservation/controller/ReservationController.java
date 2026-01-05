@@ -81,6 +81,21 @@ public class ReservationController {
         return ApiResponse.success(response);
     }
 
+
+    /**
+     * 기간별 예약 조회
+     * GET /api/businesses/{businessId}/reservations/date-range?startDate=2026-01-01&endDate=2026-01-31
+     */
+    @GetMapping("/date-range")
+    public ApiResponse<List<ReservationResponse>> getReservationsByDateRange(
+            @PathVariable Long businessId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+        List<ReservationResponse> response = reservationService.getReservationsByDateRange(
+                businessId, startDate, endDate);
+        return ApiResponse.success(response);
+    }
+
     /**
      * 예약 검색 (조건별)
      * GET /api/businesses/{businessId}/reservations/search
@@ -127,6 +142,19 @@ public class ReservationController {
     // ========================================
     // 상태 변경
     // ========================================
+
+    /**
+     * 예약 상태 변경 (통합)
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}/status
+     */
+    @PatchMapping("/{reservationId}/status")
+    public ApiResponse<ReservationResponse> updateReservationStatus(
+            @PathVariable Long businessId,
+            @PathVariable Long reservationId,
+            @RequestParam ReservationStatus status) {
+        ReservationResponse response = reservationService.updateReservationStatus(businessId, reservationId, status);
+        return ApiResponse.success(response);
+    }
 
     /**
      * 예약 확정
