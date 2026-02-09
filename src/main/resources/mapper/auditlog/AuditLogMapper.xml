@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.auditlog.repository.AuditLogRepository">
+
+    <!-- ResultMap -->
+    <resultMap id="auditLogResultMap" type="io.moer.booking.domain.auditlog.AuditLog">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="userRole" column="user_role"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="action" column="action"/>
+        <result property="entityType" column="entity_type"/>
+        <result property="entityId" column="entity_id"/>
+        <result property="description" column="description"/>
+        <result property="metadata" column="metadata"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="userAgent" column="user_agent"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- 감사 로그 저장 -->
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO audit_logs (
+            user_id, user_email, user_role,
+            action, entity_type, entity_id,
+            description, metadata,
+            ip_address, user_agent
+        ) VALUES (
+            #{userId},
+            #{userEmail},
+            #{userRole}::varchar,
+            #{action},
+            #{entityType},
+            #{entityId},
+            #{description},
+            #{metadata, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            #{ipAddress},
+            #{userAgent}
+        )
+    </insert>
+
+    <!-- ID로 조회 -->
+    <select id="findById" resultMap="auditLogResultMap">
+        SELECT * FROM audit_logs
+        WHERE id = #{id}
+    </select>
+
+    <!-- 검색 조건으로 조회 (페이징) -->
+    <select id="findByCondition" resultMap="auditLogResultMap">
+        SELECT * FROM audit_logs
+        <where>
+            <if test="condition.userId != null">
+                AND user_id = #{condition.userId}
+            </if>
+            <if test="condition.action != null and condition.action != ''">
+                AND action = #{condition.action}
+            </if>
+            <if test="condition.entityType != null and condition.entityType != ''">
+                AND entity_type = #{condition.entityType}
+            </if>
+            <if test="condition.startDate != null">
+                AND DATE(created_at) &gt;= #{condition.startDate}
+            </if>
+            <if test="condition.endDate != null">
+                AND DATE(created_at) &lt;= #{condition.endDate}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- 검색 조건으로 개수 조회 -->
+    <select id="countByCondition" resultType="int">
+        SELECT COUNT(*) FROM audit_logs
+        <where>
+            <if test="condition.userId != null">
+                AND user_id = #{condition.userId}
+            </if>
+            <if test="condition.action != null and condition.action != ''">
+                AND action = #{condition.action}
+            </if>
+            <if test="condition.entityType != null and condition.entityType != ''">
+                AND entity_type = #{condition.entityType}
+            </if>
+            <if test="condition.startDate != null">
+                AND DATE(created_at) &gt;= #{condition.startDate}
+            </if>
+            <if test="condition.endDate != null">
+                AND DATE(created_at) &lt;= #{condition.endDate}
+            </if>
+        </where>
+    </select>
+
+</mapper>

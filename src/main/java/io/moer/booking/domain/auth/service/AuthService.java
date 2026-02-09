@@ -135,7 +135,7 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
-        // 2. User 생성 (30일 체험판 자동 설정)
+        // 2. User 생성 (30일 체험판 자동 설정, 항상 OWNER 역할)
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         LocalDateTime now = LocalDateTime.now();
 

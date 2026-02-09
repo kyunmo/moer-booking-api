@@ -157,14 +157,16 @@ if (hasConflict) {
 | 도메인 | 상태 | 주요 기능 |
 |--------|------|----------|
 | **auth** | ✅ 완료 | 로그인, 회원가입, 토큰 갱신 |
-| **user** | ✅ 완료 | 사용자 CRUD, 역할 관리 (ADMIN/OWNER/STAFF) |
-| **business** | ✅ 완료 | 매장 정보, 설정 관리, 영업시간(JSONB) |
+| **user** | ✅ 완료 | 사용자 CRUD, 역할 관리 (SUPER_ADMIN/ADMIN/OWNER/STAFF) |
+| **business** | ✅ 완료 | 매장 정보, 설정 관리, 영업시간(JSONB), 권한 보안 강화 |
 | **staff** | ✅ 완료 | 직원 CRUD, 포트폴리오 관리 |
 | **service** | ✅ 완료 | 서비스 메뉴 CRUD |
 | **customer** | ✅ 완료 | 고객 CRUD, 이력 관리 |
 | **reservation** | ✅ 완료 | 예약 생성/조회/상태 관리, 시간 충돌 검증 |
 | **holiday** | ✅ 완료 | 특별 휴무일 관리 |
 | **dashboard** | ✅ 완료 | 오늘/주간/월간 통계 |
+| **auditlog** | ✅ 완료 | 감사 로그, 중요 액션 자동 기록 |
+| **superadmin** | ✅ 완료 | 슈퍼 관리자 전용 기능 (시스템 관리) |
 
 ### Reservation 도메인 (가장 복잡)
 
@@ -176,6 +178,29 @@ if (hasConflict) {
 - 예약 완료 시 자동으로 CustomerHistory 생성
 
 **참고**: [Reservation 도메인 상세 문서](./docs/02_domain/reservation.md)
+
+### 슈퍼 관리자 (SUPER_ADMIN) ⭐ 신규 추가
+
+**전체 시스템 관리 기능**:
+- **시스템 대시보드**: 전체 매장/사용자 통계, 매출 랭킹, 업종별 분석
+- **매장 관리**: 전체 매장 조회/검색/삭제/상태 일괄 변경
+- **사용자 관리**: 전체 사용자 조회, 역할 변경, 정지, 삭제
+- **감사 로그**: 중요 액션 이력 조회 (삭제, 역할 변경 등)
+
+**보안 강화**:
+- Business 도메인 전체 메서드에 권한 체크 추가
+- SUPER_ADMIN 회원가입 차단
+- SUPER_ADMIN 계정 삭제/정지 차단
+
+**초기 계정**:
+```
+Email: superadmin@moer.io
+Password: Admin123!
+```
+
+**📖 상세 문서**:
+- **[슈퍼 관리자 요약](./docs/superadmin_summary.md)** - 빠른 개요 및 API 명세
+- **[화면 구현 가이드](./docs/superadmin_frontend_guide.md)** - 프론트엔드 개발자용 완전 가이드 (130+ 페이지)
 
 ## 💡 코드 생성 시 체크리스트
 

@@ -505,4 +505,42 @@
         GROUP BY EXTRACT(DOW FROM reservation_date)
         ORDER BY dayOfWeek ASC
     </select>
+
+    <!-- ========================================
+         SuperAdmin 통계 쿼리
+         ======================================== -->
+
+    <!-- 특정 날짜의 전체 예약 수 -->
+    <select id="countByDate" resultType="long">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE reservation_date = #{date}
+          AND status IN ('PENDING', 'CONFIRMED', 'COMPLETED')
+    </select>
+
+    <!-- 특정 날짜의 전체 매출 -->
+    <select id="sumTotalPriceByDate" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE reservation_date = #{date}
+          AND status = 'COMPLETED'
+    </select>
+
+    <!-- 특정 월의 전체 매출 -->
+    <select id="sumTotalPriceByMonth" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE DATE_TRUNC('month', reservation_date) = DATE_TRUNC('month', #{date}::date)
+          AND status = 'COMPLETED'
+    </select>
+
+    <!-- 업종별 전체 매출 -->
+    <select id="sumRevenueByBusinessType" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(r.total_price), 0)
+        FROM reservations r
+        INNER JOIN businesses b ON r.business_id = b.id
+        WHERE b.business_type = #{type}
+          AND r.status = 'COMPLETED'
+    </select>
+
 </mapper>

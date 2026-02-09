@@ -1,9 +1,14 @@
 package io.moer.booking.domain.business.repository;
 
 import io.moer.booking.domain.business.Business;
+import io.moer.booking.domain.business.BusinessStatus;
+import io.moer.booking.domain.business.BusinessType;
 import io.moer.booking.domain.business.dto.BusinessSearchCondition;
+import io.moer.booking.domain.superadmin.dto.BusinessRevenueRank;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +33,14 @@ public interface BusinessRepository {
     // 검증
     boolean existsById(Long id);
     long countByOwnerId(Long ownerId);
+
+    // SuperAdmin 통계 쿼리
+    long countByStatus(BusinessStatus status);
+    long countByType(BusinessType type);
+    long countCreatedInMonth(LocalDate date);
+    List<BusinessRevenueRank> getRevenueRankingByDateRange(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("limit") int limit
+    );
 }

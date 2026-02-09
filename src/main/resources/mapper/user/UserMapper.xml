@@ -164,4 +164,34 @@
         WHERE id = #{userId}
     </update>
 
+    <!-- ========================================
+         SuperAdmin 통계 쿼리
+         ======================================== -->
+
+    <!-- 전체 사용자 수 -->
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM users
+    </select>
+
+    <!-- 역할별 사용자 수 -->
+    <select id="countByRole" resultType="long">
+        SELECT COUNT(*) FROM users
+        WHERE role = #{role}::varchar
+    </select>
+
+    <!-- 특정 월에 생성된 사용자 수 -->
+    <select id="countCreatedInMonth" resultType="long">
+        SELECT COUNT(*) FROM users
+        WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', #{date}::date)
+    </select>
+
+    <!-- ========================================
+         SuperAdmin 사용자 관리
+         ======================================== -->
+
+    <!-- 사용자 삭제 -->
+    <delete id="delete">
+        DELETE FROM users WHERE id = #{id}
+    </delete>
+
 </mapper>

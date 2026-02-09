@@ -63,6 +63,10 @@ public class User {
     // 헬퍼 메서드 - 역할 확인
     // ========================================
 
+    public boolean isSuperAdmin() {
+        return this.role == UserRole.SUPER_ADMIN;
+    }
+
     public boolean isAdmin() {
         return this.role == UserRole.ADMIN;
     }
@@ -95,8 +99,8 @@ public class User {
      * 특정 Business에 접근 가능한지 확인
      */
     public boolean canAccessBusiness(Long businessId) {
-        if (isAdmin()) {
-            return true;
+        if (isSuperAdmin() || isAdmin()) {
+            return true;  // SUPER_ADMIN, ADMIN 모두 전체 접근
         }
         return this.businessId != null && this.businessId.equals(businessId);
     }
@@ -105,7 +109,7 @@ public class User {
      * 특정 Staff에 접근 가능한지 확인
      */
     public boolean canAccessStaff(Long staffId) {
-        if (isAdmin()) {
+        if (isSuperAdmin() || isAdmin()) {
             return true;
         }
         if (isOwner()) {

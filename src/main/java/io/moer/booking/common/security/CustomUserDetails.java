@@ -37,6 +37,10 @@ public class CustomUserDetails implements UserDetails {
         return user.getBusinessId();
     }
 
+    public boolean isSuperAdmin() {
+        return user.isSuperAdmin();
+    }
+
     public boolean isAdmin() {
         return user.isAdmin();
     }

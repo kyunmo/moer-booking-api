@@ -1,6 +1,7 @@
 package io.moer.booking.domain.business.service;
 
 import io.moer.booking.common.dto.PageResponse;
+import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.business.Business;
@@ -12,6 +13,7 @@ import io.moer.booking.domain.business.dto.BusinessSearchCondition;
 import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
+import io.moer.booking.domain.user.User;
 import io.moer.booking.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -91,7 +93,15 @@ public class BusinessService {
     /**
      * 매장 단건 조회 (Settings 포함)
      */
-    public BusinessResponse getBusiness(Long id) {
+    public BusinessResponse getBusiness(Long id, User currentUser) {
+        Business business = businessRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        // 권한 체크
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
         return getBusinessWithSettings(id);
     }
 
@@ -134,9 +144,14 @@ public class BusinessService {
      * 매장 수정
      */
     @Transactional
-    public BusinessResponse updateBusiness(Long id, BusinessUpdateRequest request) {
+    public BusinessResponse updateBusiness(Long id, BusinessUpdateRequest request, User currentUser) {
         Business business = businessRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        // 권한 체크
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
 
         Business updatedBusiness = Business.builder()
                 .id(business.getId())
@@ -162,9 +177,14 @@ public class BusinessService {
      * 매장 Settings 수정
      */
     @Transactional
-    public BusinessResponse updateBusinessSettings(Long id, BusinessSettings newSettings) {
+    public BusinessResponse updateBusinessSettings(Long id, BusinessSettings newSettings, User currentUser) {
         if (!businessRepository.existsById(id)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        // 권한 체크
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
         }
 
         BusinessSettings existing = businessSettingsRepository.findByBusinessId(id)
@@ -209,9 +229,14 @@ public class BusinessService {
      * 매장 삭제
      */
     @Transactional
-    public void deleteBusiness(Long id) {
+    public void deleteBusiness(Long id, User currentUser) {
         if (!businessRepository.existsById(id)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        // 권한 체크
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
         }
 
         businessSettingsRepository.deleteByBusinessId(id);
@@ -224,9 +249,14 @@ public class BusinessService {
      * 매장 상태 변경
      */
     @Transactional
-    public BusinessResponse changeBusinessStatus(Long id, BusinessStatus status) {
+    public BusinessResponse changeBusinessStatus(Long id, BusinessStatus status, User currentUser) {
         Business business = businessRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        // 권한 체크
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
 
         Business updated = Business.builder()
                 .id(business.getId())

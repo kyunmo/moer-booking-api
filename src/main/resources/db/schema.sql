@@ -5,7 +5,7 @@ CREATE TABLE users (
                        password VARCHAR(255) NOT NULL,
                        name VARCHAR(50) NOT NULL,
                        phone VARCHAR(20),
-                       role VARCHAR(20) NOT NULL DEFAULT 'OWNER',  -- ADMIN, OWNER, STAFF
+                       role VARCHAR(20) NOT NULL DEFAULT 'OWNER',  -- SUPER_ADMIN, ADMIN, OWNER, STAFF
                        status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE, INACTIVE, SUSPENDED
                        staff_id BIGINT,
                        business_id BIGINT,
@@ -21,7 +21,7 @@ COMMENT ON COLUMN users.email IS '이메일 (로그인 ID)';
 COMMENT ON COLUMN users.password IS '비밀번호 (BCrypt 암호화)';
 COMMENT ON COLUMN users.name IS '이름';
 COMMENT ON COLUMN users.phone IS '전화번호';
-COMMENT ON COLUMN users.role IS '역할 (ADMIN: 시스템관리자, OWNER: 사장님, STAFF: 직원)';
+COMMENT ON COLUMN users.role IS '역할 (SUPER_ADMIN: 슈퍼관리자, ADMIN: 시스템관리자, OWNER: 사장님, STAFF: 직원)';
 COMMENT ON COLUMN users.status IS '상태 (ACTIVE: 활성, INACTIVE: 휴면, SUSPENDED: 정지)';
 COMMENT ON COLUMN users.staff_id IS '연결된 직원 ID (STAFF 역할인 경우)';
 COMMENT ON COLUMN users.business_id IS '소속 매장 ID (OWNER/STAFF)';
@@ -367,3 +367,56 @@ COMMENT ON COLUMN customer_histories.created_at IS '생성일시';
 -- 필수 인덱스만
 CREATE INDEX idx_customer_histories_customer_id ON customer_histories(customer_id);
 CREATE INDEX idx_customer_histories_business_date ON customer_histories(business_id, visit_date);
+
+-- 감사 로그 테이블
+CREATE TABLE audit_logs (
+                            id BIGSERIAL PRIMARY KEY,
+                            user_id BIGINT,
+                            user_email VARCHAR(100),
+                            user_role VARCHAR(20),
+
+                            action VARCHAR(50) NOT NULL,
+                            entity_type VARCHAR(50),
+                            entity_id BIGINT,
+
+                            description TEXT,
+                            metadata JSONB,
+
+                            ip_address VARCHAR(50),
+                            user_agent TEXT,
+
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE audit_logs IS '감사 로그 (시스템 중요 액션 기록)';
+COMMENT ON COLUMN audit_logs.id IS '로그 ID';
+COMMENT ON COLUMN audit_logs.user_id IS '액션 수행 사용자 ID';
+COMMENT ON COLUMN audit_logs.user_email IS '액션 수행 사용자 이메일';
+COMMENT ON COLUMN audit_logs.user_role IS '액션 수행 사용자 역할';
+COMMENT ON COLUMN audit_logs.action IS '액션 타입 (BUSINESS_CREATED, USER_ROLE_CHANGED 등)';
+COMMENT ON COLUMN audit_logs.entity_type IS '대상 엔티티 타입 (Business, User, Reservation 등)';
+COMMENT ON COLUMN audit_logs.entity_id IS '대상 엔티티 ID';
+COMMENT ON COLUMN audit_logs.description IS '액션 설명';
+COMMENT ON COLUMN audit_logs.metadata IS '추가 정보 (JSON - 변경 전/후 값 등)';
+COMMENT ON COLUMN audit_logs.ip_address IS 'IP 주소';
+COMMENT ON COLUMN audit_logs.user_agent IS 'User-Agent';
+COMMENT ON COLUMN audit_logs.created_at IS '생성일시';
+
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- 최초 슈퍼 관리자 계정 생성
+-- 이메일: superadmin@moer.io
+-- 비밀번호: Admin123! (실제 운영 시 변경 필수)
+INSERT INTO users (email, password, name, role, status, email_verified, created_at)
+VALUES (
+           'superadmin@moer.io',
+           '$2a$10$Z8hN5YjQzY1xQy5LZR5iZOQ5YJQp0Zv9zZ5ZYjQzY1xQy5LZR5iZO',  -- BCrypt hash of 'Admin123!'
+           '시스템 관리자',
+           'SUPER_ADMIN',
+           'ACTIVE',
+           'Y',
+           CURRENT_TIMESTAMP
+       );

@@ -138,4 +138,50 @@
         SELECT COUNT(*) FROM businesses WHERE owner_id = #{ownerId}
     </select>
 
+    <!-- ========================================
+         SuperAdmin 통계 쿼리
+         ======================================== -->
+
+    <!-- 상태별 매장 수 -->
+    <select id="countByStatus" resultType="long">
+        SELECT COUNT(*) FROM businesses
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 업종별 매장 수 -->
+    <select id="countByType" resultType="long">
+        SELECT COUNT(*) FROM businesses
+        WHERE business_type = #{type}
+    </select>
+
+    <!-- 특정 월에 생성된 매장 수 -->
+    <select id="countCreatedInMonth" resultType="long">
+        SELECT COUNT(*) FROM businesses
+        WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', #{date}::date)
+    </select>
+
+    <!-- 매출 랭킹 (기간별) -->
+    <select id="getRevenueRankingByDateRange"
+            resultType="io.moer.booking.domain.superadmin.dto.BusinessRevenueRank">
+        SELECT
+            b.id as businessId,
+            b.name as businessName,
+            u.name as ownerName,
+            COALESCE(SUM(r.total_price), 0) as totalRevenue,
+            COUNT(r.id) as reservationCount,
+            ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(r.total_price), 0) DESC) as rank
+        FROM businesses b
+        LEFT JOIN users u ON b.owner_id = u.id
+        LEFT JOIN reservations r ON b.id = r.business_id
+            AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+            AND r.status = 'COMPLETED'
+        GROUP BY b.id, b.name, u.name
+        ORDER BY totalRevenue DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

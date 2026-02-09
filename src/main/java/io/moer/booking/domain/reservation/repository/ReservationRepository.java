@@ -1,5 +1,6 @@
 package io.moer.booking.domain.reservation.repository;
 
+import io.moer.booking.domain.business.BusinessType;
 import io.moer.booking.domain.dashboard.dto.DailyCount;
 import io.moer.booking.domain.dashboard.dto.RecentReservation;
 import io.moer.booking.domain.reservation.Reservation;
@@ -8,6 +9,7 @@ import io.moer.booking.domain.reservation.dto.ReservationSearchCondition;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -298,4 +300,28 @@ public interface ReservationRepository {
             @Param("businessId") Long businessId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    // ========================================
+    // SuperAdmin 통계 쿼리
+    // ========================================
+
+    /**
+     * 특정 날짜의 전체 예약 수
+     */
+    long countByDate(LocalDate date);
+
+    /**
+     * 특정 날짜의 전체 매출
+     */
+    BigDecimal sumTotalPriceByDate(LocalDate date);
+
+    /**
+     * 특정 월의 전체 매출
+     */
+    BigDecimal sumTotalPriceByMonth(LocalDate date);
+
+    /**
+     * 업종별 전체 매출
+     */
+    BigDecimal sumRevenueByBusinessType(BusinessType type);
 }

@@ -2,6 +2,7 @@ package io.moer.booking.domain.business.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
+import io.moer.booking.common.security.CustomUserDetails;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.dto.BusinessCreateRequest;
@@ -11,6 +12,7 @@ import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
 import io.moer.booking.domain.business.service.BusinessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,8 +40,10 @@ public class BusinessController {
      * 매장 단건 조회
      */
     @GetMapping("/{id}")
-    public ApiResponse<BusinessResponse> getBusiness(@PathVariable Long id) {
-        BusinessResponse response = businessService.getBusiness(id);
+    public ApiResponse<BusinessResponse> getBusiness(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        BusinessResponse response = businessService.getBusiness(id, currentUser.getUser());
         return ApiResponse.success(response);
     }
 
@@ -66,9 +70,10 @@ public class BusinessController {
      */
     @PatchMapping("/{id}")
     public ApiResponse<BusinessResponse> updateBusiness(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable Long id,
             @Valid @RequestBody BusinessUpdateRequest request) {
-        BusinessResponse response = businessService.updateBusiness(id, request);
+        BusinessResponse response = businessService.updateBusiness(id, request, currentUser.getUser());
         return ApiResponse.success(response);
     }
 
@@ -77,9 +82,10 @@ public class BusinessController {
      */
     @PatchMapping("/{id}/settings")
     public ApiResponse<BusinessResponse> updateBusinessSettings(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable Long id,
             @RequestBody BusinessSettings settings) {
-        BusinessResponse response = businessService.updateBusinessSettings(id, settings);
+        BusinessResponse response = businessService.updateBusinessSettings(id, settings, currentUser.getUser());
         return ApiResponse.success(response);
     }
 
@@ -87,8 +93,10 @@ public class BusinessController {
      * 매장 삭제
      */
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteBusiness(@PathVariable Long id) {
-        businessService.deleteBusiness(id);
+    public ApiResponse<Void> deleteBusiness(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        businessService.deleteBusiness(id, currentUser.getUser());
         return ApiResponse.success();
     }
 
@@ -97,9 +105,10 @@ public class BusinessController {
      */
     @PatchMapping("/{id}/status")
     public ApiResponse<BusinessResponse> changeBusinessStatus(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable Long id,
             @RequestParam BusinessStatus status) {
-        BusinessResponse response = businessService.changeBusinessStatus(id, status);
+        BusinessResponse response = businessService.changeBusinessStatus(id, status, currentUser.getUser());
         return ApiResponse.success(response);
     }
 }
