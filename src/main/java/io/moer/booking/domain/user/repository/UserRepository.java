@@ -29,6 +29,8 @@ public interface UserRepository {
 
     void updateLastLoginAt(@Param("id") Long id, @Param("lastLoginAt") LocalDateTime lastLoginAt);
 
+    void updatePassword(@Param("id") Long id, @Param("password") String encodedPassword);
+
     List<User> search(UserSearchCondition condition);
 
     long countSearch(UserSearchCondition condition);

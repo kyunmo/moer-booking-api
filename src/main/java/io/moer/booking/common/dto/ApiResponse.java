@@ -11,34 +11,41 @@ public class ApiResponse<T> {
 
     private final boolean success;
     private final T data;
+    private final String message;
     private final ErrorInfo error;
     private final LocalDateTime timestamp;
 
-    private ApiResponse(boolean success, T data, ErrorInfo error) {
+    private ApiResponse(boolean success, T data, String message, ErrorInfo error) {
         this.success = success;
         this.data = data;
+        this.message = message;
         this.error = error;
         this.timestamp = LocalDateTime.now();
     }
 
     // 성공 응답 (데이터 있음)
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, data, null);
+        return new ApiResponse<>(true, data, null, null);
     }
 
     // 성공 응답 (데이터 없음)
     public static <T> ApiResponse<T> success() {
-        return new ApiResponse<>(true, null, null);
+        return new ApiResponse<>(true, null, null, null);
+    }
+
+    // 성공 응답 (메시지 포함)
+    public static <T> ApiResponse<T> success(T data, String message) {
+        return new ApiResponse<>(true, data, message, null);
     }
 
     // 실패 응답
     public static <T> ApiResponse<T> error(String code, String message) {
-        return new ApiResponse<>(false, null, new ErrorInfo(code, message));
+        return new ApiResponse<>(false, null, null, new ErrorInfo(code, message));
     }
 
     // 실패 응답 (상세 정보 포함)
     public static <T> ApiResponse<T> error(String code, String message, Object details) {
-        return new ApiResponse<>(false, null, new ErrorInfo(code, message, details));
+        return new ApiResponse<>(false, null, null, new ErrorInfo(code, message, details));
     }
 
     @Getter

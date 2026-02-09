@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 /**
  * 사용자 엔티티
@@ -42,6 +43,13 @@ public class User {
      * DB: CHAR(1)
      */
     private String emailVerified;
+
+    /**
+     * 체험판 관련 필드
+     */
+    private LocalDateTime trialStartedAt;
+    private LocalDateTime trialExpiresAt;
+    private String isPremium;  // Y/N
 
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
@@ -107,5 +115,48 @@ public class User {
             return this.staffId != null && this.staffId.equals(staffId);
         }
         return false;
+    }
+
+    // ========================================
+    // 헬퍼 메서드 - 체험판 관련
+    // ========================================
+
+    /**
+     * 체험판 진행 중인지 확인
+     */
+    public boolean isInTrial() {
+        return "N".equals(isPremium) &&
+               trialExpiresAt != null &&
+               LocalDateTime.now().isBefore(trialExpiresAt);
+    }
+
+    /**
+     * 체험판이 만료되었는지 확인
+     */
+    public boolean isTrialExpired() {
+        return "N".equals(isPremium) &&
+               trialExpiresAt != null &&
+               LocalDateTime.now().isAfter(trialExpiresAt);
+    }
+
+    /**
+     * 남은 체험판 일수 계산
+     */
+    public int getRemainingTrialDays() {
+        if (isTrialExpired() || isPremiumUser()) {
+            return 0;
+        }
+        if (trialExpiresAt == null) {
+            return 0;
+        }
+        long days = ChronoUnit.DAYS.between(LocalDateTime.now(), trialExpiresAt);
+        return (int) Math.max(0, days);
+    }
+
+    /**
+     * 프리미엄 사용자인지 확인
+     */
+    public boolean isPremiumUser() {
+        return "Y".equals(isPremium);
     }
 }

@@ -22,6 +22,7 @@ public class RegisterResponse {
 
     private UserResponse user;
     private BusinessResponse business;
+    private TrialInfo trial;  // 체험판 정보 추가
 
     public static RegisterResponse of(
             String accessToken,
@@ -36,6 +37,24 @@ public class RegisterResponse {
                 .expiresIn(expiresIn)
                 .user(user)
                 .business(business)
+                .build();
+    }
+
+    public static RegisterResponse of(
+            String accessToken,
+            String refreshToken,
+            Long expiresIn,
+            UserResponse user,
+            BusinessResponse business,
+            TrialInfo trial) {
+        return RegisterResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(expiresIn)
+                .user(user)
+                .business(business)
+                .trial(trial)
                 .build();
     }
 }

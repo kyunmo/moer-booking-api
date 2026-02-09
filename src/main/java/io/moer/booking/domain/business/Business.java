@@ -44,6 +44,21 @@ public class Business {
      */
     private BusinessStatus status;
 
+    /**
+     * 일일 매출 목표
+     */
+    private Integer dailyRevenueGoal;
+
+    /**
+     * 월간 매출 목표
+     */
+    private Integer monthlyRevenueGoal;
+
+    /**
+     * 월간 신규 고객 목표
+     */
+    private Integer monthlyNewCustomerGoal;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew bootRun:*)",
+      "Bash(docker exec:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
+    ]
+  }
+}

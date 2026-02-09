@@ -62,7 +62,22 @@ public enum ErrorCode {
     HOLIDAY_NOT_FOUND(HttpStatus.NOT_FOUND, "H001", "휴무일을 찾을 수 없습니다"),
 
     // History 관련 에러 (HI001) - 추가
-    HISTORY_NOT_FOUND(HttpStatus.NOT_FOUND, "HI001", "이력을 찾을 수 없습니다");
+    HISTORY_NOT_FOUND(HttpStatus.NOT_FOUND, "HI001", "이력을 찾을 수 없습니다"),
+
+    // Trial 관련 에러 (TR001~TR003)
+    TRIAL_EXPIRED(HttpStatus.FORBIDDEN, "TR001", "체험판 기간이 만료되었습니다"),
+    TRIAL_FEATURE_RESTRICTED(HttpStatus.FORBIDDEN, "TR002", "체험판에서는 사용할 수 없는 기능입니다"),
+    UPGRADE_REQUIRED(HttpStatus.PAYMENT_REQUIRED, "TR003", "프리미엄 업그레이드가 필요합니다"),
+
+    // Password Reset 관련 에러 (PR001~PR003)
+    RESET_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "PR001", "유효하지 않은 재설정 토큰입니다"),
+    RESET_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "PR002", "만료된 재설정 토큰입니다"),
+    RESET_TOKEN_USED(HttpStatus.BAD_REQUEST, "PR003", "이미 사용된 재설정 토큰입니다"),
+
+    // OAuth2 관련 에러 (OA001~OA003)
+    OAUTH2_PROVIDER_NOT_FOUND(HttpStatus.BAD_REQUEST, "OA001", "지원하지 않는 SNS 제공자입니다"),
+    OAUTH2_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "OA002", "SNS 로그인에 실패했습니다"),
+    OAUTH2_EMAIL_NOT_PROVIDED(HttpStatus.BAD_REQUEST, "OA003", "SNS에서 이메일 정보를 제공하지 않았습니다");
 
     private final HttpStatus status;
     private final String code;

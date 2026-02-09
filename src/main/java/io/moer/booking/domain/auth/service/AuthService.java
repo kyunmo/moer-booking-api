@@ -4,22 +4,21 @@ import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.common.security.JwtTokenProvider;
+import io.moer.booking.domain.auth.PasswordResetToken;
 import io.moer.booking.domain.auth.RefreshToken;
-import io.moer.booking.domain.auth.dto.LoginRequest;
-import io.moer.booking.domain.auth.dto.LoginResponse;
-import io.moer.booking.domain.auth.dto.RefreshTokenRequest;
-import io.moer.booking.domain.auth.dto.RegisterRequest;  // 👈 추가
-import io.moer.booking.domain.auth.dto.RegisterResponse;  // 👈 추가
+import io.moer.booking.domain.auth.dto.*;
+import io.moer.booking.domain.auth.repository.PasswordResetTokenRepository;
 import io.moer.booking.domain.auth.repository.RefreshTokenRepository;
-import io.moer.booking.domain.business.Business;  // 👈 추가
-import io.moer.booking.domain.business.BusinessStatus;  // 👈 추가
-import io.moer.booking.domain.business.dto.BusinessResponse;  // 👈 추가
-import io.moer.booking.domain.business.repository.BusinessRepository;  // 👈 추가
+import io.moer.booking.domain.business.Business;
+import io.moer.booking.domain.business.BusinessStatus;
+import io.moer.booking.domain.business.dto.BusinessResponse;
+import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.user.User;
-import io.moer.booking.domain.user.UserRole;  // 👈 추가
-import io.moer.booking.domain.user.UserStatus;  // 👈 추가
-import io.moer.booking.domain.user.dto.UserResponse;  // 👈 추가
+import io.moer.booking.domain.user.UserRole;
+import io.moer.booking.domain.user.UserStatus;
+import io.moer.booking.domain.user.dto.UserResponse;
 import io.moer.booking.domain.user.repository.UserRepository;
+import io.moer.booking.common.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -36,9 +36,11 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final BusinessRepository businessRepository;  // 👈 추가
+    private final BusinessRepository businessRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final EmailService emailService;
 
     /**
      * 로그인
@@ -133,8 +135,9 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
-        // 2. User 생성
+        // 2. User 생성 (30일 체험판 자동 설정)
         String encodedPassword = passwordEncoder.encode(request.getPassword());
+        LocalDateTime now = LocalDateTime.now();
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -144,6 +147,9 @@ public class AuthService {
                 .role(UserRole.OWNER)
                 .status(UserStatus.ACTIVE)
                 .emailVerified("N")
+                .trialStartedAt(now)
+                .trialExpiresAt(now.plusDays(30))
+                .isPremium("N")
                 .build();
 
         userRepository.save(user);
@@ -177,18 +183,96 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(refreshTokenEntity);
 
-        // 7. 응답 생성
+        // 7. 응답 생성 (체험판 정보 포함)
         UserResponse userResponse = UserResponse.from(user);
         BusinessResponse businessResponse = BusinessResponse.from(business);
+        TrialInfo trialInfo = TrialInfo.from(user);
 
-        log.info("Registration completed: userId={}, businessId={}", user.getId(), business.getId());
+        log.info("Registration completed: userId={}, businessId={}, trial expires at: {}",
+                user.getId(), business.getId(), user.getTrialExpiresAt());
 
         return RegisterResponse.of(
                 accessToken,
                 refreshToken,
                 3600L,
                 userResponse,
-                businessResponse
+                businessResponse,
+                trialInfo
         );
+    }
+
+    /**
+     * 🆕 비밀번호 찾기 요청
+     */
+    @Transactional
+    public void requestPasswordReset(String email) {
+        // 1. 사용자 조회
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        ErrorCode.USER_NOT_FOUND,
+                        "해당 이메일로 등록된 사용자를 찾을 수 없습니다: " + email
+                ));
+
+        // 2. 기존 미사용 토큰 삭제 (중복 방지)
+        passwordResetTokenRepository.deleteUnusedByUserId(user.getId());
+
+        // 3. 새 토큰 생성 (UUID, 30분 유효)
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .userId(user.getId())
+                .token(token)
+                .expiresAt(LocalDateTime.now().plusMinutes(30))
+                .used("N")
+                .build();
+        passwordResetTokenRepository.save(resetToken);
+
+        // 4. 비밀번호 재설정 이메일 발송 (비동기)
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), token);
+
+        log.info("Password reset requested: userId={}, email={}, tokenId={}",
+                user.getId(), user.getEmail(), resetToken.getId());
+    }
+
+    /**
+     * 🆕 비밀번호 재설정 실행
+     */
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        // 1. 토큰 조회
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESET_TOKEN_INVALID,
+                        "유효하지 않은 비밀번호 재설정 토큰입니다"
+                ));
+
+        // 2. 토큰 검증
+        if (resetToken.isUsed()) {
+            throw new BusinessException(
+                    ErrorCode.RESET_TOKEN_USED,
+                    "이미 사용된 비밀번호 재설정 토큰입니다"
+            );
+        }
+        if (resetToken.isExpired()) {
+            throw new BusinessException(
+                    ErrorCode.RESET_TOKEN_EXPIRED,
+                    "만료된 비밀번호 재설정 토큰입니다. 다시 요청해주세요."
+            );
+        }
+
+        // 3. 사용자 조회
+        User user = userRepository.findById(resetToken.getUserId())
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        // 4. 비밀번호 변경
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        userRepository.updatePassword(user.getId(), encodedPassword);
+
+        // 5. 토큰 사용 처리
+        passwordResetTokenRepository.markAsUsed(token);
+
+        // 6. 모든 Refresh Token 삭제 (재로그인 강제)
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        log.info("Password reset completed: userId={}, email={}", user.getId(), user.getEmail());
     }
 }

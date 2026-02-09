@@ -57,4 +57,59 @@ public interface CustomerRepository {
      * 최근 신규 고객
      */
     List<RecentCustomer> findRecentByBusinessId(Long businessId, int limit);
+
+    // ========================================
+    // 대시보드 통계 - 액션 알림
+    // ========================================
+
+    /**
+     * 오늘 생일인 고객 수
+     */
+    int countBirthdayCustomers(@Param("businessId") Long businessId,
+                                @Param("month") int month,
+                                @Param("day") int day);
+
+    /**
+     * 재방문 유도 대상 고객 수 (N개월 이상 미방문)
+     */
+    int countInactiveCustomers(@Param("businessId") Long businessId,
+                                @Param("monthsAgo") int monthsAgo);
+
+    // ========================================
+    // 대시보드 통계 - 고객 세그먼트
+    // ========================================
+
+    /**
+     * 단골 고객 수 (minVisits ~ maxVisits 회 방문)
+     */
+    int countByBusinessIdAndVisitCountBetween(
+            @Param("businessId") Long businessId,
+            @Param("minVisits") int minVisits,
+            @Param("maxVisits") int maxVisits);
+
+    /**
+     * 이탈 고객 수 (N개월 이상 미방문)
+     */
+    int countInactiveCustomersByLastVisit(
+            @Param("businessId") Long businessId,
+            @Param("monthsAgo") int monthsAgo);
+
+    /**
+     * 재방문 고객 수 (2회 이상)
+     */
+    int countReturningCustomers(@Param("businessId") Long businessId);
+
+    // ========================================
+    // 대시보드 통계 - 평균 지표
+    // ========================================
+
+    /**
+     * 평균 방문 횟수
+     */
+    Double getAverageVisitCount(@Param("businessId") Long businessId);
+
+    /**
+     * 평균 고객 생애 가치 (LTV)
+     */
+    Integer getAverageCustomerLifetimeValue(@Param("businessId") Long businessId);
 }

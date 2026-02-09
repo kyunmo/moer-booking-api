@@ -92,11 +92,13 @@ public class Reservation {
 
     /**
      * 취소 가능 여부
-     * PENDING, CONFIRMED → CANCELLED
+     * PENDING, CONFIRMED, COMPLETED → CANCELLED
+     * (COMPLETED 취소 시 고객 통계 롤백 필요)
      */
     public boolean canCancel() {
         return ReservationStatus.PENDING.equals(this.status) ||
-                ReservationStatus.CONFIRMED.equals(this.status);
+                ReservationStatus.CONFIRMED.equals(this.status) ||
+                ReservationStatus.COMPLETED.equals(this.status);
     }
 
     /**

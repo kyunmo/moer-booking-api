@@ -2,11 +2,7 @@ package io.moer.booking.domain.auth.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.security.CustomUserDetails;
-import io.moer.booking.domain.auth.dto.LoginRequest;
-import io.moer.booking.domain.auth.dto.LoginResponse;
-import io.moer.booking.domain.auth.dto.RefreshTokenRequest;
-import io.moer.booking.domain.auth.dto.RegisterRequest;  // 👈 추가
-import io.moer.booking.domain.auth.dto.RegisterResponse;  // 👈 추가
+import io.moer.booking.domain.auth.dto.*;
 import io.moer.booking.domain.auth.service.AuthService;
 import io.moer.booking.domain.user.dto.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,5 +68,31 @@ public class AuthController {
     public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         RegisterResponse response = authService.register(request);
         return ApiResponse.success(response);
+    }
+
+    @Operation(
+            summary = "비밀번호 찾기",
+            description = "이메일로 비밀번호 재설정 링크를 발송합니다."
+    )
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request.getEmail());
+        return ApiResponse.success(
+                null,
+                "비밀번호 재설정 이메일을 발송했습니다. 이메일을 확인해주세요."
+        );
+    }
+
+    @Operation(
+            summary = "비밀번호 재설정",
+            description = "토큰을 사용하여 새 비밀번호로 변경합니다."
+    )
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getToken(), request.getNewPassword());
+        return ApiResponse.success(
+                null,
+                "비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요."
+        );
     }
 }

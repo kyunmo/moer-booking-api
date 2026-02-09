@@ -178,4 +178,124 @@ public interface ReservationRepository {
      * 최근 예약 목록
      */
     List<RecentReservation> findRecentByBusinessIdAndDate(Long businessId, LocalDate date, int limit);
+
+    // ========================================
+    // 대시보드 통계 - 취소/노쇼
+    // ========================================
+
+    /**
+     * 기간별 상태별 예약 수
+     */
+    int countByBusinessIdAndDateRangeAndStatus(
+            Long businessId, LocalDate startDate, LocalDate endDate, ReservationStatus status);
+
+    /**
+     * 기간별 상태별 매출 손실액 (취소/노쇼)
+     */
+    Integer sumTotalPriceByBusinessIdAndDateRangeAndStatusIn(
+            Long businessId, LocalDate startDate, LocalDate endDate, List<ReservationStatus> statuses);
+
+    // ========================================
+    // 대시보드 통계 - 액션 알림
+    // ========================================
+
+    /**
+     * 1시간 이내 시작 예약 수
+     */
+    int countUpcomingReservations(
+            @Param("businessId") Long businessId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    // ========================================
+    // 대시보드 통계 - 직원 성과
+    // ========================================
+
+    /**
+     * 직원별 예약 수 및 매출
+     */
+    List<io.moer.booking.domain.dashboard.dto.StaffPerformance> getStaffPerformance(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("limit") int limit);
+
+    // ========================================
+    // 대시보드 통계 - 서비스 통계
+    // ========================================
+
+    /**
+     * 인기 서비스 TOP N
+     */
+    List<io.moer.booking.domain.dashboard.dto.ServiceStats> getPopularServices(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("limit") int limit);
+
+    // ========================================
+    // 대시보드 통계 - 평균 지표
+    // ========================================
+
+    /**
+     * 평균 예약 금액
+     */
+    Integer getAverageReservationAmount(
+            @Param("businessId") Long businessId,
+            @Param("status") ReservationStatus status);
+
+    /**
+     * 평균 서비스 시간
+     */
+    Integer getAverageServiceDuration(
+            @Param("businessId") Long businessId,
+            @Param("status") ReservationStatus status);
+
+    // ========================================
+    // 대시보드 통계 - 매출 트렌드
+    // ========================================
+
+    /**
+     * 특정 날짜의 매출
+     */
+    Integer getRevenueByDate(
+            @Param("businessId") Long businessId,
+            @Param("date") LocalDate date);
+
+    /**
+     * 기간별 매출
+     */
+    Integer getRevenueByDateRange(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    /**
+     * 월별 매출 및 예약 수 (그래프용)
+     */
+    List<io.moer.booking.domain.dashboard.dto.MonthlyRevenue> getMonthlyRevenues(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    // ========================================
+    // 대시보드 통계 - 시간대 분석
+    // ========================================
+
+    /**
+     * 시간대별 예약 분포
+     */
+    List<io.moer.booking.domain.dashboard.dto.HourlyCount> getHourlyDistribution(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    /**
+     * 요일별 예약 분포
+     */
+    List<io.moer.booking.domain.dashboard.dto.DayOfWeekCount> getWeekdayDistribution(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

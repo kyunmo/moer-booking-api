@@ -34,6 +34,13 @@ dependencies {
     // Spring Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // OAuth2 Client (SNS 로그인)
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+
+    // Email & Template
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
+
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.3")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3")

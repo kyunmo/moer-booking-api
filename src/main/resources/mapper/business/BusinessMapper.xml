@@ -20,6 +20,9 @@
                 typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
         <result property="status" column="status"
                 typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="dailyRevenueGoal" column="daily_revenue_goal"/>
+        <result property="monthlyRevenueGoal" column="monthly_revenue_goal"/>
+        <result property="monthlyNewCustomerGoal" column="monthly_new_customer_goal"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>

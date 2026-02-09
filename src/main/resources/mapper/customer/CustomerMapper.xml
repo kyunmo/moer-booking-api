@@ -182,4 +182,78 @@
         ORDER BY created_at DESC
             LIMIT #{limit}
     </select>
+
+    <!-- ========================================
+         대시보드 통계 - 액션 알림
+         ======================================== -->
+
+    <!-- 오늘 생일인 고객 수 -->
+    <select id="countBirthdayCustomers" resultType="int">
+        SELECT COUNT(*)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND birth_date IS NOT NULL
+          AND EXTRACT(MONTH FROM birth_date) = #{month}
+          AND EXTRACT(DAY FROM birth_date) = #{day}
+    </select>
+
+    <!-- 재방문 유도 대상 고객 수 (N개월 이상 미방문) -->
+    <select id="countInactiveCustomers" resultType="int">
+        SELECT COUNT(*)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND last_visit_date IS NOT NULL
+          AND last_visit_date <![CDATA[<]]> CURRENT_DATE - INTERVAL '${monthsAgo} months'
+          AND visit_count > 0
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 고객 세그먼트
+         ======================================== -->
+
+    <!-- 방문 횟수 범위별 고객 수 -->
+    <select id="countByBusinessIdAndVisitCountBetween" resultType="int">
+        SELECT COUNT(*)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND visit_count BETWEEN #{minVisits} AND #{maxVisits}
+    </select>
+
+    <!-- 이탈 고객 수 (N개월 이상 미방문) -->
+    <select id="countInactiveCustomersByLastVisit" resultType="int">
+        SELECT COUNT(*)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND last_visit_date IS NOT NULL
+          AND last_visit_date <![CDATA[<]]> CURRENT_DATE - INTERVAL '${monthsAgo} months'
+          AND visit_count > 0
+    </select>
+
+    <!-- 재방문 고객 수 (2회 이상) -->
+    <select id="countReturningCustomers" resultType="int">
+        SELECT COUNT(*)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND visit_count >= 2
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 평균 지표
+         ======================================== -->
+
+    <!-- 평균 방문 횟수 -->
+    <select id="getAverageVisitCount" resultType="Double">
+        SELECT COALESCE(AVG(visit_count), 0.0)
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND visit_count > 0
+    </select>
+
+    <!-- 평균 고객 생애 가치 (LTV) -->
+    <select id="getAverageCustomerLifetimeValue" resultType="Integer">
+        SELECT COALESCE(AVG(total_spent), 0)::integer
+        FROM customers
+        WHERE business_id = #{businessId}
+          AND visit_count > 0
+    </select>
 </mapper>

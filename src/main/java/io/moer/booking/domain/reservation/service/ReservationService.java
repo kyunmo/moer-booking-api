@@ -553,6 +553,13 @@ public class ReservationService {
         // 예약 상태 변경
         reservationRepository.updateStatus(reservationId, ReservationStatus.COMPLETED);
 
+        // Customer 통계 업데이트 (visitCount +1, totalSpent +금액, lastVisitDate, tags 자동 업데이트)
+        customerService.updateVisitStats(
+                reservation.getCustomerId(),
+                reservation.getTotalPrice(),
+                reservation.getReservationDate()
+        );
+
         // CustomerHistory 자동 생성
         customerHistoryService.createHistoryFromReservation(
                 businessId,
@@ -565,8 +572,8 @@ public class ReservationService {
                 reservation.getTotalPrice()
         );
 
-        log.info("Reservation completed and history created: id={}, businessId={}",
-                reservationId, businessId);
+        log.info("Reservation completed, customer stats updated, and history created: id={}, businessId={}, customerId={}",
+                reservationId, businessId, reservation.getCustomerId());
 
         return getReservation(businessId, reservationId);
     }
@@ -585,8 +592,11 @@ public class ReservationService {
 
         if (!reservation.canCancel()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
-                    "대기 또는 확정 상태의 예약만 취소할 수 있습니다");
+                    "이미 취소된 예약은 다시 취소할 수 없습니다");
         }
+
+        // COMPLETED 상태였다면 고객 통계 롤백 필요
+        boolean wasCompleted = reservation.isCompleted();
 
         // 취소 정보 업데이트
         Reservation cancelledReservation = Reservation.builder()
@@ -598,10 +608,22 @@ public class ReservationService {
 
         reservationRepository.updateCancellation(cancelledReservation);
 
+        // COMPLETED 상태였던 예약 취소 시 고객 통계 롤백
+        if (wasCompleted) {
+            customerService.rollbackVisitStats(
+                    reservation.getCustomerId(),
+                    reservation.getTotalPrice()
+            );
+
+            log.info("Customer visit stats rolled back due to completed reservation cancellation: " +
+                            "reservationId={}, customerId={}, amount={}",
+                    reservationId, reservation.getCustomerId(), reservation.getTotalPrice());
+        }
+
         // TODO: 카카오톡 알림 발송
 
-        log.info("Reservation cancelled: id={}, businessId={}, reason={}",
-                reservationId, businessId, reason);
+        log.info("Reservation cancelled: id={}, businessId={}, wasCompleted={}, reason={}",
+                reservationId, businessId, wasCompleted, reason);
 
         return getReservation(businessId, reservationId);
     }

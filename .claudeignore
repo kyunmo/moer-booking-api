@@ -1,0 +1,19 @@
+# moer-reservation-system-backend/.claudeignore
+
+# 빌드 결과물
+target/
+*.class
+*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 로그
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

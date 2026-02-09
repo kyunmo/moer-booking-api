@@ -16,6 +16,9 @@
         <result property="staffId" column="staff_id"/>
         <result property="businessId" column="business_id"/>
         <result property="emailVerified" column="email_verified"/>
+        <result property="trialStartedAt" column="trial_started_at"/>
+        <result property="trialExpiresAt" column="trial_expires_at"/>
+        <result property="isPremium" column="is_premium"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -25,6 +28,7 @@
     <sql id="baseColumns">
         id, email, password, name, phone, role, status,
         staff_id, business_id, email_verified,
+        trial_started_at, trial_expires_at, is_premium,
         last_login_at, created_at, updated_at
     </sql>
 
@@ -60,11 +64,13 @@
     <insert id="save" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO users (
             email, password, name, phone, role, status,
-            staff_id, business_id, email_verified
+            staff_id, business_id, email_verified,
+            trial_started_at, trial_expires_at, is_premium
         ) VALUES (
             #{email}, #{password}, #{name}, #{phone},
             #{role}, #{status},
-            #{staffId}, #{businessId}, #{emailVerified}
+            #{staffId}, #{businessId}, #{emailVerified},
+            #{trialStartedAt}, #{trialExpiresAt}, #{isPremium}
         )
     </insert>
 
@@ -91,6 +97,14 @@
     <update id="updateLastLoginAt">
         UPDATE users
         SET last_login_at = #{lastLoginAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 비밀번호 업데이트 -->
+    <update id="updatePassword">
+        UPDATE users
+        SET password = #{password},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>

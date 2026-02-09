@@ -303,4 +303,206 @@
         ORDER BY r.start_time ASC
             LIMIT #{limit}
     </select>
+
+    <!-- ========================================
+         대시보드 통계 - 취소/노쇼
+         ======================================== -->
+
+    <!-- 기간별 상태별 예약 수 -->
+    <select id="countByBusinessIdAndDateRangeAndStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status = #{status}
+    </select>
+
+    <!-- 기간별 상태별 매출 손실액 -->
+    <select id="sumTotalPriceByBusinessIdAndDateRangeAndStatusIn" resultType="Integer">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status IN
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 액션 알림
+         ======================================== -->
+
+    <!-- 1시간 이내 시작 예약 수 -->
+    <select id="countUpcomingReservations" resultType="int">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date = #{date}
+          AND start_time BETWEEN #{startTime} AND #{endTime}
+          AND status IN ('PENDING', 'CONFIRMED')
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 직원 성과
+         ======================================== -->
+
+    <!-- 직원별 예약 수 및 매출 -->
+    <select id="getStaffPerformance" resultType="io.moer.booking.domain.dashboard.dto.StaffPerformance">
+        SELECT
+            s.id AS staffId,
+            s.name AS staffName,
+            COUNT(r.id) AS reservationCount,
+            COALESCE(SUM(CASE WHEN r.status = 'COMPLETED' THEN r.total_price ELSE 0 END), 0) AS totalRevenue,
+            COALESCE(AVG(r.total_duration), 0) AS averageDuration
+        FROM staffs s
+        LEFT JOIN reservations r ON s.id = r.staff_id
+            AND r.business_id = #{businessId}
+            AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+        WHERE s.business_id = #{businessId}
+        GROUP BY s.id, s.name
+        ORDER BY totalRevenue DESC, reservationCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 서비스 통계
+         ======================================== -->
+
+    <!-- 인기 서비스 TOP N -->
+    <select id="getPopularServices" resultType="io.moer.booking.domain.dashboard.dto.ServiceStats">
+        WITH service_data AS (
+            SELECT
+                (jsonb_array_elements(r.services)->>'id')::bigint AS service_id,
+                jsonb_array_elements(r.services)->>'name' AS service_name,
+                (jsonb_array_elements(r.services)->>'price')::integer AS service_price,
+                r.status
+            FROM reservations r
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+        ),
+        service_totals AS (
+            SELECT
+                service_id AS serviceId,
+                service_name AS serviceName,
+                COUNT(*) AS reservationCount,
+                COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN service_price ELSE 0 END), 0) AS totalRevenue,
+                COALESCE(AVG(service_price), 0) AS averagePrice
+            FROM service_data
+            GROUP BY service_id, service_name
+        ),
+        total_revenue AS (
+            SELECT COALESCE(SUM(totalRevenue), 1) AS total_rev
+            FROM service_totals
+        )
+        SELECT
+            st.serviceId,
+            st.serviceName,
+            st.reservationCount,
+            st.totalRevenue,
+            st.averagePrice,
+            ROUND((st.totalRevenue::numeric / tr.total_rev::numeric) * 100, 2) AS revenuePercentage
+        FROM service_totals st
+        CROSS JOIN total_revenue tr
+        ORDER BY st.reservationCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 평균 지표
+         ======================================== -->
+
+    <!-- 평균 예약 금액 -->
+    <select id="getAverageReservationAmount" resultType="Integer">
+        SELECT COALESCE(AVG(total_price), 0)::integer
+        FROM reservations
+        WHERE business_id = #{businessId}
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <!-- 평균 서비스 시간 -->
+    <select id="getAverageServiceDuration" resultType="Integer">
+        SELECT COALESCE(AVG(total_duration), 0)::integer
+        FROM reservations
+        WHERE business_id = #{businessId}
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 매출 트렌드
+         ======================================== -->
+
+    <!-- 특정 날짜의 매출 -->
+    <select id="getRevenueByDate" resultType="Integer">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date = #{date}
+          AND status = 'COMPLETED'
+    </select>
+
+    <!-- 기간별 매출 -->
+    <select id="getRevenueByDateRange" resultType="Integer">
+        SELECT COALESCE(SUM(total_price), 0)
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status = 'COMPLETED'
+    </select>
+
+    <!-- 월별 매출 및 예약 수 (그래프용) -->
+    <select id="getMonthlyRevenues" resultType="io.moer.booking.domain.dashboard.dto.MonthlyRevenue">
+        SELECT
+            TO_CHAR(reservation_date, 'YYYY-MM') AS yearMonth,
+            COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN total_price ELSE 0 END), 0) AS revenue,
+            COUNT(*) AS reservationCount
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY TO_CHAR(reservation_date, 'YYYY-MM')
+        ORDER BY yearMonth ASC
+    </select>
+
+    <!-- ========================================
+         대시보드 통계 - 시간대 분석
+         ======================================== -->
+
+    <!-- 시간대별 예약 분포 -->
+    <select id="getHourlyDistribution" resultType="io.moer.booking.domain.dashboard.dto.HourlyCount">
+        SELECT
+            TO_CHAR(start_time, 'HH24:00') AS hour,
+            COUNT(*) AS count
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status IN ('PENDING', 'CONFIRMED', 'COMPLETED')
+        GROUP BY TO_CHAR(start_time, 'HH24:00')
+        ORDER BY hour ASC
+    </select>
+
+    <!-- 요일별 예약 분포 -->
+    <select id="getWeekdayDistribution" resultType="io.moer.booking.domain.dashboard.dto.DayOfWeekCount">
+        SELECT
+            EXTRACT(DOW FROM reservation_date) AS dayOfWeek,
+            CASE EXTRACT(DOW FROM reservation_date)
+                WHEN 0 THEN '일'
+                WHEN 1 THEN '월'
+                WHEN 2 THEN '화'
+                WHEN 3 THEN '수'
+                WHEN 4 THEN '목'
+                WHEN 5 THEN '금'
+                WHEN 6 THEN '토'
+            END AS dayName,
+            COUNT(*) AS count
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status IN ('PENDING', 'CONFIRMED', 'COMPLETED')
+        GROUP BY EXTRACT(DOW FROM reservation_date)
+        ORDER BY dayOfWeek ASC
+    </select>
 </mapper>

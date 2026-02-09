@@ -253,4 +253,114 @@ public class CustomerService {
 
         return newCustomer;
     }
+
+    /**
+     * 예약 완료 시 고객 통계 업데이트
+     * - visitCount +1
+     * - totalSpent +금액
+     * - lastVisitDate 업데이트
+     * - visitCount 기반 tags 자동 업데이트 (VIP, 단골, 신규)
+     */
+    @Transactional
+    public void updateVisitStats(Long customerId, int amount, java.time.LocalDate visitDate) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        // 통계 업데이트
+        int newVisitCount = (customer.getVisitCount() != null ? customer.getVisitCount() : 0) + 1;
+        int newTotalSpent = (customer.getTotalSpent() != null ? customer.getTotalSpent() : 0) + amount;
+
+        // tags 자동 업데이트
+        String newTags = generateAutoTags(newVisitCount);
+
+        // DB 업데이트
+        customerRepository.updateVisitStats(customerId, newVisitCount, newTotalSpent, visitDate);
+
+        // tags 업데이트 (별도 쿼리)
+        Customer updatedCustomer = Customer.builder()
+                .id(customer.getId())
+                .businessId(customer.getBusinessId())
+                .name(customer.getName())
+                .phone(customer.getPhone())
+                .email(customer.getEmail())
+                .birthDate(customer.getBirthDate())
+                .gender(customer.getGender())
+                .visitCount(newVisitCount)
+                .totalSpent(newTotalSpent)
+                .lastVisitDate(visitDate)
+                .tags(newTags)
+                .memo(customer.getMemo())
+                .createdAt(customer.getCreatedAt())
+                .build();
+
+        customerRepository.update(updatedCustomer);
+
+        log.info("Customer visit stats updated: id={}, visitCount={}, totalSpent={}, lastVisitDate={}, tags={}",
+                customerId, newVisitCount, newTotalSpent, visitDate, newTags);
+    }
+
+    /**
+     * 예약 취소 시 고객 통계 롤백
+     * - visitCount -1
+     * - totalSpent -금액
+     */
+    @Transactional
+    public void rollbackVisitStats(Long customerId, int amount) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        // 통계 롤백
+        int newVisitCount = Math.max(0, (customer.getVisitCount() != null ? customer.getVisitCount() : 0) - 1);
+        int newTotalSpent = Math.max(0, (customer.getTotalSpent() != null ? customer.getTotalSpent() : 0) - amount);
+
+        // tags 자동 업데이트
+        String newTags = generateAutoTags(newVisitCount);
+
+        // lastVisitDate는 유지 (다른 완료된 예약이 있을 수 있으므로)
+        customerRepository.updateVisitStats(customerId, newVisitCount, newTotalSpent, customer.getLastVisitDate());
+
+        // tags 업데이트
+        Customer updatedCustomer = Customer.builder()
+                .id(customer.getId())
+                .businessId(customer.getBusinessId())
+                .name(customer.getName())
+                .phone(customer.getPhone())
+                .email(customer.getEmail())
+                .birthDate(customer.getBirthDate())
+                .gender(customer.getGender())
+                .visitCount(newVisitCount)
+                .totalSpent(newTotalSpent)
+                .lastVisitDate(customer.getLastVisitDate())
+                .tags(newTags)
+                .memo(customer.getMemo())
+                .createdAt(customer.getCreatedAt())
+                .build();
+
+        customerRepository.update(updatedCustomer);
+
+        log.info("Customer visit stats rolled back: id={}, visitCount={}, totalSpent={}, tags={}",
+                customerId, newVisitCount, newTotalSpent, newTags);
+    }
+
+    /**
+     * visitCount 기반 자동 태그 생성
+     * - VIP: 10회 이상
+     * - 단골: 3회 이상
+     * - 신규: 1회
+     */
+    private String generateAutoTags(int visitCount) {
+        List<String> tags = new java.util.ArrayList<>();
+
+        if (visitCount >= 10) {
+            tags.add("VIP");
+        }
+        if (visitCount >= 3) {
+            tags.add("단골");
+        }
+        if (visitCount == 1) {
+            tags.add("신규");
+        }
+
+        return tags.isEmpty() ? null : String.join(",", tags);
+    }
 }

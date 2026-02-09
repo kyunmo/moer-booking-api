@@ -1,8 +1,11 @@
 package io.moer.booking.common.config;
 
+import io.moer.booking.common.security.CustomOAuth2UserService;
 import io.moer.booking.common.security.CustomUserDetailsService;
 import io.moer.booking.common.security.JwtAuthenticationFilter;
 import io.moer.booking.common.security.JwtTokenProvider;
+import io.moer.booking.common.security.OAuth2AuthenticationFailureHandler;
+import io.moer.booking.common.security.OAuth2AuthenticationSuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,7 +18,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -33,11 +35,10 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtTokenProvider tokenProvider;
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2AuthenticationSuccessHandler oauth2SuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oauth2FailureHandler;
+    private final PasswordEncoder passwordEncoder;
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
@@ -47,7 +48,7 @@ public class SecurityConfig {
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
+        authProvider.setPasswordEncoder(passwordEncoder);
         return authProvider;
     }
 
@@ -85,6 +86,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/error").permitAll()
 
+                        // OAuth2 엔드포인트 (Phase 3: SNS 로그인)
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
                         // Swagger/API 문서 (개발 환경)
                         .requestMatchers(
                                 "/v3/api-docs/**",
@@ -96,6 +100,16 @@ public class SecurityConfig {
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(authorization -> authorization
+                                .baseUri("/oauth2/authorize"))
+                        .redirectionEndpoint(redirection -> redirection
+                                .baseUri("/login/oauth2/code/*"))
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService))
+                        .successHandler(oauth2SuccessHandler)
+                        .failureHandler(oauth2FailureHandler)
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter(),
