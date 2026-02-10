@@ -4,16 +4,19 @@ import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.auditlog.AuditLog;
+import io.moer.booking.domain.auditlog.AuditAction;
 import io.moer.booking.domain.auditlog.dto.AuditLogCreateRequest;
 import io.moer.booking.domain.auditlog.dto.AuditLogResponse;
 import io.moer.booking.domain.auditlog.dto.AuditLogSearchCondition;
 import io.moer.booking.domain.auditlog.repository.AuditLogRepository;
+import io.moer.booking.domain.user.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -46,6 +49,28 @@ public class AuditLogService {
 
         log.info("Audit log created: userId={}, action={}, entityType={}, entityId={}",
                 request.getUserId(), request.getAction(), request.getEntityType(), request.getEntityId());
+    }
+
+    /**
+     * 감사 로그 기록 (간편 메서드)
+     */
+    @Transactional
+    public void log(User user, AuditAction action, String entityType, Long entityId, String description, Map<String, Object> metadata) {
+        AuditLog auditLog = AuditLog.builder()
+                .userId(user != null ? user.getId() : null)
+                .userEmail(user != null ? user.getEmail() : "SYSTEM")
+                .userRole(user != null ? user.getRole() : null)
+                .action(action.name())
+                .entityType(entityType)
+                .entityId(entityId)
+                .description(description)
+                .metadata(metadata)
+                .build();
+
+        auditLogRepository.save(auditLog);
+
+        log.info("Audit log created: userId={}, action={}, entityType={}, entityId={}",
+                user != null ? user.getId() : "SYSTEM", action, entityType, entityId);
     }
 
     /**

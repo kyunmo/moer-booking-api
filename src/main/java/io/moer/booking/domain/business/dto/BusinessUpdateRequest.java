@@ -1,5 +1,6 @@
 package io.moer.booking.domain.business.dto;
 
+import io.moer.booking.domain.business.BusinessType;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,6 +20,11 @@ public class BusinessUpdateRequest {
     @Size(min = 2, max = 100, message = "매장명은 2~100자 사이여야 합니다")
     private String name;
 
+    /**
+     * 업종
+     */
+    private BusinessType businessType;
+
     private String phone;
     private String address;
     private String description;
@@ -27,4 +33,19 @@ public class BusinessUpdateRequest {
      * 영업시간 (JSONB)
      */
     private Map<String, Object> businessHours;
+
+    /**
+     * 일일 매출 목표
+     */
+    private Integer dailyRevenueGoal;
+
+    /**
+     * 월간 매출 목표
+     */
+    private Integer monthlyRevenueGoal;
+
+    /**
+     * 월간 신규 고객 목표
+     */
+    private Integer monthlyNewCustomerGoal;
 }

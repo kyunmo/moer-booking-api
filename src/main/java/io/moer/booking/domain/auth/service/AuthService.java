@@ -4,6 +4,8 @@ import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.common.security.JwtTokenProvider;
+import io.moer.booking.domain.auditlog.AuditAction;
+import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.auth.PasswordResetToken;
 import io.moer.booking.domain.auth.RefreshToken;
 import io.moer.booking.domain.auth.dto.*;
@@ -26,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -41,6 +45,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final EmailService emailService;
+    private final AuditLogService auditLogService;
 
     /**
      * 로그인
@@ -171,11 +176,43 @@ public class AuthService {
         userRepository.updateBusinessId(user.getId(), business.getId());
         user.updateBusinessId(business.getId());
 
-        // 5. JWT 토큰 생성
+        // 5. 감사 로그 기록 (회원가입)
+        Map<String, Object> userMetadata = new HashMap<>();
+        userMetadata.put("userEmail", user.getEmail());
+        userMetadata.put("userName", user.getName());
+        userMetadata.put("businessName", business.getName());
+        userMetadata.put("businessType", business.getBusinessType().name());
+        userMetadata.put("trialExpiresAt", user.getTrialExpiresAt().toString());
+
+        auditLogService.log(
+                user,
+                AuditAction.USER_CREATED,
+                "User",
+                user.getId(),
+                String.format("회원가입: %s (%s) - 매장: %s", user.getName(), user.getEmail(), business.getName()),
+                userMetadata
+        );
+
+        Map<String, Object> businessMetadata = new HashMap<>();
+        businessMetadata.put("businessName", business.getName());
+        businessMetadata.put("businessType", business.getBusinessType().name());
+        businessMetadata.put("ownerId", user.getId());
+        businessMetadata.put("ownerEmail", user.getEmail());
+
+        auditLogService.log(
+                user,
+                AuditAction.BUSINESS_CREATED,
+                "Business",
+                business.getId(),
+                String.format("회원가입 시 매장 생성: %s (업종: %s)", business.getName(), business.getBusinessType().getDescription()),
+                businessMetadata
+        );
+
+        // 6. JWT 토큰 생성
         String accessToken = tokenProvider.generateAccessToken(user);
         String refreshToken = tokenProvider.generateRefreshToken(user);
 
-        // 6. Refresh Token 저장
+        // 7. Refresh Token 저장
         RefreshToken refreshTokenEntity = RefreshToken.builder()
                 .userId(user.getId())
                 .token(refreshToken)
@@ -183,7 +220,7 @@ public class AuthService {
                 .build();
         refreshTokenRepository.save(refreshTokenEntity);
 
-        // 7. 응답 생성 (체험판 정보 포함)
+        // 8. 응답 생성 (체험판 정보 포함)
         UserResponse userResponse = UserResponse.from(user);
         BusinessResponse businessResponse = BusinessResponse.from(business);
         TrialInfo trialInfo = TrialInfo.from(user);

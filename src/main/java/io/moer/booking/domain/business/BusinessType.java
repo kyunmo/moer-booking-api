@@ -7,9 +7,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum BusinessType {
     BEAUTY_SHOP("미용실"),
-    PILATES("필라테스/요가"),
-    CAFE("스터디카페/공방"),
-    CLINIC("병원/한의원"),
+    PILATES("필라테스"),
+    YOGA("요가"),
+    CAFE("카페"),
+    STUDY_CAFE("스터디카페"),
+    WORKSHOP("공방"),
     ACADEMY("학원"),
     PET_SALON("애견미용"),
     OTHER("기타");

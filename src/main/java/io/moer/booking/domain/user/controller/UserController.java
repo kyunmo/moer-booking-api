@@ -2,6 +2,7 @@ package io.moer.booking.domain.user.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
+import io.moer.booking.common.security.CustomUserDetails;
 import io.moer.booking.domain.user.UserStatus;
 import io.moer.booking.domain.user.dto.UserResponse;
 import io.moer.booking.domain.user.dto.UserSearchCondition;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -77,9 +79,10 @@ public class UserController {
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/{userId}/status")
     public ApiResponse<UserResponse> updateUserStatus(
-                                                        @PathVariable Long userId,
-                                                        @RequestParam UserStatus status) {
-        UserResponse response = userService.updateUserStatus(userId, status);
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long userId,
+            @RequestParam UserStatus status) {
+        UserResponse response = userService.updateUserStatus(userId, status, currentUser.getUser());
         return ApiResponse.success(response);
     }
 

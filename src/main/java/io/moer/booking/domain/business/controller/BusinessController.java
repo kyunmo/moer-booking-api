@@ -3,11 +3,11 @@ package io.moer.booking.domain.business.controller;
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.security.CustomUserDetails;
-import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.dto.BusinessCreateRequest;
 import io.moer.booking.domain.business.dto.BusinessResponse;
 import io.moer.booking.domain.business.dto.BusinessSearchCondition;
+import io.moer.booking.domain.business.dto.BusinessSettingsUpdateRequest;
 import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
 import io.moer.booking.domain.business.service.BusinessService;
 import jakarta.validation.Valid;
@@ -31,8 +31,10 @@ public class BusinessController {
      * 매장 생성
      */
     @PostMapping
-    public ApiResponse<BusinessResponse> createBusiness(@Valid @RequestBody BusinessCreateRequest request) {
-        BusinessResponse response = businessService.createBusiness(request);
+    public ApiResponse<BusinessResponse> createBusiness(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @Valid @RequestBody BusinessCreateRequest request) {
+        BusinessResponse response = businessService.createBusiness(request, currentUser.getUser());
         return ApiResponse.success(response);
     }
 
@@ -84,8 +86,8 @@ public class BusinessController {
     public ApiResponse<BusinessResponse> updateBusinessSettings(
             @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable Long id,
-            @RequestBody BusinessSettings settings) {
-        BusinessResponse response = businessService.updateBusinessSettings(id, settings, currentUser.getUser());
+            @RequestBody BusinessSettingsUpdateRequest request) {
+        BusinessResponse response = businessService.updateBusinessSettings(id, request, currentUser.getUser());
         return ApiResponse.success(response);
     }
 

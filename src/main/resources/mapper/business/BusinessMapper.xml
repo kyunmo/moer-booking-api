@@ -48,11 +48,15 @@
     <update id="update">
         UPDATE businesses
         SET name = #{name},
+            business_type = #{businessType},
             phone = #{phone},
             address = #{address},
             description = #{description},
             business_hours = #{businessHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
             status = #{status},
+            daily_revenue_goal = #{dailyRevenueGoal},
+            monthly_revenue_goal = #{monthlyRevenueGoal},
+            monthly_new_customer_goal = #{monthlyNewCustomerGoal},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>

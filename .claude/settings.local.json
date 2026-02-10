@@ -4,7 +4,8 @@
       "Bash(./gradlew bootRun:*)",
       "Bash(docker exec:*)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(./gradlew clean build:*)"
     ]
   }
 }

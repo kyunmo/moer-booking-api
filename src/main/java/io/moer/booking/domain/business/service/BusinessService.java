@@ -4,12 +4,15 @@ import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.domain.auditlog.AuditAction;
+import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.dto.BusinessCreateRequest;
 import io.moer.booking.domain.business.dto.BusinessResponse;
 import io.moer.booking.domain.business.dto.BusinessSearchCondition;
+import io.moer.booking.domain.business.dto.BusinessSettingsUpdateRequest;
 import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
@@ -20,7 +23,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -35,14 +40,15 @@ public class BusinessService {
     private final BusinessRepository businessRepository;
     private final BusinessSettingsRepository businessSettingsRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     /**
      * 매장 생성
      */
     @Transactional
-    public BusinessResponse createBusiness(BusinessCreateRequest request) {
+    public BusinessResponse createBusiness(BusinessCreateRequest request, User currentUser) {
         // Owner 존재 확인
-        userRepository.findById(request.getOwnerId())
+        User owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
         // Business 엔티티 생성
@@ -83,6 +89,22 @@ public class BusinessService {
                 .build();
 
         businessSettingsRepository.save(settings);
+
+        // 감사 로그 기록
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("businessName", business.getName());
+        metadata.put("businessType", business.getBusinessType().name());
+        metadata.put("ownerId", business.getOwnerId());
+        metadata.put("ownerEmail", owner.getEmail());
+
+        auditLogService.log(
+                currentUser,
+                AuditAction.BUSINESS_CREATED,
+                "Business",
+                business.getId(),
+                String.format("매장 생성: %s (업종: %s)", business.getName(), business.getBusinessType().getDescription()),
+                metadata
+        );
 
         log.info("Business created: id={}, name={}, ownerId={}",
                 business.getId(), business.getName(), business.getOwnerId());
@@ -156,17 +178,41 @@ public class BusinessService {
         Business updatedBusiness = Business.builder()
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
-                .businessType(business.getBusinessType())
+                .businessType(request.getBusinessType() != null ? request.getBusinessType() : business.getBusinessType())
                 .name(request.getName() != null ? request.getName() : business.getName())
                 .phone(request.getPhone() != null ? request.getPhone() : business.getPhone())
                 .address(request.getAddress() != null ? request.getAddress() : business.getAddress())
                 .description(request.getDescription() != null ? request.getDescription() : business.getDescription())
                 .businessHours(request.getBusinessHours() != null ? request.getBusinessHours() : business.getBusinessHours())
+                .dailyRevenueGoal(request.getDailyRevenueGoal() != null ? request.getDailyRevenueGoal() : business.getDailyRevenueGoal())
+                .monthlyRevenueGoal(request.getMonthlyRevenueGoal() != null ? request.getMonthlyRevenueGoal() : business.getMonthlyRevenueGoal())
+                .monthlyNewCustomerGoal(request.getMonthlyNewCustomerGoal() != null ? request.getMonthlyNewCustomerGoal() : business.getMonthlyNewCustomerGoal())
                 .status(business.getStatus())
                 .createdAt(business.getCreatedAt())
                 .build();
 
         businessRepository.update(updatedBusiness);
+
+        // 감사 로그 기록
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("businessName", updatedBusiness.getName());
+        if (!business.getName().equals(updatedBusiness.getName())) {
+            metadata.put("oldName", business.getName());
+            metadata.put("newName", updatedBusiness.getName());
+        }
+        if (request.getBusinessType() != null && !business.getBusinessType().equals(request.getBusinessType())) {
+            metadata.put("oldBusinessType", business.getBusinessType().name());
+            metadata.put("newBusinessType", request.getBusinessType().name());
+        }
+
+        auditLogService.log(
+                currentUser,
+                AuditAction.BUSINESS_UPDATED,
+                "Business",
+                id,
+                String.format("매장 정보 수정: %s", updatedBusiness.getName()),
+                metadata
+        );
 
         log.info("Business updated: id={}", id);
 
@@ -177,7 +223,7 @@ public class BusinessService {
      * 매장 Settings 수정
      */
     @Transactional
-    public BusinessResponse updateBusinessSettings(Long id, BusinessSettings newSettings, User currentUser) {
+    public BusinessResponse updateBusinessSettings(Long id, BusinessSettingsUpdateRequest request, User currentUser) {
         if (!businessRepository.existsById(id)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
@@ -191,30 +237,30 @@ public class BusinessService {
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
                         "Settings를 찾을 수 없습니다"));
 
-        // 업데이트할 필드만 변경
+        // 업데이트할 필드만 변경 (null이 아닌 필드만 업데이트)
         BusinessSettings updated = BusinessSettings.builder()
                 .id(existing.getId())
                 .businessId(id)
-                .bookingInterval(newSettings.getBookingInterval() != null ? newSettings.getBookingInterval() : existing.getBookingInterval())
-                .autoConfirm(newSettings.getAutoConfirm() != null ? newSettings.getAutoConfirm() : existing.getAutoConfirm())
-                .allowOnlineBooking(newSettings.getAllowOnlineBooking() != null ? newSettings.getAllowOnlineBooking() : existing.getAllowOnlineBooking())
-                .maxAdvanceBookingDays(newSettings.getMaxAdvanceBookingDays() != null ? newSettings.getMaxAdvanceBookingDays() : existing.getMaxAdvanceBookingDays())
-                .minAdvanceBookingHours(newSettings.getMinAdvanceBookingHours() != null ? newSettings.getMinAdvanceBookingHours() : existing.getMinAdvanceBookingHours())
-                .sendConfirmationSms(newSettings.getSendConfirmationSms() != null ? newSettings.getSendConfirmationSms() : existing.getSendConfirmationSms())
-                .sendReminderSms(newSettings.getSendReminderSms() != null ? newSettings.getSendReminderSms() : existing.getSendReminderSms())
-                .reminderHoursBefore(newSettings.getReminderHoursBefore() != null ? newSettings.getReminderHoursBefore() : existing.getReminderHoursBefore())
-                .sendCancelSms(newSettings.getSendCancelSms() != null ? newSettings.getSendCancelSms() : existing.getSendCancelSms())
-                .kakaoChannelId(newSettings.getKakaoChannelId() != null ? newSettings.getKakaoChannelId() : existing.getKakaoChannelId())
-                .kakaoApiKey(newSettings.getKakaoApiKey() != null ? newSettings.getKakaoApiKey() : existing.getKakaoApiKey())
-                .kakaoEnabled(newSettings.getKakaoEnabled() != null ? newSettings.getKakaoEnabled() : existing.getKakaoEnabled())
-                .paymentMethods(newSettings.getPaymentMethods() != null ? newSettings.getPaymentMethods() : existing.getPaymentMethods())
-                .requireDeposit(newSettings.getRequireDeposit() != null ? newSettings.getRequireDeposit() : existing.getRequireDeposit())
-                .depositAmount(newSettings.getDepositAmount() != null ? newSettings.getDepositAmount() : existing.getDepositAmount())
-                .allowCancellation(newSettings.getAllowCancellation() != null ? newSettings.getAllowCancellation() : existing.getAllowCancellation())
-                .cancelDeadlineHours(newSettings.getCancelDeadlineHours() != null ? newSettings.getCancelDeadlineHours() : existing.getCancelDeadlineHours())
-                .noShowPenaltyEnabled(newSettings.getNoShowPenaltyEnabled() != null ? newSettings.getNoShowPenaltyEnabled() : existing.getNoShowPenaltyEnabled())
-                .timezone(newSettings.getTimezone() != null ? newSettings.getTimezone() : existing.getTimezone())
-                .language(newSettings.getLanguage() != null ? newSettings.getLanguage() : existing.getLanguage())
+                .bookingInterval(request.getBookingInterval() != null ? request.getBookingInterval() : existing.getBookingInterval())
+                .autoConfirm(request.getAutoConfirm() != null ? request.getAutoConfirm() : existing.getAutoConfirm())
+                .allowOnlineBooking(request.getAllowOnlineBooking() != null ? request.getAllowOnlineBooking() : existing.getAllowOnlineBooking())
+                .maxAdvanceBookingDays(request.getMaxAdvanceBookingDays() != null ? request.getMaxAdvanceBookingDays() : existing.getMaxAdvanceBookingDays())
+                .minAdvanceBookingHours(request.getMinAdvanceBookingHours() != null ? request.getMinAdvanceBookingHours() : existing.getMinAdvanceBookingHours())
+                .sendConfirmationSms(request.getSendConfirmationSms() != null ? request.getSendConfirmationSms() : existing.getSendConfirmationSms())
+                .sendReminderSms(request.getSendReminderSms() != null ? request.getSendReminderSms() : existing.getSendReminderSms())
+                .reminderHoursBefore(request.getReminderHoursBefore() != null ? request.getReminderHoursBefore() : existing.getReminderHoursBefore())
+                .sendCancelSms(request.getSendCancelSms() != null ? request.getSendCancelSms() : existing.getSendCancelSms())
+                .kakaoChannelId(request.getKakaoChannelId() != null ? request.getKakaoChannelId() : existing.getKakaoChannelId())
+                .kakaoApiKey(request.getKakaoApiKey() != null ? request.getKakaoApiKey() : existing.getKakaoApiKey())
+                .kakaoEnabled(request.getKakaoEnabled() != null ? request.getKakaoEnabled() : existing.getKakaoEnabled())
+                .paymentMethods(request.getPaymentMethods() != null ? request.getPaymentMethods() : existing.getPaymentMethods())
+                .requireDeposit(request.getRequireDeposit() != null ? request.getRequireDeposit() : existing.getRequireDeposit())
+                .depositAmount(request.getDepositAmount() != null ? request.getDepositAmount() : existing.getDepositAmount())
+                .allowCancellation(request.getAllowCancellation() != null ? request.getAllowCancellation() : existing.getAllowCancellation())
+                .cancelDeadlineHours(request.getCancelDeadlineHours() != null ? request.getCancelDeadlineHours() : existing.getCancelDeadlineHours())
+                .noShowPenaltyEnabled(request.getNoShowPenaltyEnabled() != null ? request.getNoShowPenaltyEnabled() : existing.getNoShowPenaltyEnabled())
+                .timezone(request.getTimezone() != null ? request.getTimezone() : existing.getTimezone())
+                .language(request.getLanguage() != null ? request.getLanguage() : existing.getLanguage())
                 .createdAt(existing.getCreatedAt())
                 .build();
 
@@ -230,14 +276,28 @@ public class BusinessService {
      */
     @Transactional
     public void deleteBusiness(Long id, User currentUser) {
-        if (!businessRepository.existsById(id)) {
-            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
-        }
+        Business business = businessRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
         // 권한 체크
         if (!currentUser.canAccessBusiness(id)) {
             throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
         }
+
+        // 감사 로그 기록 (삭제 전에 기록)
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("businessName", business.getName());
+        metadata.put("businessType", business.getBusinessType().name());
+        metadata.put("ownerId", business.getOwnerId());
+
+        auditLogService.log(
+                currentUser,
+                AuditAction.BUSINESS_DELETED,
+                "Business",
+                id,
+                String.format("매장 삭제: %s", business.getName()),
+                metadata
+        );
 
         businessSettingsRepository.deleteByBusinessId(id);
         businessRepository.delete(id);
@@ -258,6 +318,8 @@ public class BusinessService {
             throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
         }
 
+        BusinessStatus oldStatus = business.getStatus();
+
         Business updated = Business.builder()
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
@@ -273,6 +335,21 @@ public class BusinessService {
 
         businessRepository.update(updated);
 
+        // 감사 로그 기록
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("businessName", business.getName());
+        metadata.put("oldStatus", oldStatus.name());
+        metadata.put("newStatus", status.name());
+
+        auditLogService.log(
+                currentUser,
+                AuditAction.BUSINESS_STATUS_CHANGED,
+                "Business",
+                id,
+                String.format("매장 상태 변경: %s (%s → %s)", business.getName(), oldStatus.getDescription(), status.getDescription()),
+                metadata
+        );
+
         log.info("Business status changed: id={}, status={}", id, status);
 
         return getBusinessWithSettings(id);
@@ -286,8 +363,45 @@ public class BusinessService {
 
         BusinessSettings settings = businessSettingsRepository
                 .findByBusinessId(businessId)
-                .orElse(null);
+                .orElseGet(() -> createDefaultSettings(businessId));
 
         return BusinessResponse.from(business, settings);
+    }
+
+    /**
+     * 기본 설정 생성 (Settings가 없는 기존 매장용)
+     * REQUIRES_NEW: 별도 트랜잭션으로 실행 (readOnly 트랜잭션에서 호출 가능)
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public BusinessSettings createDefaultSettings(Long businessId) {
+        log.info("Creating default settings for business: {}", businessId);
+
+        BusinessSettings settings = BusinessSettings.builder()
+                .businessId(businessId)
+                .bookingInterval(30)
+                .autoConfirm("N")
+                .allowOnlineBooking("Y")
+                .maxAdvanceBookingDays(30)
+                .minAdvanceBookingHours(2)
+                .sendConfirmationSms("Y")
+                .sendReminderSms("Y")
+                .reminderHoursBefore(24)
+                .sendCancelSms("Y")
+                .kakaoEnabled("N")
+                .paymentMethods("CARD,CASH")
+                .requireDeposit("N")
+                .depositAmount(0)
+                .allowCancellation("Y")
+                .cancelDeadlineHours(24)
+                .noShowPenaltyEnabled("N")
+                .timezone("Asia/Seoul")
+                .language("ko")
+                .build();
+
+        businessSettingsRepository.save(settings);
+
+        log.info("Default settings created for business: {}", businessId);
+
+        return settings;
     }
 }
