@@ -5,12 +5,15 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
+
+import java.time.LocalDateTime;
 
 /**
  * 이메일 발송 서비스
@@ -86,6 +89,63 @@ public class EmailService {
         } catch (MessagingException e) {
             log.error("Failed to send test email: to={}, error={}", to, e.getMessage(), e);
             throw new RuntimeException("테스트 이메일 발송 실패", e);
+        }
+    }
+
+    // ========================================
+    // 배치 작업용 이메일 발송
+    // ========================================
+
+    /**
+     * 체험판 종료 7일 전 알림
+     */
+    @Async
+    public void sendTrialExpirationReminder(String email, String userName, String businessName, LocalDateTime expiresAt) {
+        String subject = "[moer] 체험판 종료 7일 전 알림";
+        String content = String.format(
+            "안녕하세요, %s님!\n\n" +
+            "매장 '%s'의 체험판이 %s에 종료됩니다.\n\n" +
+            "체험판 종료 후에도 계속 사용하시려면 유료 플랜으로 업그레이드해주세요.\n\n" +
+            "감사합니다.\n" +
+            "moer 팀",
+            userName, businessName, expiresAt
+        );
+        sendSimpleEmail(email, subject, content);
+    }
+
+    /**
+     * 구독 만료 알림
+     */
+    @Async
+    public void sendSubscriptionExpiredNotification(String email, String userName, String businessName) {
+        String subject = "[moer] 구독이 만료되었습니다";
+        String content = String.format(
+            "안녕하세요, %s님!\n\n" +
+            "매장 '%s'의 구독이 만료되었습니다.\n\n" +
+            "결제 실패로 인해 서비스 이용이 제한될 수 있습니다.\n" +
+            "결제 정보를 확인하시고 다시 시도해주세요.\n\n" +
+            "감사합니다.\n" +
+            "moer 팀",
+            userName, businessName
+        );
+        sendSimpleEmail(email, subject, content);
+    }
+
+    /**
+     * 간단한 텍스트 이메일 발송
+     */
+    private void sendSimpleEmail(String to, String subject, String content) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(content);
+            message.setFrom(fromEmail);
+
+            mailSender.send(message);
+            log.info("이메일 발송 완료: to={}, subject={}", to, subject);
+        } catch (Exception e) {
+            log.error("이메일 발송 실패: to={}, subject={}, error={}", to, subject, e.getMessage(), e);
         }
     }
 }

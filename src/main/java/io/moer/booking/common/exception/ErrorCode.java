@@ -85,7 +85,48 @@ public enum ErrorCode {
     SUPER_ADMIN_ONLY_ACTION(HttpStatus.FORBIDDEN, "SA003", "슈퍼 관리자만 수행할 수 있는 작업입니다"),
 
     // Audit Log 관련 (AL001~AL010)
-    AUDIT_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "AL001", "감사 로그를 찾을 수 없습니다");
+    AUDIT_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "AL001", "감사 로그를 찾을 수 없습니다"),
+
+    // ============ Subscription (SU001 ~ SU007) ============
+    SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "SU001", "구독 정보를 찾을 수 없습니다"),
+    SUBSCRIPTION_EXPIRED(HttpStatus.FORBIDDEN, "SU002", "구독이 만료되었습니다"),
+    TRIAL_ALREADY_USED(HttpStatus.BAD_REQUEST, "SU003", "이미 무료 체험을 사용했습니다"),
+    SAME_PLAN(HttpStatus.BAD_REQUEST, "SU004", "이미 동일한 플랜입니다"),
+    DOWNGRADE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "SU005", "현재 사용량이 다운그레이드할 플랜의 제한을 초과합니다"),
+    SUBSCRIPTION_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SU006", "구독 변경에 실패했습니다"),
+    INVALID_SUBSCRIPTION_PLAN(HttpStatus.BAD_REQUEST, "SU007", "유효하지 않은 구독 플랜입니다"),
+
+    // ============ Usage Limits (SL001 ~ SL003) ============
+    STAFF_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "SL001", "직원 수 제한에 도달했습니다. 플랜을 업그레이드하세요"),
+    RESERVATION_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "SL002", "월간 예약 수 제한에 도달했습니다. 플랜을 업그레이드하세요"),
+    USAGE_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SL003", "사용량 동기화에 실패했습니다"),
+
+    // ============ Payment (PA001 ~ PA010) ============
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PA001", "결제 정보를 찾을 수 없습니다"),
+    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "PA002", "결제에 실패했습니다"),
+    PAYMENT_CANCELLED(HttpStatus.BAD_REQUEST, "PA003", "결제가 취소되었습니다"),
+    INVALID_PAYMENT_AMOUNT(HttpStatus.BAD_REQUEST, "PA004", "결제 금액이 올바르지 않습니다"),
+    INVALID_WEBHOOK_SIGNATURE(HttpStatus.FORBIDDEN, "PA005", "유효하지 않은 웹훅 서명입니다"),
+    REFUND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "PA006", "환불 처리에 실패했습니다"),
+    PAYMENT_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "PA007", "이미 완료된 결제입니다"),
+    PAYMENT_CANNOT_REFUND(HttpStatus.BAD_REQUEST, "PA008", "환불할 수 없는 결제입니다"),
+    PG_CONNECTION_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "PA009", "PG사 연결에 실패했습니다"),
+    PG_TRANSACTION_FAILED(HttpStatus.BAD_REQUEST, "PA010", "PG사 거래 처리에 실패했습니다"),
+
+    // ============ Coupon (CO001 ~ CO009) ============
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "CO001", "쿠폰을 찾을 수 없습니다"),
+    COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "CO002", "만료된 쿠폰입니다"),
+    COUPON_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "CO003", "쿠폰 사용 한도에 도달했습니다"),
+    COUPON_ALREADY_USED(HttpStatus.BAD_REQUEST, "CO004", "이미 사용한 쿠폰입니다"),
+    COUPON_NOT_APPLICABLE(HttpStatus.BAD_REQUEST, "CO005", "이 플랜에는 적용할 수 없는 쿠폰입니다"),
+    COUPON_MIN_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "CO006", "최소 구매 금액을 충족하지 않습니다"),
+    INVALID_COUPON_CODE(HttpStatus.BAD_REQUEST, "CO007", "유효하지 않은 쿠폰 코드입니다"),
+    COUPON_NOT_ACTIVE(HttpStatus.BAD_REQUEST, "CO008", "비활성화된 쿠폰입니다"),
+    COUPON_DUPLICATE_CODE(HttpStatus.CONFLICT, "CO009", "이미 존재하는 쿠폰 코드입니다"),
+
+    // ============ Billing (BI001 ~ BI002) ============
+    BILLING_INFO_NOT_FOUND(HttpStatus.NOT_FOUND, "BI001", "결제 정보를 찾을 수 없습니다"),
+    BILLING_CALCULATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "BI002", "요금 계산 중 오류가 발생했습니다");
 
     private final HttpStatus status;
     private final String code;

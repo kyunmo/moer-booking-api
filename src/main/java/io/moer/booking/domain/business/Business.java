@@ -59,6 +59,46 @@ public class Business {
      */
     private Integer monthlyNewCustomerGoal;
 
+    /**
+     * 구독 플랜 (SaaS 요금제)
+     */
+    private SubscriptionPlan subscriptionPlan;
+
+    /**
+     * 구독 상태
+     */
+    private SubscriptionStatus subscriptionStatus;
+
+    /**
+     * 무료 체험 시작일
+     */
+    private LocalDateTime trialStartedAt;
+
+    /**
+     * 무료 체험 종료일 (30일)
+     */
+    private LocalDateTime trialEndsAt;
+
+    /**
+     * 유료 구독 시작일
+     */
+    private LocalDateTime subscriptionStartedAt;
+
+    /**
+     * 다음 결제 예정일
+     */
+    private LocalDateTime nextBillingDate;
+
+    /**
+     * 현재 활성 직원 수 (플랜 제한 체크용)
+     */
+    private Integer currentStaffCount;
+
+    /**
+     * 이번 달 예약 수 (플랜 제한 체크용)
+     */
+    private Integer currentMonthReservationCount;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -92,5 +132,75 @@ public class Business {
 
     public boolean isCafe() {
         return BusinessType.CAFE.equals(this.businessType);
+    }
+
+    // ========================================
+    // 헬퍼 메서드 - 구독 관리
+    // ========================================
+
+    /**
+     * 체험판 활성 여부
+     */
+    public boolean isTrialActive() {
+        if (subscriptionStatus != SubscriptionStatus.TRIAL) return false;
+        if (trialEndsAt == null) return false;
+        return LocalDateTime.now().isBefore(trialEndsAt);
+    }
+
+    /**
+     * 체험판 만료 여부
+     */
+    public boolean isTrialExpired() {
+        if (subscriptionStatus != SubscriptionStatus.TRIAL) return false;
+        if (trialEndsAt == null) return true;
+        return LocalDateTime.now().isAfter(trialEndsAt);
+    }
+
+    /**
+     * 체험판 남은 일수
+     */
+    public long getDaysUntilTrialEnd() {
+        if (trialEndsAt == null) return 0;
+        return java.time.Duration.between(LocalDateTime.now(), trialEndsAt).toDays();
+    }
+
+    /**
+     * 서비스 사용 가능 여부
+     */
+    public boolean canUseService() {
+        if (subscriptionStatus == null) return false;
+        return subscriptionStatus.canUseService();
+    }
+
+    /**
+     * 직원 추가 가능 여부 (플랜 제한 체크)
+     */
+    public boolean canAddStaff() {
+        if (subscriptionPlan == null) return true;
+        if (currentStaffCount == null) return true;
+        return subscriptionPlan.canAddStaff(currentStaffCount);
+    }
+
+    /**
+     * 예약 생성 가능 여부 (플랜 제한 체크)
+     */
+    public boolean canCreateReservation() {
+        if (subscriptionPlan == null) return true;
+        if (currentMonthReservationCount == null) return true;
+        return subscriptionPlan.canCreateReservation(currentMonthReservationCount);
+    }
+
+    /**
+     * 무료 플랜 여부
+     */
+    public boolean isFreePlan() {
+        return subscriptionPlan == SubscriptionPlan.FREE;
+    }
+
+    /**
+     * 유료 플랜 여부
+     */
+    public boolean isPaidPlan() {
+        return subscriptionPlan != null && subscriptionPlan.isPaid();
     }
 }

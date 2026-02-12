@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.coupon.repository.CouponRepository">
+
+    <resultMap id="CouponResultMap" type="io.moer.booking.domain.coupon.Coupon">
+        <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="code" column="code"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="couponType" column="coupon_type"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="discountAmount" column="discount_amount"/>
+        <result property="discountPercentage" column="discount_percentage"/>
+        <result property="maxDiscountAmount" column="max_discount_amount"/>
+        <result property="minOrderAmount" column="min_order_amount"/>
+        <result property="maxUsageCount" column="max_usage_count"/>
+        <result property="currentUsageCount" column="current_usage_count"/>
+        <result property="validFrom" column="valid_from"/>
+        <result property="validUntil" column="valid_until"/>
+        <result property="status" column="status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="save" parameterType="io.moer.booking.domain.coupon.Coupon"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO business_business_coupons (
+            business_id, code, name, description,
+            coupon_type, discount_amount, discount_percentage, max_discount_amount,
+            min_order_amount, max_usage_count, current_usage_count,
+            valid_from, valid_until, status
+        ) VALUES (
+            #{businessId}, #{code}, #{name}, #{description},
+            #{couponType}::coupon_type, #{discountAmount}, #{discountPercentage}, #{maxDiscountAmount},
+            #{minOrderAmount}, #{maxUsageCount}, #{currentUsageCount},
+            #{validFrom}, #{validUntil}, #{status}::coupon_status
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE business_coupons
+        SET name = #{name},
+            description = #{description},
+            discount_amount = #{discountAmount},
+            discount_percentage = #{discountPercentage},
+            max_discount_amount = #{maxDiscountAmount},
+            min_order_amount = #{minOrderAmount},
+            max_usage_count = #{maxUsageCount},
+            current_usage_count = #{currentUsageCount},
+            valid_from = #{validFrom},
+            valid_until = #{validUntil},
+            status = #{status}::coupon_status,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM business_coupons WHERE id = #{id}
+    </delete>
+
+    <select id="findById" resultMap="CouponResultMap">
+        SELECT * FROM business_coupons WHERE id = #{id}
+    </select>
+
+    <select id="findByCode" resultMap="CouponResultMap">
+        SELECT * FROM business_coupons WHERE code = #{code}
+    </select>
+
+    <select id="findByCondition" resultMap="CouponResultMap">
+        SELECT * FROM business_coupons
+        <where>
+            <if test="businessId != null">
+                AND business_id = #{businessId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (code LIKE '%' || #{keyword} || '%' OR name LIKE '%' || #{keyword} || '%')
+            </if>
+            <if test="couponType != null">
+                AND coupon_type = #{couponType}::coupon_type
+            </if>
+            <if test="status != null">
+                AND status = #{status}::coupon_status
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        SELECT COUNT(*) FROM business_coupons
+        <where>
+            <if test="businessId != null">
+                AND business_id = #{businessId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (code LIKE '%' || #{keyword} || '%' OR name LIKE '%' || #{keyword} || '%')
+            </if>
+            <if test="couponType != null">
+                AND coupon_type = #{couponType}::coupon_type
+            </if>
+            <if test="status != null">
+                AND status = #{status}::coupon_status
+            </if>
+        </where>
+    </select>
+
+    <select id="existsByCode" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM business_coupons WHERE code = #{code})
+    </select>
+
+    <update id="incrementUsageCount">
+        UPDATE business_coupons
+        SET current_usage_count = current_usage_count + 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{couponId}
+    </update>
+
+    <update id="decrementUsageCount">
+        UPDATE business_coupons
+        SET current_usage_count = GREATEST(0, current_usage_count - 1),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{couponId}
+    </update>
+
+</mapper>

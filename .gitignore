@@ -39,3 +39,8 @@ out/
 .env
 application-local.yml
 application-prod.yml
+
+
+# Agent 생성 리포트 (개인 작업물)
+docs/reports/*.md
+docs/reports/*.txt

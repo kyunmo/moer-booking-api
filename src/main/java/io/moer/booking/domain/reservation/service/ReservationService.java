@@ -22,6 +22,7 @@ import io.moer.booking.domain.service.Service;
 import io.moer.booking.domain.service.repository.ServiceRepository;
 import io.moer.booking.domain.staff.Staff;
 import io.moer.booking.domain.staff.repository.StaffRepository;
+import io.moer.booking.domain.subscription.service.UsageLimitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +51,7 @@ public class ReservationService {
     private final ServiceRepository serviceRepository;
     private final SpecialHolidayRepository specialHolidayRepository;
     private final CustomerHistoryService customerHistoryService;
+    private final UsageLimitService usageLimitService;
 
     // ========================================
     // 생성
@@ -64,7 +66,10 @@ public class ReservationService {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
-        // 2. Customer 조회 또는 자동 생성
+        // 2. 예약 수 제한 체크
+        usageLimitService.checkCanCreateReservation(businessId);
+
+        // 3. Customer 조회 또는 자동 생성
         Customer customer = resolveCustomer(businessId, request);
 
         // 3. Staff 존재 확인 (선택 시)
@@ -143,6 +148,9 @@ public class ReservationService {
 
         // 11. 저장
         reservationRepository.save(reservation);
+
+        // 12. 예약 수 증가
+        usageLimitService.incrementReservationCount(businessId);
 
         log.info("Reservation created: id={}, businessId={}, customerId={} ({}), date={}, time={}",
                 reservation.getId(), businessId, customer.getId(),
@@ -619,6 +627,9 @@ public class ReservationService {
                             "reservationId={}, customerId={}, amount={}",
                     reservationId, reservation.getCustomerId(), reservation.getTotalPrice());
         }
+
+        // 예약 수 감소
+        usageLimitService.decrementReservationCount(businessId);
 
         // TODO: 카카오톡 알림 발송
 

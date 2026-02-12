@@ -160,12 +160,18 @@ public class AuthService {
         userRepository.save(user);
         log.info("User created: id={}, email={}", user.getId(), user.getEmail());
 
-        // 3. Business 생성
+        // 3. Business 생성 (선택한 플랜 + 30일 무료 체험 자동 설정)
         Business business = Business.builder()
                 .ownerId(user.getId())
                 .name(request.getBusinessName())
                 .businessType(request.getBusinessType())
                 .status(BusinessStatus.ACTIVE)
+                .subscriptionPlan(request.getSubscriptionPlan())
+                .subscriptionStatus(io.moer.booking.domain.business.SubscriptionStatus.TRIAL)
+                .trialStartedAt(now)
+                .trialEndsAt(now.plusDays(30))
+                .currentStaffCount(0)
+                .currentMonthReservationCount(0)
                 .build();
 
         businessRepository.save(business);
@@ -198,6 +204,9 @@ public class AuthService {
         businessMetadata.put("businessType", business.getBusinessType().name());
         businessMetadata.put("ownerId", user.getId());
         businessMetadata.put("ownerEmail", user.getEmail());
+        businessMetadata.put("subscriptionPlan", business.getSubscriptionPlan().name());
+        businessMetadata.put("subscriptionStatus", business.getSubscriptionStatus().name());
+        businessMetadata.put("trialEndsAt", business.getTrialEndsAt().toString());
 
         auditLogService.log(
                 user,

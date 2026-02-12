@@ -23,6 +23,17 @@
         <result property="dailyRevenueGoal" column="daily_revenue_goal"/>
         <result property="monthlyRevenueGoal" column="monthly_revenue_goal"/>
         <result property="monthlyNewCustomerGoal" column="monthly_new_customer_goal"/>
+        <!-- Subscription fields -->
+        <result property="subscriptionPlan" column="subscription_plan"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="subscriptionStatus" column="subscription_status"
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="trialStartedAt" column="trial_started_at"/>
+        <result property="trialEndsAt" column="trial_ends_at"/>
+        <result property="subscriptionStartedAt" column="subscription_started_at"/>
+        <result property="nextBillingDate" column="next_billing_date"/>
+        <result property="currentStaffCount" column="current_staff_count"/>
+        <result property="currentMonthReservationCount" column="current_month_reservation_count"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -34,11 +45,17 @@
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO businesses (
             owner_id, name, business_type, phone, address, description,
-            business_hours, status
+            business_hours, status,
+            subscription_plan, subscription_status,
+            trial_started_at, trial_ends_at,
+            current_staff_count, current_month_reservation_count
         ) VALUES (
                      #{ownerId}, #{name}, #{businessType}, #{phone}, #{address}, #{description},
                      #{businessHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
-                     #{status}
+                     #{status},
+                     #{subscriptionPlan}, #{subscriptionStatus},
+                     #{trialStartedAt}, #{trialEndsAt},
+                     #{currentStaffCount}, #{currentMonthReservationCount}
                  )
     </insert>
 
@@ -186,6 +203,51 @@
         GROUP BY b.id, b.name, u.name
         ORDER BY totalRevenue DESC
         LIMIT #{limit}
+    </select>
+
+    <!-- ========================================
+         배치 작업용 쿼리
+         ======================================== -->
+
+    <!-- 만료된 체험판 조회 -->
+    <select id="findExpiredTrials" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        WHERE subscription_status = 'TRIAL'
+          AND trial_ends_at &lt; #{now}
+        ORDER BY trial_ends_at ASC
+    </select>
+
+    <!-- 월간 예약 수 초기화 -->
+    <update id="resetMonthlyReservationCounts">
+        UPDATE businesses
+        SET current_month_reservation_count = 0,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE current_month_reservation_count > 0
+    </update>
+
+    <!-- 자동 결제 대상 매장 조회 -->
+    <select id="findBusinessesForAutoBilling" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        WHERE subscription_status = 'ACTIVE'
+          AND next_billing_date IS NOT NULL
+          AND DATE(next_billing_date) &lt;= DATE(#{date})
+        ORDER BY next_billing_date ASC
+    </select>
+
+    <!-- 특정 일자에 체험판이 종료되는 매장 조회 -->
+    <select id="findTrialsExpiringInDays" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        WHERE subscription_status = 'TRIAL'
+          AND trial_ends_at BETWEEN #{targetDate} - INTERVAL '1 day' * #{rangeDays} AND #{targetDate}
+        ORDER BY trial_ends_at ASC
+    </select>
+
+    <!-- 최근 만료된 매장 조회 -->
+    <select id="findRecentlyExpired" resultMap="BusinessResultMap">
+        SELECT * FROM businesses
+        WHERE subscription_status = 'EXPIRED'
+          AND updated_at >= #{since}
+        ORDER BY updated_at DESC
     </select>
 
 </mapper>

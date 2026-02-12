@@ -43,4 +43,36 @@ public interface BusinessRepository {
             @Param("endDate") LocalDate endDate,
             @Param("limit") int limit
     );
+
+    // ========================================
+    // 배치 작업용 쿼리
+    // ========================================
+
+    /**
+     * 만료된 체험판 조회
+     */
+    List<Business> findExpiredTrials(@Param("now") java.time.LocalDateTime now);
+
+    /**
+     * 월간 예약 수 초기화
+     */
+    int resetMonthlyReservationCounts();
+
+    /**
+     * 자동 결제 대상 매장 조회
+     */
+    List<Business> findBusinessesForAutoBilling(@Param("date") java.time.LocalDateTime date);
+
+    /**
+     * 특정 일자에 체험판이 종료되는 매장 조회
+     */
+    List<Business> findTrialsExpiringInDays(
+            @Param("targetDate") java.time.LocalDateTime targetDate,
+            @Param("rangeDays") int rangeDays
+    );
+
+    /**
+     * 최근 만료된 매장 조회
+     */
+    List<Business> findRecentlyExpired(@Param("since") java.time.LocalDateTime since);
 }

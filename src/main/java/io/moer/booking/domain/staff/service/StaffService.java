@@ -8,6 +8,7 @@ import io.moer.booking.domain.staff.dto.StaffCreateRequest;
 import io.moer.booking.domain.staff.dto.StaffResponse;
 import io.moer.booking.domain.staff.dto.StaffUpdateRequest;
 import io.moer.booking.domain.staff.repository.StaffRepository;
+import io.moer.booking.domain.subscription.service.UsageLimitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class StaffService {
 
     private final StaffRepository staffRepository;
     private final BusinessRepository businessRepository;
+    private final UsageLimitService usageLimitService;
 
     /**
      * 직원 생성
@@ -37,6 +39,9 @@ public class StaffService {
         if (!businessRepository.existsById(businessId)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
+
+        // 직원 수 제한 체크
+        usageLimitService.checkCanAddStaff(businessId);
 
         Staff staff = Staff.builder()
                 .businessId(businessId)
@@ -52,6 +57,9 @@ public class StaffService {
                 .build();
 
         staffRepository.save(staff);
+
+        // 직원 수 증가
+        usageLimitService.incrementStaffCount(businessId);
 
         log.info("Staff created: id={}, businessId={}, name={}",
                 staff.getId(), businessId, staff.getName());
@@ -162,6 +170,9 @@ public class StaffService {
         }
 
         staffRepository.delete(staffId);
+
+        // 직원 수 감소
+        usageLimitService.decrementStaffCount(businessId);
 
         log.info("Staff deleted: id={}, businessId={}", staffId, businessId);
     }

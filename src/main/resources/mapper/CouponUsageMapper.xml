@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.coupon.repository.CouponUsageRepository">
+
+    <resultMap id="CouponUsageResultMap" type="io.moer.booking.domain.coupon.CouponUsage">
+        <id property="id" column="id"/>
+        <result property="couponId" column="coupon_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="paymentId" column="payment_id"/>
+        <result property="discountAmount" column="discount_amount"/>
+        <result property="usedAt" column="used_at"/>
+        <result property="canceled" column="canceled"/>
+        <result property="canceledAt" column="canceled_at"/>
+    </resultMap>
+
+    <insert id="save" parameterType="io.moer.booking.domain.coupon.CouponUsage"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO business_coupon_usages (
+            coupon_id, user_id, payment_id, discount_amount, used_at
+        ) VALUES (
+            #{couponId}, #{userId}, #{paymentId}, #{discountAmount}, #{usedAt}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE business_coupon_usages
+        SET canceled = #{canceled},
+            canceled_at = #{canceledAt}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findById" resultMap="CouponUsageResultMap">
+        SELECT * FROM business_coupon_usages WHERE id = #{id}
+    </select>
+
+    <select id="findByCouponId" resultMap="CouponUsageResultMap">
+        SELECT * FROM business_coupon_usages
+        WHERE coupon_id = #{couponId}
+        ORDER BY used_at DESC
+    </select>
+
+    <select id="findByUserId" resultMap="CouponUsageResultMap">
+        SELECT * FROM business_coupon_usages
+        WHERE user_id = #{userId}
+        ORDER BY used_at DESC
+    </select>
+
+    <select id="findByPaymentId" resultMap="CouponUsageResultMap">
+        SELECT * FROM business_coupon_usages WHERE payment_id = #{paymentId}
+    </select>
+
+    <select id="existsByUserIdAndCouponId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM business_coupon_usages
+            WHERE user_id = #{userId} AND coupon_id = #{couponId} AND canceled = 'N'
+        )
+    </select>
+
+</mapper>
