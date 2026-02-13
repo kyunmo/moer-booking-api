@@ -22,6 +22,7 @@ public class BusinessResponse {
 
     private Long id;
     private Long ownerId;
+    private String ownerName;
     private BusinessType businessType;
     private String name;
     private String phone;
@@ -46,6 +47,7 @@ public class BusinessResponse {
         return BusinessResponse.builder()
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
+                .ownerName(business.getOwnerName())
                 .businessType(business.getBusinessType())
                 .name(business.getName())
                 .phone(business.getPhone())
@@ -65,6 +67,7 @@ public class BusinessResponse {
         return BusinessResponse.builder()
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
+                .ownerName(business.getOwnerName())
                 .businessType(business.getBusinessType())
                 .name(business.getName())
                 .phone(business.getPhone())

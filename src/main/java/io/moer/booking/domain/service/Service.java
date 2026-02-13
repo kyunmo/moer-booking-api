@@ -21,7 +21,8 @@ import java.util.stream.Collectors;
 public class Service {
     private Long id;
     private Long businessId;
-    private String category;
+    private Long categoryId;
+    private String categoryName;  // JOIN용 (service_categories.name)
     private String name;
     private String description;
     private Integer duration;
@@ -38,6 +39,8 @@ public class Service {
      * 활성 여부 (Y/N)
      * DB: CHAR(1)
      */
+    private Integer sortOrder;
+
     private String isActive;
 
     private LocalDateTime createdAt;

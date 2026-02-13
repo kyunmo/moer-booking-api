@@ -15,18 +15,19 @@ public interface ServiceRepository {
 
     Optional<Service> findById(Long id);
     List<Service> findByBusinessId(Long businessId);
-    List<Service> findActiveByBusinessId(Long businessId);  // 추가
-    List<Service> findByBusinessIdAndCategory(@Param("businessId") Long businessId,
-                                              @Param("category") String category);
-    List<Service> search(ServiceSearchCondition condition);  // 수정: findByCondition → search
+    List<Service> findActiveByBusinessId(Long businessId);
+    List<Service> findByBusinessIdAndCategoryId(@Param("businessId") Long businessId,
+                                                @Param("categoryId") Long categoryId);
+    List<Service> search(ServiceSearchCondition condition);
 
     void update(Service service);
-    void toggleActive(Long id);  // 추가
+    void updateSortOrder(@Param("id") Long id, @Param("sortOrder") Integer sortOrder);
+    void toggleActive(Long id);
 
     void delete(Long id);
 
     boolean existsById(Long id);
     boolean existsByBusinessIdAndId(@Param("businessId") Long businessId, @Param("id") Long id);
     long countByBusinessId(Long businessId);
-    long countByBusinessIdAndCategory(@Param("businessId") Long businessId, @Param("category") String category);
+    long countByBusinessIdAndCategoryId(@Param("businessId") Long businessId, @Param("categoryId") Long categoryId);
 }

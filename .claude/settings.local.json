@@ -5,7 +5,30 @@
       "Bash(docker exec:*)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "Bash(./gradlew clean build:*)"
+      "Bash(./gradlew clean build:*)",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(./gradlew compileJava:*)",
+      "Bash(./gradlew clean compileJava:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(git add .gitignore README.md docs/TODO.md)",
+      "Bash(git add src/main/java/io/moer/booking/batch/ src/main/java/io/moer/booking/common/config/SchedulerConfig.java src/main/java/io/moer/booking/domain/business/SubscriptionPlan.java src/main/java/io/moer/booking/domain/business/SubscriptionStatus.java src/main/java/io/moer/booking/domain/coupon/ src/main/java/io/moer/booking/domain/payment/ src/main/java/io/moer/booking/domain/subscription/)",
+      "Bash(git add src/main/java/io/moer/booking/common/exception/ErrorCode.java src/main/java/io/moer/booking/common/service/EmailService.java src/main/java/io/moer/booking/domain/auth/dto/RegisterRequest.java src/main/java/io/moer/booking/domain/auth/service/AuthService.java src/main/java/io/moer/booking/domain/business/Business.java src/main/java/io/moer/booking/domain/business/repository/BusinessRepository.java src/main/java/io/moer/booking/domain/reservation/service/ReservationService.java src/main/java/io/moer/booking/domain/staff/service/StaffService.java)",
+      "Bash(git add src/main/resources/db/migration/V005__add_subscription_fields_to_businesses.sql src/main/resources/db/migration/V006__create_payments_table.sql src/main/resources/db/migration/V007__create_coupons_tables.sql src/main/resources/db/migration/V008__add_subscription_columns_to_businesses.sql src/main/resources/db/migration/V009__create_business_coupons.sql)",
+      "Bash(git add src/main/resources/application.yml src/main/resources/mapper/business/BusinessMapper.xml src/main/resources/mapper/CouponMapper.xml src/main/resources/mapper/CouponUsageMapper.xml src/main/resources/mapper/PaymentMapper.xml)",
+      "Bash(git commit:*)",
+      "Bash(psql:*)",
+      "Bash(Select-String \"usage\")",
+      "Bash(docker ps:*)",
+      "Bash(curl:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJvd25lcjFAbW9lci5pbyIsInVzZXJJZCI6Miwicm9sZSI6Ik9XTkVSIiwiaWF0IjoxNzcwOTk1NjM5LCJleHAiOjE3NzA5OTkyMzksImJ1c2luZXNzSWQiOjF9.MBzTWIO7oFW-yONesPAbFxXt7yXXtqWchqYV8nCobecBoKIwYCmdVA9QqFr6kEsQG-3aFxx7A20kp05u_qJG2Q\")",
+      "Bash(python -m json.tool:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill /PID 22096 /F\")",
+      "Bash(cmd //c \"taskkill /PID 27536 /F\")",
+      "Bash(cmd //c \"taskkill /PID 12160 /F\")",
+      "Bash(git add:*)"
     ]
   }
 }

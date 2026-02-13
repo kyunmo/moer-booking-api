@@ -8,8 +8,7 @@
     <resultMap id="SnsAccountResultMap" type="io.moer.booking.domain.auth.SnsAccount">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
-        <result property="provider" column="provider"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="provider" column="provider"/>
         <result property="providerUserId" column="provider_user_id"/>
         <result property="email" column="email"/>
         <result property="name" column="name"/>

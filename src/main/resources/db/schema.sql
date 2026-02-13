@@ -196,16 +196,40 @@ COMMENT ON COLUMN portfolios.created_at IS '생성일시';
 -- 필수 인덱스만
 CREATE INDEX idx_portfolios_staff_id ON portfolios(staff_id);
 
+-- 서비스 카테고리 테이블
+CREATE TABLE service_categories (
+                                    id BIGSERIAL PRIMARY KEY,
+                                    business_id BIGINT NOT NULL,
+                                    name VARCHAR(50) NOT NULL,
+                                    description VARCHAR(200),
+                                    sort_order INTEGER NOT NULL DEFAULT 0,
+                                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE service_categories IS '서비스 카테고리';
+COMMENT ON COLUMN service_categories.id IS '카테고리 ID';
+COMMENT ON COLUMN service_categories.business_id IS '매장 ID';
+COMMENT ON COLUMN service_categories.name IS '카테고리명';
+COMMENT ON COLUMN service_categories.description IS '설명';
+COMMENT ON COLUMN service_categories.sort_order IS '정렬 순서';
+COMMENT ON COLUMN service_categories.created_at IS '생성일시';
+COMMENT ON COLUMN service_categories.updated_at IS '수정일시';
+
+CREATE INDEX idx_service_categories_business_id ON service_categories(business_id);
+CREATE UNIQUE INDEX idx_service_categories_business_name ON service_categories(business_id, name);
+
 -- 서비스 테이블
 CREATE TABLE services (
                           id BIGSERIAL PRIMARY KEY,
                           business_id BIGINT NOT NULL,
-                          category VARCHAR(50),
+                          category_id BIGINT,
                           name VARCHAR(100) NOT NULL,
                           description TEXT,
                           duration INTEGER NOT NULL,
                           price INTEGER NOT NULL,
                           staff_ids TEXT,
+                          sort_order INTEGER NOT NULL DEFAULT 0,
                           is_active CHAR(1) DEFAULT 'Y',
                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -214,18 +238,20 @@ CREATE TABLE services (
 COMMENT ON TABLE services IS '서비스 메뉴 (시술/수업)';
 COMMENT ON COLUMN services.id IS '서비스 ID';
 COMMENT ON COLUMN services.business_id IS '매장 ID';
-COMMENT ON COLUMN services.category IS '카테고리 (컷, 펌, 염색 등)';
+COMMENT ON COLUMN services.category_id IS '카테고리 ID (service_categories.id)';
 COMMENT ON COLUMN services.name IS '서비스명';
 COMMENT ON COLUMN services.description IS '설명';
 COMMENT ON COLUMN services.duration IS '소요시간 (분)';
 COMMENT ON COLUMN services.price IS '가격 (원)';
 COMMENT ON COLUMN services.staff_ids IS '담당 가능 직원 ID 목록 (콤마 구분)';
+COMMENT ON COLUMN services.sort_order IS '정렬 순서';
 COMMENT ON COLUMN services.is_active IS '활성 여부 (Y/N)';
 COMMENT ON COLUMN services.created_at IS '생성일시';
 COMMENT ON COLUMN services.updated_at IS '수정일시';
 
 -- 필수 인덱스만
 CREATE INDEX idx_services_business_id ON services(business_id);
+CREATE INDEX idx_services_category_id ON services(category_id);
 
 -- 특별 휴무일 테이블
 CREATE TABLE special_holidays (

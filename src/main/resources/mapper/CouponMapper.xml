@@ -10,8 +10,7 @@
         <result property="code" column="code"/>
         <result property="name" column="name"/>
         <result property="description" column="description"/>
-        <result property="couponType" column="coupon_type"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="couponType" column="coupon_type"/>
         <result property="discountAmount" column="discount_amount"/>
         <result property="discountPercentage" column="discount_percentage"/>
         <result property="maxDiscountAmount" column="max_discount_amount"/>
@@ -20,15 +19,14 @@
         <result property="currentUsageCount" column="current_usage_count"/>
         <result property="validFrom" column="valid_from"/>
         <result property="validUntil" column="valid_until"/>
-        <result property="status" column="status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="status" column="status"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
     <insert id="save" parameterType="io.moer.booking.domain.coupon.Coupon"
             useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO business_business_coupons (
+        INSERT INTO business_coupons (
             business_id, code, name, description,
             coupon_type, discount_amount, discount_percentage, max_discount_amount,
             min_order_amount, max_usage_count, current_usage_count,

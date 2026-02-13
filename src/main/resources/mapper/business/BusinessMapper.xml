@@ -10,24 +10,21 @@
     <resultMap id="BusinessResultMap" type="io.moer.booking.domain.business.Business">
         <id property="id" column="id"/>
         <result property="ownerId" column="owner_id"/>
+        <result property="ownerName" column="owner_name"/>
         <result property="name" column="name"/>
-        <result property="businessType" column="business_type"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="businessType" column="business_type"/>
         <result property="phone" column="phone"/>
         <result property="address" column="address"/>
         <result property="description" column="description"/>
         <result property="businessHours" column="business_hours"
                 typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
-        <result property="status" column="status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="status" column="status"/>
         <result property="dailyRevenueGoal" column="daily_revenue_goal"/>
         <result property="monthlyRevenueGoal" column="monthly_revenue_goal"/>
         <result property="monthlyNewCustomerGoal" column="monthly_new_customer_goal"/>
         <!-- Subscription fields -->
-        <result property="subscriptionPlan" column="subscription_plan"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
-        <result property="subscriptionStatus" column="subscription_status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="subscriptionPlan" column="subscription_plan"/>
+        <result property="subscriptionStatus" column="subscription_status"/>
         <result property="trialStartedAt" column="trial_started_at"/>
         <result property="trialEndsAt" column="trial_ends_at"/>
         <result property="subscriptionStartedAt" column="subscription_started_at"/>
@@ -74,6 +71,14 @@
             daily_revenue_goal = #{dailyRevenueGoal},
             monthly_revenue_goal = #{monthlyRevenueGoal},
             monthly_new_customer_goal = #{monthlyNewCustomerGoal},
+            subscription_plan = #{subscriptionPlan},
+            subscription_status = #{subscriptionStatus},
+            trial_started_at = #{trialStartedAt},
+            trial_ends_at = #{trialEndsAt},
+            subscription_started_at = #{subscriptionStartedAt},
+            next_billing_date = #{nextBillingDate},
+            current_staff_count = #{currentStaffCount},
+            current_month_reservation_count = #{currentMonthReservationCount},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -99,22 +104,24 @@
     <!-- 전체 조회 (검색 조건 포함, 페이징) -->
     <select id="findAll" resultMap="BusinessResultMap"
             parameterType="io.moer.booking.domain.business.dto.BusinessSearchCondition">
-        SELECT * FROM businesses
+        SELECT b.*, u.name AS owner_name
+        FROM businesses b
+        LEFT JOIN users u ON b.owner_id = u.id
         <where>
             <if test="keyword != null and keyword != ''">
-                AND name LIKE '%' || #{keyword} || '%'
+                AND b.name LIKE '%' || #{keyword} || '%'
             </if>
             <if test="ownerId != null">
-                AND owner_id = #{ownerId}
+                AND b.owner_id = #{ownerId}
             </if>
             <if test="businessType != null">
-                AND business_type = #{businessType}
+                AND b.business_type = #{businessType}
             </if>
             <if test="status != null">
-                AND status = #{status}
+                AND b.status = #{status}
             </if>
         </where>
-        ORDER BY created_at DESC
+        ORDER BY b.created_at DESC
         LIMIT #{size} OFFSET #{offset}
     </select>
 

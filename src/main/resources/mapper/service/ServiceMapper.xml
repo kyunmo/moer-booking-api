@@ -10,16 +10,25 @@
     <resultMap id="ServiceResultMap" type="io.moer.booking.domain.service.Service">
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
-        <result property="category" column="category"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
         <result property="name" column="name"/>
         <result property="description" column="description"/>
         <result property="duration" column="duration"/>
         <result property="price" column="price"/>
         <result property="staffIds" column="staff_ids"/>
+        <result property="sortOrder" column="sort_order"/>
         <result property="isActive" column="is_active"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
+
+    <!-- 공통 SELECT 컬럼 (JOIN 포함) -->
+    <sql id="selectWithCategory">
+        SELECT s.*, sc.name AS category_name
+        FROM services s
+        LEFT JOIN service_categories sc ON s.category_id = sc.id
+    </sql>
 
     <!-- ========================================
          생성 (INSERT)
@@ -27,12 +36,12 @@
     <insert id="save" parameterType="io.moer.booking.domain.service.Service"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO services (
-            business_id, category, name, description,
-            duration, price, staff_ids, is_active
+            business_id, category_id, name, description,
+            duration, price, staff_ids, sort_order, is_active
         ) VALUES (
-                     #{businessId}, #{category}, #{name}, #{description},
-                     #{duration}, #{price}, #{staffIds}, #{isActive}
-                 )
+            #{businessId}, #{categoryId}, #{name}, #{description},
+            #{duration}, #{price}, #{staffIds}, #{sortOrder}, #{isActive}
+        )
     </insert>
 
     <!-- ========================================
@@ -40,13 +49,22 @@
          ======================================== -->
     <update id="update">
         UPDATE services
-        SET category = #{category},
+        SET category_id = #{categoryId},
             name = #{name},
             description = #{description},
             duration = #{duration},
             price = #{price},
             staff_ids = #{staffIds},
+            sort_order = #{sortOrder},
             is_active = #{isActive},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 정렬 순서 변경 -->
+    <update id="updateSortOrder">
+        UPDATE services
+        SET sort_order = #{sortOrder},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -70,7 +88,8 @@
          조회 - 단건
          ======================================== -->
     <select id="findById" resultMap="ServiceResultMap">
-        SELECT * FROM services WHERE id = #{id}
+        <include refid="selectWithCategory"/>
+        WHERE s.id = #{id}
     </select>
 
     <!-- ========================================
@@ -79,49 +98,49 @@
 
     <!-- Business의 전체 서비스 조회 -->
     <select id="findByBusinessId" resultMap="ServiceResultMap">
-        SELECT * FROM services
-        WHERE business_id = #{businessId}
-        ORDER BY category, name
+        <include refid="selectWithCategory"/>
+        WHERE s.business_id = #{businessId}
+        ORDER BY sc.sort_order ASC NULLS LAST, s.sort_order ASC, s.name ASC
     </select>
 
     <!-- Business의 활성 서비스만 조회 -->
     <select id="findActiveByBusinessId" resultMap="ServiceResultMap">
-        SELECT * FROM services
-        WHERE business_id = #{businessId}
-          AND is_active = 'Y'
-        ORDER BY category, name
+        <include refid="selectWithCategory"/>
+        WHERE s.business_id = #{businessId}
+          AND s.is_active = 'Y'
+        ORDER BY sc.sort_order ASC NULLS LAST, s.sort_order ASC, s.name ASC
     </select>
 
     <!-- Business의 카테고리별 서비스 조회 -->
-    <select id="findByBusinessIdAndCategory" resultMap="ServiceResultMap">
-        SELECT * FROM services
-        WHERE business_id = #{businessId}
-          AND category = #{category}
-        ORDER BY name
+    <select id="findByBusinessIdAndCategoryId" resultMap="ServiceResultMap">
+        <include refid="selectWithCategory"/>
+        WHERE s.business_id = #{businessId}
+          AND s.category_id = #{categoryId}
+        ORDER BY s.sort_order ASC, s.name ASC
     </select>
 
     <!-- 조건별 검색 -->
     <select id="search" resultMap="ServiceResultMap"
             parameterType="io.moer.booking.domain.service.dto.ServiceSearchCondition">
-        SELECT * FROM services
-        WHERE business_id = #{businessId}
-        <if test="category != null and category != ''">
-            AND category = #{category}
+        <include refid="selectWithCategory"/>
+        WHERE s.business_id = #{businessId}
+        <if test="categoryId != null">
+            AND s.category_id = #{categoryId}
         </if>
         <if test="isActive != null">
-            AND is_active = #{isActive, typeHandler=org.apache.ibatis.type.BooleanTypeHandler}
+            AND s.is_active = #{isActive, typeHandler=org.apache.ibatis.type.BooleanTypeHandler}
         </if>
         <if test="staffId != null">
             AND (
-            staff_ids IS NULL
-            OR staff_ids = ''
-            OR staff_ids LIKE '%,' || #{staffId} || ',%'
-            OR staff_ids LIKE #{staffId} || ',%'
-            OR staff_ids LIKE '%,' || #{staffId}
-            OR staff_ids = #{staffId}::TEXT
+            s.staff_ids IS NULL
+            OR s.staff_ids = ''
+            OR s.staff_ids LIKE '%,' || #{staffId} || ',%'
+            OR s.staff_ids LIKE #{staffId} || ',%'
+            OR s.staff_ids LIKE '%,' || #{staffId}
+            OR s.staff_ids = #{staffId}::TEXT
             )
         </if>
-        ORDER BY category, name
+        ORDER BY sc.sort_order ASC NULLS LAST, s.sort_order ASC, s.name ASC
     </select>
 
     <!-- ========================================
@@ -147,9 +166,9 @@
     </select>
 
     <!-- Business의 카테고리별 서비스 개수 -->
-    <select id="countByBusinessIdAndCategory" resultType="long">
+    <select id="countByBusinessIdAndCategoryId" resultType="long">
         SELECT COUNT(*) FROM services
-        WHERE business_id = #{businessId} AND category = #{category}
+        WHERE business_id = #{businessId} AND category_id = #{categoryId}
     </select>
 
 </mapper>

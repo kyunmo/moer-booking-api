@@ -20,12 +20,14 @@ public class ServiceResponse {
     private Long id;
     private Long businessId;
 
-    private String category;
+    private Long categoryId;
+    private String categoryName;
     private String name;
     private String description;
 
     private Integer price;
     private Integer duration;
+    private Integer sortOrder;
 
     /**
      * 담당 가능 직원 ID 목록
@@ -51,11 +53,13 @@ public class ServiceResponse {
         return ServiceResponse.builder()
                 .id(service.getId())
                 .businessId(service.getBusinessId())
-                .category(service.getCategory())
+                .categoryId(service.getCategoryId())
+                .categoryName(service.getCategoryName())
                 .name(service.getName())
                 .description(service.getDescription())
                 .price(service.getPrice())
                 .duration(service.getDuration())
+                .sortOrder(service.getSortOrder())
                 .staffIds(service.getStaffIdList())  // String → List 변환
                 .isActive(service.isActive())  // "Y" → true 변환
                 .createdAt(service.getCreatedAt())

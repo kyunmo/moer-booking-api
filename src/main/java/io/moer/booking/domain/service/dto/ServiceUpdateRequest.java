@@ -16,8 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ServiceUpdateRequest {
 
-    @Size(max = 50, message = "카테고리는 50자 이내여야 합니다")
-    private String category;
+    private Long categoryId;
 
     @Size(min = 2, max = 100, message = "서비스명은 2~100자 사이여야 합니다")
     private String name;

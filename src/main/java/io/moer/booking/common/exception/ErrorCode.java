@@ -51,9 +51,13 @@ public enum ErrorCode {
     CUSTOMER_NOT_FOUND(HttpStatus.NOT_FOUND, "CU001", "고객을 찾을 수 없습니다"),
     DUPLICATE_CUSTOMER_PHONE(HttpStatus.CONFLICT, "CU002", "이미 등록된 전화번호입니다"),
 
-    // Service 관련 에러 (SV001~SV002) - 추가
+    // Service 관련 에러 (SV001~SV006) - 추가
     SERVICE_NOT_FOUND(HttpStatus.NOT_FOUND, "SV001", "서비스를 찾을 수 없습니다"),
     SERVICE_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "SV002", "이용할 수 없는 서비스입니다"),
+    SERVICE_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "SV003", "서비스 카테고리를 찾을 수 없습니다"),
+    SERVICE_CATEGORY_DUPLICATE_NAME(HttpStatus.CONFLICT, "SV004", "이미 존재하는 카테고리명입니다"),
+    SERVICE_CATEGORY_HAS_SERVICES(HttpStatus.BAD_REQUEST, "SV005", "해당 카테고리에 서비스가 존재하여 삭제할 수 없습니다"),
+    SERVICE_CATEGORY_SORT_ORDER_INVALID(HttpStatus.BAD_REQUEST, "SV006", "정렬 순서가 올바르지 않습니다"),
 
     // Portfolio 관련 에러 (P001) - 추가
     PORTFOLIO_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "포트폴리오를 찾을 수 없습니다"),

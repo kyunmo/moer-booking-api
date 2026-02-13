@@ -19,6 +19,7 @@ import java.util.Map;
 public class Business {
     private Long id;
     private Long ownerId;
+    private String ownerName;  // JOIN 조회 시 사장님 이름
     private String name;
 
     /**

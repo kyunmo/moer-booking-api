@@ -9,8 +9,7 @@
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
         <result property="userEmail" column="user_email"/>
-        <result property="userRole" column="user_role"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="userRole" column="user_role"/>
         <result property="action" column="action"/>
         <result property="entityType" column="entity_type"/>
         <result property="entityId" column="entity_id"/>

@@ -1,6 +1,7 @@
 package io.moer.booking.domain.service.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
+import io.moer.booking.domain.service.category.dto.SortOrderUpdateRequest;
 import io.moer.booking.domain.service.dto.ServiceCreateRequest;
 import io.moer.booking.domain.service.dto.ServiceResponse;
 import io.moer.booking.domain.service.dto.ServiceSearchCondition;
@@ -48,13 +49,13 @@ public class ServiceController {
     public ApiResponse<List<ServiceResponse>> getServicesByBusiness(
             @PathVariable Long businessId,
             @RequestParam(required = false, defaultValue = "false") Boolean activeOnly,
-            @RequestParam(required = false) String category) {
+            @RequestParam(required = false) Long categoryId) {
 
         List<ServiceResponse> response;
 
-        if (category != null && !category.isEmpty()) {
+        if (categoryId != null) {
             // 카테고리별 조회
-            response = serviceService.getServicesByCategory(businessId, category);
+            response = serviceService.getServicesByCategory(businessId, categoryId);
         } else if (activeOnly) {
             // 활성 서비스만 조회
             response = serviceService.getActiveServicesByBusiness(businessId);
@@ -72,13 +73,13 @@ public class ServiceController {
     @GetMapping("/search")
     public ApiResponse<List<ServiceResponse>> searchServices(
             @PathVariable Long businessId,
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Boolean isActive,
             @RequestParam(required = false) Long staffId) {
 
         ServiceSearchCondition condition = ServiceSearchCondition.builder()
                 .businessId(businessId)
-                .category(category)
+                .categoryId(categoryId)
                 .isActive(isActive)
                 .staffId(staffId)
                 .build();
@@ -107,6 +108,17 @@ public class ServiceController {
             @PathVariable Long businessId,
             @PathVariable Long serviceId) {
         ServiceResponse response = serviceService.toggleServiceActive(businessId, serviceId);
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * Service 정렬 순서 변경
+     */
+    @PatchMapping("/sort-order")
+    public ApiResponse<List<ServiceResponse>> updateServiceSortOrder(
+            @PathVariable Long businessId,
+            @Valid @RequestBody SortOrderUpdateRequest request) {
+        List<ServiceResponse> response = serviceService.updateServiceSortOrder(businessId, request);
         return ApiResponse.success(response);
     }
 

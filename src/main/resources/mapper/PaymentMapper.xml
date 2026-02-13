@@ -8,18 +8,15 @@
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
         <result property="couponId" column="coupon_id"/>
-        <result property="subscriptionPlan" column="subscription_plan"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="subscriptionPlan" column="subscription_plan"/>
         <result property="billingPeriodStart" column="billing_period_start"/>
         <result property="billingPeriodEnd" column="billing_period_end"/>
         <result property="amount" column="amount"/>
         <result property="discountAmount" column="discount_amount"/>
         <result property="finalAmount" column="final_amount"/>
         <result property="couponCode" column="coupon_code"/>
-        <result property="paymentMethod" column="payment_method"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
-        <result property="paymentStatus" column="payment_status"
-                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="paymentMethod" column="payment_method"/>
+        <result property="paymentStatus" column="payment_status"/>
         <result property="pgProvider" column="pg_provider"/>
         <result property="pgTransactionId" column="pg_transaction_id"/>
         <result property="webhookReceivedAt" column="webhook_received_at"/>
@@ -100,7 +97,7 @@
                 AND business_id = #{businessId}
             </if>
             <if test="status != null">
-                AND payment_status = #{status}::payment_status
+                AND payment_status = #{status}
             </if>
             <if test="startDate != null">
                 AND created_at >= #{startDate}
