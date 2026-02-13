@@ -33,9 +33,9 @@
             valid_from, valid_until, status
         ) VALUES (
             #{businessId}, #{code}, #{name}, #{description},
-            #{couponType}::coupon_type, #{discountAmount}, #{discountPercentage}, #{maxDiscountAmount},
+            #{couponType}, #{discountAmount}, #{discountPercentage}, #{maxDiscountAmount},
             #{minOrderAmount}, #{maxUsageCount}, #{currentUsageCount},
-            #{validFrom}, #{validUntil}, #{status}::coupon_status
+            #{validFrom}, #{validUntil}, #{status}
         )
     </insert>
 
@@ -51,7 +51,7 @@
             current_usage_count = #{currentUsageCount},
             valid_from = #{validFrom},
             valid_until = #{validUntil},
-            status = #{status}::coupon_status,
+            status = #{status},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -78,10 +78,10 @@
                 AND (code LIKE '%' || #{keyword} || '%' OR name LIKE '%' || #{keyword} || '%')
             </if>
             <if test="couponType != null">
-                AND coupon_type = #{couponType}::coupon_type
+                AND coupon_type = #{couponType}
             </if>
             <if test="status != null">
-                AND status = #{status}::coupon_status
+                AND status = #{status}
             </if>
         </where>
         ORDER BY created_at DESC
@@ -98,10 +98,10 @@
                 AND (code LIKE '%' || #{keyword} || '%' OR name LIKE '%' || #{keyword} || '%')
             </if>
             <if test="couponType != null">
-                AND coupon_type = #{couponType}::coupon_type
+                AND coupon_type = #{couponType}
             </if>
             <if test="status != null">
-                AND status = #{status}::coupon_status
+                AND status = #{status}
             </if>
         </where>
     </select>

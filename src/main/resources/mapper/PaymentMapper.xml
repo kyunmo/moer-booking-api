@@ -59,8 +59,8 @@
             #{discountAmount},
             #{finalAmount},
             #{couponCode},
-            #{paymentMethod}::payment_method,
-            #{paymentStatus}::payment_status,
+            #{paymentMethod},
+            #{paymentStatus},
             #{pgProvider},
             #{pgTransactionId},
             #{webhookReceivedAt},
@@ -71,7 +71,7 @@
     <!-- 결제 수정 -->
     <update id="update">
         UPDATE payments
-        SET payment_status = #{paymentStatus}::payment_status,
+        SET payment_status = #{paymentStatus},
             pg_provider = #{pgProvider},
             pg_transaction_id = #{pgTransactionId},
             webhook_received_at = #{webhookReceivedAt},
@@ -118,7 +118,7 @@
                 AND business_id = #{businessId}
             </if>
             <if test="status != null">
-                AND payment_status = #{status}::payment_status
+                AND payment_status = #{status}
             </if>
             <if test="startDate != null">
                 AND created_at >= #{startDate}
@@ -138,7 +138,7 @@
     <select id="findLatestByBusinessId" resultMap="PaymentResultMap">
         SELECT * FROM payments
         WHERE business_id = #{businessId}
-          AND payment_status = 'COMPLETED'::payment_status
+          AND payment_status = 'COMPLETED'
         ORDER BY created_at DESC
         LIMIT 1
     </select>
