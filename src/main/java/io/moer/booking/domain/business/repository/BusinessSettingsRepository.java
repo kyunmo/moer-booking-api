@@ -2,6 +2,7 @@ package io.moer.booking.domain.business.repository;
 
 import io.moer.booking.domain.business.BusinessSettings;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.Optional;
 
@@ -19,4 +20,13 @@ public interface BusinessSettingsRepository {
 
     // 삭제
     void deleteByBusinessId(Long businessId);
+
+    // 온보딩
+    void updateOnboardingStep(@Param("businessId") Long businessId,
+                              @Param("column") String column,
+                              @Param("value") String value);
+
+    void completeOnboarding(@Param("businessId") Long businessId);
+
+    void skipOnboarding(@Param("businessId") Long businessId);
 }

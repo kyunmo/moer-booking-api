@@ -543,4 +543,69 @@
           AND r.status = 'COMPLETED'
     </select>
 
+    <!-- ========================================
+         고객 예약 이력 조회
+         ======================================== -->
+
+    <!-- 고객별 예약 목록 (페이징, status 선택적 필터) -->
+    <select id="findByBusinessIdAndCustomerId" resultMap="ReservationResultMap">
+        SELECT * FROM reservations
+        WHERE business_id = #{businessId}
+          AND customer_id = #{customerId}
+          <if test="status != null and status != ''">
+              AND status = #{status}
+          </if>
+        ORDER BY reservation_date DESC, start_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 고객별 예약 수 (status 선택적 필터) -->
+    <select id="countByBusinessIdAndCustomerId" resultType="int">
+        SELECT COUNT(*) FROM reservations
+        WHERE business_id = #{businessId}
+          AND customer_id = #{customerId}
+          <if test="status != null and status != ''">
+              AND status = #{status}
+          </if>
+    </select>
+
+    <!-- 가장 많이 이용한 서비스 (JSONB 집계, COMPLETED 상태만) -->
+    <select id="findFavoriteServiceByCustomerId" resultType="String">
+        SELECT service_elem->>'name' AS service_name
+        FROM reservations,
+             jsonb_array_elements(services) AS service_elem
+        WHERE business_id = #{businessId}
+          AND customer_id = #{customerId}
+          AND status = 'COMPLETED'
+        GROUP BY service_elem->>'name'
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+    </select>
+
+    <!-- 가장 많이 만난 직원 (COMPLETED 상태만) -->
+    <select id="findFavoriteStaffIdByCustomerId" resultType="Long">
+        SELECT staff_id
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND customer_id = #{customerId}
+          AND status = 'COMPLETED'
+          AND staff_id IS NOT NULL
+        GROUP BY staff_id
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+    </select>
+
+    <!-- 일별 매출 및 예약수 (기간별 분석) -->
+    <select id="getRevenueByDateRangeGroupByDate" resultType="map">
+        SELECT
+            reservation_date AS date,
+            COUNT(*) AS reservations,
+            COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN total_price ELSE 0 END), 0) AS revenue
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY reservation_date
+        ORDER BY reservation_date ASC
+    </select>
+
 </mapper>

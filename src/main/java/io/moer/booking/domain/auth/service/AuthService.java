@@ -4,17 +4,25 @@ import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.common.security.JwtTokenProvider;
+import io.moer.booking.common.storage.FileStorageService;
 import io.moer.booking.domain.auditlog.AuditAction;
 import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.auth.PasswordResetToken;
 import io.moer.booking.domain.auth.RefreshToken;
+import io.moer.booking.domain.auth.SnsAccount;
+import io.moer.booking.domain.auth.SnsProvider;
 import io.moer.booking.domain.auth.dto.*;
 import io.moer.booking.domain.auth.repository.PasswordResetTokenRepository;
 import io.moer.booking.domain.auth.repository.RefreshTokenRepository;
+import io.moer.booking.domain.auth.repository.SnsAccountRepository;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.dto.BusinessResponse;
 import io.moer.booking.domain.business.repository.BusinessRepository;
+import io.moer.booking.domain.reservation.Reservation;
+import io.moer.booking.domain.reservation.ReservationStatus;
+import io.moer.booking.domain.reservation.repository.ReservationRepository;
+import io.moer.booking.domain.staff.repository.StaffRepository;
 import io.moer.booking.domain.user.User;
 import io.moer.booking.domain.user.UserRole;
 import io.moer.booking.domain.user.UserStatus;
@@ -26,11 +34,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,10 +54,14 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final BusinessRepository businessRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final SnsAccountRepository snsAccountRepository;
+    private final StaffRepository staffRepository;
+    private final ReservationRepository reservationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
+    private final FileStorageService fileStorageService;
 
     /**
      * 로그인
@@ -62,10 +78,13 @@ public class AuthService {
         }
 
         // 3. 계정 상태 확인
-        if (user.getStatus().name().equals("INACTIVE")) {
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "탈퇴된 계정입니다");
+        }
+        if (user.getStatus() == UserStatus.INACTIVE) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "휴면 계정입니다");
         }
-        if (user.getStatus().name().equals("SUSPENDED")) {
+        if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new BusinessException(ErrorCode.ACCESS_DENIED, "정지된 계정입니다");
         }
 
@@ -320,5 +339,228 @@ public class AuthService {
         refreshTokenRepository.deleteByUserId(user.getId());
 
         log.info("Password reset completed: userId={}, email={}", user.getId(), user.getEmail());
+    }
+
+    /**
+     * 비밀번호 변경 (로그인한 사용자)
+     */
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 현재 비밀번호 확인
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_MISMATCH);
+        }
+
+        // 3. 새 비밀번호 확인 일치 체크
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_CONFIRM_MISMATCH);
+        }
+
+        // 4. 현재 비밀번호와 동일한지 체크
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.SAME_PASSWORD);
+        }
+
+        // 5. 비밀번호 변경
+        String encodedPassword = passwordEncoder.encode(request.getNewPassword());
+        userRepository.updatePassword(user.getId(), encodedPassword);
+
+        // 6. 모든 Refresh Token 삭제 (재로그인 강제)
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        // 7. 감사 로그
+        auditLogService.log(user, AuditAction.USER_PASSWORD_CHANGED,
+                "User", user.getId(), "비밀번호 변경", null);
+
+        log.info("Password changed: userId={}", userId);
+    }
+
+    /**
+     * 프로필 수정 (이름, 전화번호)
+     */
+    @Transactional
+    public UserResponse updateProfile(Long userId, ProfileUpdateRequest request) {
+        // 1. 사용자 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. 변경할 값 결정 (null이면 기존값 유지)
+        String newName = request.getName() != null ? request.getName() : user.getName();
+        String newPhone = request.getPhone() != null ? request.getPhone() : user.getPhone();
+
+        // 3. 업데이트
+        userRepository.updateProfile(user.getId(), newName, newPhone);
+
+        // 4. 감사 로그
+        Map<String, Object> metadata = new HashMap<>();
+        if (request.getName() != null) metadata.put("name", newName);
+        if (request.getPhone() != null) metadata.put("phone", newPhone);
+        auditLogService.log(user, AuditAction.USER_PROFILE_UPDATED,
+                "User", user.getId(), "프로필 수정", metadata);
+
+        // 5. 변경된 사용자 조회 후 반환
+        User updatedUser = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(updatedUser);
+    }
+
+    /**
+     * 프로필 이미지 업로드
+     */
+    @Transactional
+    public ProfileImageResponse uploadProfileImage(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        // 기존 이미지 삭제
+        if (user.getProfileImageUrl() != null) {
+            fileStorageService.delete(user.getProfileImageUrl());
+        }
+
+        // 새 이미지 저장
+        String imageUrl = fileStorageService.store(file, "profiles");
+
+        // DB 업데이트
+        userRepository.updateProfileImageUrl(user.getId(), imageUrl);
+
+        log.info("Profile image uploaded: userId={}, url={}", userId, imageUrl);
+        return new ProfileImageResponse(imageUrl);
+    }
+
+    /**
+     * SNS 연결 계정 목록 조회
+     */
+    public List<SnsAccountResponse> getSocialAccounts(Long userId) {
+        List<SnsAccount> accounts = snsAccountRepository.findByUserId(userId);
+        return accounts.stream()
+                .map(SnsAccountResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * SNS 계정 연결 해제
+     */
+    @Transactional
+    public void disconnectSocialAccount(Long userId, String providerName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        SnsProvider provider;
+        try {
+            provider = SnsProvider.valueOf(providerName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.OAUTH2_PROVIDER_NOT_FOUND,
+                    "지원하지 않는 SNS 제공자입니다: " + providerName);
+        }
+
+        // 연결된 계정 존재 확인
+        snsAccountRepository.findByUserIdAndProvider(userId, provider)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SNS_ACCOUNT_NOT_CONNECTED));
+
+        // 마지막 로그인 수단 체크
+        int snsCount = snsAccountRepository.countByUserId(userId);
+        if (snsCount <= 1) {
+            throw new BusinessException(ErrorCode.LAST_LOGIN_METHOD_CANNOT_REMOVE,
+                    "마지막 SNS 연결입니다. 비밀번호를 먼저 설정해주세요.");
+        }
+
+        // 삭제
+        snsAccountRepository.deleteByUserIdAndProvider(userId, provider);
+
+        // 감사 로그
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("provider", provider.name());
+        auditLogService.log(user, AuditAction.SNS_ACCOUNT_DISCONNECTED,
+                "SnsAccount", null, provider.name() + " 계정 연결 해제", metadata);
+
+        log.info("SNS account disconnected: userId={}, provider={}", userId, provider);
+    }
+
+    /**
+     * 회원 탈퇴
+     */
+    @Transactional
+    public void deleteAccount(Long userId, DeleteAccountRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        // 1. SUPER_ADMIN 탈퇴 차단
+        if (user.isSuperAdmin()) {
+            throw new BusinessException(ErrorCode.SUPER_ADMIN_CANNOT_BE_DELETED);
+        }
+
+        // 2. 이미 탈퇴된 계정 체크
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new BusinessException(ErrorCode.ACCOUNT_ALREADY_DELETED);
+        }
+
+        // 3. 비밀번호 확인
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_MISMATCH);
+        }
+
+        // 4. 진행 중인 예약 확인 (OWNER인 경우 매장 예약, STAFF인 경우 본인 예약)
+        if (user.getBusinessId() != null) {
+            LocalDate today = LocalDate.now();
+            List<Reservation> activeReservations;
+            if (user.isOwner()) {
+                // OWNER: 매장의 PENDING/CONFIRMED 예약 중 오늘 이후
+                activeReservations = reservationRepository.findByBusinessIdAndDateRange(
+                        user.getBusinessId(), today, today.plusYears(1));
+                activeReservations = activeReservations.stream()
+                        .filter(r -> r.getStatus() == ReservationStatus.PENDING ||
+                                     r.getStatus() == ReservationStatus.CONFIRMED)
+                        .collect(Collectors.toList());
+            } else {
+                // STAFF: 본인 담당 PENDING/CONFIRMED 예약
+                activeReservations = reservationRepository.findByStaffId(
+                        user.getStaffId() != null ? user.getStaffId() : -1L);
+                activeReservations = activeReservations.stream()
+                        .filter(r -> r.getStatus() == ReservationStatus.PENDING ||
+                                     r.getStatus() == ReservationStatus.CONFIRMED)
+                        .filter(r -> !r.getReservationDate().isBefore(today))
+                        .collect(Collectors.toList());
+            }
+
+            if (!activeReservations.isEmpty()) {
+                throw new BusinessException(ErrorCode.ACCOUNT_DELETE_HAS_ACTIVE_RESERVATIONS,
+                        "진행 중인 예약 " + activeReservations.size() + "건이 있습니다. 예약을 처리한 후 탈퇴해주세요.");
+            }
+        }
+
+        // 5. OWNER 탈퇴 시 매장 비활성화
+        if (user.isOwner() && user.getBusinessId() != null) {
+            businessRepository.updateStatus(user.getBusinessId(), BusinessStatus.INACTIVE);
+            // 매장 소속 직원 비활성화
+            staffRepository.deactivateByBusinessId(user.getBusinessId());
+        }
+
+        // 6. STAFF 탈퇴 시 스태프 비활성화
+        if (user.isStaff() && user.getStaffId() != null) {
+            staffRepository.deactivate(user.getStaffId());
+        }
+
+        // 7. 사용자 상태 DELETED로 변경 (Soft Delete)
+        userRepository.updateStatus(user.getId(), UserStatus.DELETED);
+
+        // 8. 모든 Refresh Token 삭제
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        // 9. 모든 SNS 계정 연결 해제
+        snsAccountRepository.deleteByUserId(user.getId());
+
+        // 10. 감사 로그
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("reason", request.getReason());
+        metadata.put("role", user.getRole().name());
+        if (user.getBusinessId() != null) metadata.put("businessId", user.getBusinessId());
+        auditLogService.log(user, AuditAction.USER_ACCOUNT_DELETED,
+                "User", user.getId(), "회원 탈퇴: " + user.getEmail(), metadata);
+
+        log.info("Account deleted: userId={}, email={}, role={}", userId, user.getEmail(), user.getRole());
     }
 }

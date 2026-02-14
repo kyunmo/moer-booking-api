@@ -31,6 +31,16 @@ public class PortfolioResponse {
      */
     private List<String> tags;
 
+    /**
+     * 서비스 카테고리 (예: 커트, 펌, 컬러)
+     */
+    private String serviceCategory;
+
+    /**
+     * 정렬 순서
+     */
+    private Integer sortOrder;
+
     private Integer displayOrder;
 
     /**
@@ -54,6 +64,8 @@ public class PortfolioResponse {
                 .description(portfolio.getDescription())
                 .imageUrl(portfolio.getImageUrl())
                 .tags(portfolio.getTagList())  // String → List 변환
+                .serviceCategory(portfolio.getServiceCategory())
+                .sortOrder(portfolio.getSortOrder())
                 .displayOrder(null)  // 현재 미사용
                 .isVisible("Y".equals(portfolio.getIsVisible()))  // Y/N → boolean
                 .createdAt(portfolio.getCreatedAt())

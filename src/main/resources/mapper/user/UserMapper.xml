@@ -11,6 +11,7 @@
         <result property="password" column="password"/>
         <result property="name" column="name"/>
         <result property="phone" column="phone"/>
+        <result property="profileImageUrl" column="profile_image_url"/>
         <result property="role" column="role"/>
         <result property="status" column="status"/>
         <result property="staffId" column="staff_id"/>
@@ -26,7 +27,7 @@
 
     <!-- Base Column List -->
     <sql id="baseColumns">
-        id, email, password, name, phone, role, status,
+        id, email, password, name, phone, profile_image_url, role, status,
         staff_id, business_id, email_verified,
         trial_started_at, trial_expires_at, is_premium,
         last_login_at, created_at, updated_at
@@ -63,11 +64,11 @@
     <!-- 저장 -->
     <insert id="save" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO users (
-            email, password, name, phone, role, status,
+            email, password, name, phone, profile_image_url, role, status,
             staff_id, business_id, email_verified,
             trial_started_at, trial_expires_at, is_premium
         ) VALUES (
-            #{email}, #{password}, #{name}, #{phone},
+            #{email}, #{password}, #{name}, #{phone}, #{profileImageUrl},
             #{role}, #{status},
             #{staffId}, #{businessId}, #{emailVerified},
             #{trialStartedAt}, #{trialExpiresAt}, #{isPremium}
@@ -105,6 +106,23 @@
     <update id="updatePassword">
         UPDATE users
         SET password = #{password},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 프로필 수정 (이름, 전화번호) -->
+    <update id="updateProfile">
+        UPDATE users
+        SET name = #{name},
+            phone = #{phone},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 프로필 이미지 URL 업데이트 -->
+    <update id="updateProfileImageUrl">
+        UPDATE users
+        SET profile_image_url = #{profileImageUrl},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>

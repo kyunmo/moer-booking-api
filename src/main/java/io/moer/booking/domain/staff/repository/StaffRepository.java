@@ -1,6 +1,7 @@
 package io.moer.booking.domain.staff.repository;
 
 import io.moer.booking.domain.staff.Staff;
+import io.moer.booking.domain.staff.dto.StaffSearchCondition;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,6 +29,11 @@ public interface StaffRepository {
     void update(Staff staff);
 
     /**
+     * 직원 프로필 이미지 URL 수정
+     */
+    void updateProfileImageUrl(@Param("id") Long id, @Param("profileImageUrl") String profileImageUrl);
+
+    /**
      * 직원 활성/비활성 전환
      */
     void toggleActive(Long id);
@@ -36,6 +42,16 @@ public interface StaffRepository {
      * 직원 삭제
      */
     void delete(Long id);
+
+    /**
+     * 직원 비활성화
+     */
+    void deactivate(@Param("id") Long id);
+
+    /**
+     * 매장의 모든 직원 비활성화
+     */
+    void deactivateByBusinessId(@Param("businessId") Long businessId);
 
     // ========================================
     // 조회
@@ -77,4 +93,14 @@ public interface StaffRepository {
      * Business의 직원 수 조회
      */
     long countByBusinessId(Long businessId);
+
+    /**
+     * 조건 기반 검색
+     */
+    List<Staff> findByCondition(StaffSearchCondition condition);
+
+    /**
+     * 조건 기반 검색 결과 수
+     */
+    int countByCondition(StaffSearchCondition condition);
 }

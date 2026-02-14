@@ -38,6 +38,12 @@ public class PortfolioCreateRequest {
     private List<String> tags;
 
     /**
+     * 서비스 카테고리 (선택)
+     * 예: "커트", "펌", "컬러"
+     */
+    private String serviceCategory;
+
+    /**
      * 표시 순서 (선택)
      * 미사용 (추후 구현 예정)
      */

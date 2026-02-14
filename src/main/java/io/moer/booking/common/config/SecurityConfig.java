@@ -89,6 +89,9 @@ public class SecurityConfig {
                         // OAuth2 엔드포인트 (Phase 3: SNS 로그인)
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
+                        // 업로드 파일 접근 (Public)
+                        .requestMatchers("/uploads/**").permitAll()
+
                         // Swagger/API 문서 (개발 환경)
                         .requestMatchers(
                                 "/v3/api-docs/**",

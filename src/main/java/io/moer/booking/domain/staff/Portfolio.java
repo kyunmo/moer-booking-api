@@ -40,6 +40,16 @@ public class Portfolio {
     private String tags;
 
     /**
+     * 서비스 카테고리 (예: 커트, 펌, 컬러)
+     */
+    private String serviceCategory;
+
+    /**
+     * 정렬 순서
+     */
+    private Integer sortOrder;
+
+    /**
      * 공개 여부 (Y/N)
      * DB: CHAR(1)
      */

@@ -281,6 +281,14 @@ public interface ReservationRepository {
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
+    /**
+     * 일별 매출 및 예약 수 (기간별 분석)
+     */
+    List<java.util.Map<String, Object>> getRevenueByDateRangeGroupByDate(
+            @Param("businessId") Long businessId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
     // ========================================
     // 대시보드 통계 - 시간대 분석
     // ========================================
@@ -324,4 +332,40 @@ public interface ReservationRepository {
      * 업종별 전체 매출
      */
     BigDecimal sumRevenueByBusinessType(BusinessType type);
+
+    // ========================================
+    // 고객 예약 이력 조회
+    // ========================================
+
+    /**
+     * 고객별 예약 목록 (페이징, status 선택적 필터)
+     */
+    List<Reservation> findByBusinessIdAndCustomerId(
+            @Param("businessId") Long businessId,
+            @Param("customerId") Long customerId,
+            @Param("status") String status,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
+
+    /**
+     * 고객별 예약 수 (status 선택적 필터)
+     */
+    int countByBusinessIdAndCustomerId(
+            @Param("businessId") Long businessId,
+            @Param("customerId") Long customerId,
+            @Param("status") String status);
+
+    /**
+     * 가장 많이 이용한 서비스명 (JSONB 집계, COMPLETED 상태만)
+     */
+    String findFavoriteServiceByCustomerId(
+            @Param("businessId") Long businessId,
+            @Param("customerId") Long customerId);
+
+    /**
+     * 가장 많이 만난 직원 ID (COMPLETED 상태만)
+     */
+    Long findFavoriteStaffIdByCustomerId(
+            @Param("businessId") Long businessId,
+            @Param("customerId") Long customerId);
 }

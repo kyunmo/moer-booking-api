@@ -7,12 +7,18 @@ import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.customer.Customer;
 import io.moer.booking.domain.customer.dto.*;
 import io.moer.booking.domain.customer.repository.CustomerRepository;
+import io.moer.booking.domain.reservation.Reservation;
+import io.moer.booking.domain.reservation.repository.ReservationRepository;
+import io.moer.booking.domain.staff.Staff;
+import io.moer.booking.domain.staff.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -27,6 +33,8 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final BusinessRepository businessRepository;
+    private final ReservationRepository reservationRepository;
+    private final StaffRepository staffRepository;
 
     /**
      * 고객 생성
@@ -340,6 +348,94 @@ public class CustomerService {
 
         log.info("Customer visit stats rolled back: id={}, visitCount={}, totalSpent={}, tags={}",
                 customerId, newVisitCount, newTotalSpent, newTags);
+    }
+
+    /**
+     * 고객 예약 이력 조회
+     * 특정 고객의 과거 예약 목록 + 요약 통계
+     */
+    public CustomerReservationHistoryResponse getCustomerReservationHistory(
+            Long businessId, Long customerId, String status, int page, int size) {
+
+        // 1. Customer 존재 확인
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND,
+                        "고객을 찾을 수 없습니다: " + customerId));
+
+        if (!customer.getBusinessId().equals(businessId)) {
+            throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND,
+                    "해당 매장의 고객이 아닙니다: " + customerId);
+        }
+
+        int offset = (page - 1) * size;
+
+        // 2. 예약 목록 조회
+        List<Reservation> reservations = reservationRepository.findByBusinessIdAndCustomerId(
+                businessId, customerId, status, offset, size);
+        int totalCount = reservationRepository.countByBusinessIdAndCustomerId(
+                businessId, customerId, status);
+
+        // 3. 예약 목록을 DTO 변환 (services JSONB에서 서비스명 추출)
+        List<CustomerReservationItem> items = reservations.stream()
+                .map(r -> CustomerReservationItem.builder()
+                        .id(r.getId())
+                        .reservationDate(r.getReservationDate())
+                        .startTime(r.getStartTime())
+                        .endTime(r.getEndTime())
+                        .staffName(getStaffName(r.getStaffId()))
+                        .services(extractServiceNames(r.getServices()))
+                        .totalPrice(r.getTotalPrice())
+                        .status(r.getStatus().name())
+                        .build())
+                .collect(Collectors.toList());
+
+        // 4. 요약 통계
+        String favoriteService = reservationRepository.findFavoriteServiceByCustomerId(businessId, customerId);
+        Long favoriteStaffId = reservationRepository.findFavoriteStaffIdByCustomerId(businessId, customerId);
+        String favoriteStaffName = null;
+        if (favoriteStaffId != null) {
+            favoriteStaffName = staffRepository.findById(favoriteStaffId)
+                    .map(Staff::getName).orElse(null);
+        }
+
+        CustomerReservationSummary summary = CustomerReservationSummary.builder()
+                .totalVisits(customer.getVisitCount())
+                .totalSpent(customer.getTotalSpent())
+                .lastVisitDate(customer.getLastVisitDate())
+                .favoriteService(favoriteService)
+                .favoriteStaff(favoriteStaffName)
+                .build();
+
+        return CustomerReservationHistoryResponse.builder()
+                .items(items)
+                .totalCount(totalCount)
+                .summary(summary)
+                .build();
+    }
+
+    /**
+     * staffId로 직원 이름 조회
+     */
+    private String getStaffName(Long staffId) {
+        if (staffId == null) {
+            return null;
+        }
+        return staffRepository.findById(staffId)
+                .map(Staff::getName)
+                .orElse(null);
+    }
+
+    /**
+     * JSONB services에서 서비스명 추출
+     */
+    private List<String> extractServiceNames(List<Map<String, Object>> services) {
+        if (services == null) {
+            return List.of();
+        }
+        return services.stream()
+                .map(s -> (String) s.get("name"))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**

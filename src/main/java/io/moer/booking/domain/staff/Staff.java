@@ -20,6 +20,7 @@ public class Staff {
     private Long businessId;
     private String name;
     private String position;
+    private Long positionId;
     private String phone;
     private String email;
     private String specialty;

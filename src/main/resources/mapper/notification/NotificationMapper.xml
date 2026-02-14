@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.notification.repository.NotificationRepository">
+
+    <resultMap id="NotificationResultMap" type="io.moer.booking.domain.notification.Notification">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="type" column="type"/>
+        <result property="title" column="title"/>
+        <result property="message" column="message"/>
+        <result property="link" column="link"/>
+        <result property="referenceType" column="reference_type"/>
+        <result property="referenceId" column="reference_id"/>
+        <result property="isRead" column="is_read"/>
+        <result property="readAt" column="read_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="save" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notifications (
+            user_id, business_id, type, title, message, link,
+            reference_type, reference_id
+        ) VALUES (
+            #{userId}, #{businessId}, #{type}, #{title}, #{message}, #{link},
+            #{referenceType}, #{referenceId}
+        )
+    </insert>
+
+    <select id="findById" resultMap="NotificationResultMap">
+        SELECT * FROM notifications WHERE id = #{id}
+    </select>
+
+    <select id="findByUserId" resultMap="NotificationResultMap">
+        SELECT * FROM notifications
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="findUnreadByUserId" resultMap="NotificationResultMap">
+        SELECT * FROM notifications
+        WHERE user_id = #{userId} AND is_read = 'N'
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM notifications WHERE user_id = #{userId}
+    </select>
+
+    <select id="countUnreadByUserId" resultType="int">
+        SELECT COUNT(*) FROM notifications WHERE user_id = #{userId} AND is_read = 'N'
+    </select>
+
+    <update id="markAsRead">
+        UPDATE notifications
+        SET is_read = 'Y', read_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <update id="markAllAsRead">
+        UPDATE notifications
+        SET is_read = 'Y', read_at = CURRENT_TIMESTAMP
+        WHERE user_id = #{userId} AND is_read = 'N'
+    </update>
+
+    <delete id="delete">
+        DELETE FROM notifications WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByUserId">
+        DELETE FROM notifications WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

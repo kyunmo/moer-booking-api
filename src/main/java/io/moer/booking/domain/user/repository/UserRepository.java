@@ -33,6 +33,10 @@ public interface UserRepository {
 
     void updatePassword(@Param("id") Long id, @Param("password") String encodedPassword);
 
+    void updateProfile(@Param("id") Long id, @Param("name") String name, @Param("phone") String phone);
+
+    void updateProfileImageUrl(@Param("id") Long id, @Param("profileImageUrl") String profileImageUrl);
+
     List<User> search(UserSearchCondition condition);
 
     long countSearch(UserSearchCondition condition);

@@ -16,8 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -507,6 +510,134 @@ public class DashboardService {
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
         return TrialProgress.from(owner);
+    }
+
+    // ========================================
+    // Phase 2: 기간별 통계
+    // ========================================
+
+    public PeriodStatsResponse getPeriodStats(Long businessId, LocalDate startDate, LocalDate endDate, String compareWith) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        // 현재 기간 통계
+        PeriodStatsResponse.PeriodStats currentStats = calculatePeriodStats(businessId, startDate, endDate);
+
+        // 일별 분석
+        List<PeriodStatsResponse.DailyBreakdown> dailyBreakdown = buildDailyBreakdown(businessId, startDate, endDate);
+
+        // 비교 기간 (선택)
+        PeriodStatsResponse.PeriodComparison comparison = null;
+        if ("PREVIOUS_PERIOD".equals(compareWith)) {
+            long days = ChronoUnit.DAYS.between(startDate, endDate) + 1;
+            LocalDate compEnd = startDate.minusDays(1);
+            LocalDate compStart = compEnd.minusDays(days - 1);
+            comparison = buildComparison(businessId, compStart, compEnd, currentStats);
+        } else if ("LAST_YEAR".equals(compareWith)) {
+            LocalDate compStart = startDate.minusYears(1);
+            LocalDate compEnd = endDate.minusYears(1);
+            comparison = buildComparison(businessId, compStart, compEnd, currentStats);
+        }
+
+        return PeriodStatsResponse.builder()
+                .period(PeriodStatsResponse.Period.builder().start(startDate).end(endDate).build())
+                .stats(currentStats)
+                .comparison(comparison)
+                .dailyBreakdown(dailyBreakdown)
+                .build();
+    }
+
+    private PeriodStatsResponse.PeriodStats calculatePeriodStats(Long businessId, LocalDate start, LocalDate end) {
+        int total = reservationRepository.countByBusinessIdAndDateRange(businessId, start, end);
+        int completed = reservationRepository.countByBusinessIdAndDateRangeAndStatus(businessId, start, end, ReservationStatus.COMPLETED);
+        int cancelled = reservationRepository.countByBusinessIdAndDateRangeAndStatus(businessId, start, end, ReservationStatus.CANCELLED);
+        int noShow = reservationRepository.countByBusinessIdAndDateRangeAndStatus(businessId, start, end, ReservationStatus.NO_SHOW);
+        long revenue = reservationRepository.sumTotalPriceByBusinessIdAndDateRangeAndStatus(businessId, start, end, ReservationStatus.COMPLETED);
+        int newCust = customerRepository.countByBusinessIdAndCreatedAtBetween(businessId, start.atStartOfDay(), end.atTime(23, 59, 59));
+        int returning = customerRepository.countReturningCustomers(businessId);
+
+        return PeriodStatsResponse.PeriodStats.builder()
+                .totalReservations(total)
+                .completedReservations(completed)
+                .cancelledReservations(cancelled)
+                .noShowReservations(noShow)
+                .totalRevenue(revenue)
+                .averageRevenuePerReservation(completed > 0 ? revenue / completed : 0L)
+                .newCustomers(newCust)
+                .returningCustomers(returning)
+                .build();
+    }
+
+    private List<PeriodStatsResponse.DailyBreakdown> buildDailyBreakdown(Long businessId, LocalDate start, LocalDate end) {
+        List<Map<String, Object>> rows = reservationRepository.getRevenueByDateRangeGroupByDate(businessId, start, end);
+        List<PeriodStatsResponse.DailyBreakdown> result = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            result.add(PeriodStatsResponse.DailyBreakdown.builder()
+                    .date(row.get("date") instanceof java.sql.Date d ? d.toLocalDate() : LocalDate.parse(row.get("date").toString()))
+                    .reservations(((Number) row.get("reservations")).intValue())
+                    .revenue(((Number) row.get("revenue")).longValue())
+                    .build());
+        }
+        return result;
+    }
+
+    private PeriodStatsResponse.PeriodComparison buildComparison(Long businessId, LocalDate compStart, LocalDate compEnd,
+                                                                   PeriodStatsResponse.PeriodStats current) {
+        PeriodStatsResponse.PeriodStats prev = calculatePeriodStats(businessId, compStart, compEnd);
+
+        return PeriodStatsResponse.PeriodComparison.builder()
+                .period(PeriodStatsResponse.Period.builder().start(compStart).end(compEnd).build())
+                .reservationsChange(calcPctChange(prev.getTotalReservations(), current.getTotalReservations()))
+                .revenueChange(calcPctChange(prev.getTotalRevenue(), current.getTotalRevenue()))
+                .newCustomersChange(calcPctChange(prev.getNewCustomers(), current.getNewCustomers()))
+                .build();
+    }
+
+    private Double calcPctChange(Number prev, Number cur) {
+        if (prev == null || prev.doubleValue() == 0) return cur != null && cur.doubleValue() > 0 ? 100.0 : 0.0;
+        double rate = ((cur.doubleValue() - prev.doubleValue()) / prev.doubleValue()) * 100;
+        return Math.round(rate * 10.0) / 10.0;
+    }
+
+    // ========================================
+    // Phase 2: 목표 달성률
+    // ========================================
+
+    public GoalStatsResponse getGoalStats(Long businessId, YearMonth month) {
+        io.moer.booking.domain.business.Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        LocalDate monthStart = month.atDay(1);
+        LocalDate monthEnd = month.atEndOfMonth();
+        LocalDate today = LocalDate.now();
+        LocalDate effectiveEnd = today.isBefore(monthEnd) ? today : monthEnd;
+
+        int currentReservations = reservationRepository.countByBusinessIdAndDateRange(businessId, monthStart, monthEnd);
+        long currentRevenue = reservationRepository.sumTotalPriceByBusinessIdAndDateRangeAndStatus(
+                businessId, monthStart, effectiveEnd, ReservationStatus.COMPLETED);
+
+        Integer revenueGoalInt = business.getMonthlyRevenueGoal();
+        Long revenueGoal = revenueGoalInt != null ? revenueGoalInt.longValue() : null;
+
+        int totalDays = month.lengthOfMonth();
+        int daysRemaining = today.isBefore(monthEnd) ? (int) ChronoUnit.DAYS.between(today, monthEnd) : 0;
+        int elapsedDays = totalDays - daysRemaining;
+
+        Long projectedRevenue = elapsedDays > 0 ? (currentRevenue * totalDays / elapsedDays) : 0L;
+        Integer projectedReservations = elapsedDays > 0 ? (currentReservations * totalDays / elapsedDays) : 0;
+
+        return GoalStatsResponse.builder()
+                .month(month.toString())
+                .revenueGoal(revenueGoal)
+                .currentRevenue(currentRevenue)
+                .revenueAchievementRate(revenueGoal != null && revenueGoal > 0
+                        ? Math.round((currentRevenue * 1000.0 / revenueGoal)) / 10.0 : null)
+                .currentReservations(currentReservations)
+                .daysRemaining(daysRemaining)
+                .projectedRevenue(projectedRevenue)
+                .projectedReservations(projectedReservations)
+                .build();
     }
 
     // ========================================

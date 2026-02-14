@@ -22,12 +22,19 @@ spring:
       pool:
         size: 5  # 스케줄러 스레드 풀 크기
 
-  # Email 설정 (Phase 2: 비밀번호 찾기)
+  # 파일 업로드 설정
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+  # Email 설정 (네이버 웍스 SMTP)
   mail:
-    host: smtp.gmail.com
+    host: smtp.worksmobile.com
     port: 587
-    username: ${MAIL_USERNAME:your-email@gmail.com}
-    password: ${MAIL_PASSWORD:your-app-password}
+    username: ${MAIL_USERNAME:your-account@your-domain.com}
+    password: ${MAIL_PASSWORD:your-external-app-password}
     properties:
       mail:
         smtp:
@@ -128,3 +135,7 @@ app:
     reset-password-url: ${FRONTEND_URL:http://localhost:3000}/reset-password
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/redirect}
+  storage:
+    upload-dir: ${UPLOAD_DIR:C:/Project/uploads}
+    allowed-extensions: jpg,jpeg,png,webp
+    max-file-size: 5242880

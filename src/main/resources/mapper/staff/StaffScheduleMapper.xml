@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.staff.repository.StaffScheduleRepository">
+
+    <!-- ========================================
+         Result Map
+         ======================================== -->
+    <resultMap id="StaffScheduleResultMap" type="io.moer.booking.domain.staff.StaffSchedule">
+        <id property="id" column="id"/>
+        <result property="staffId" column="staff_id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="dayOfWeek" column="day_of_week"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="breakStartTime" column="break_start_time"/>
+        <result property="breakEndTime" column="break_end_time"/>
+        <result property="isWorking" column="is_working"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
+    <insert id="save" parameterType="io.moer.booking.domain.staff.StaffSchedule"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO staff_schedules (
+            staff_id, business_id, day_of_week,
+            start_time, end_time,
+            break_start_time, break_end_time,
+            is_working
+        ) VALUES (
+            #{staffId}, #{businessId}, #{dayOfWeek},
+            #{startTime}, #{endTime},
+            #{breakStartTime}, #{breakEndTime},
+            #{isWorking}
+        )
+    </insert>
+
+    <!-- ========================================
+         삭제 (DELETE)
+         ======================================== -->
+
+    <!-- 직원의 전체 스케줄 삭제 -->
+    <delete id="deleteByStaffId">
+        DELETE FROM staff_schedules
+        WHERE staff_id = #{staffId}
+    </delete>
+
+    <!-- ========================================
+         조회 (SELECT)
+         ======================================== -->
+
+    <!-- 직원의 전체 스케줄 조회 (요일순) -->
+    <select id="findByStaffId" resultMap="StaffScheduleResultMap">
+        SELECT * FROM staff_schedules
+        WHERE staff_id = #{staffId}
+        ORDER BY day_of_week
+    </select>
+
+    <!-- 직원의 특정 요일 스케줄 조회 -->
+    <select id="findByStaffIdAndDayOfWeek" resultMap="StaffScheduleResultMap">
+        SELECT * FROM staff_schedules
+        WHERE staff_id = #{staffId}
+          AND day_of_week = #{dayOfWeek}
+    </select>
+
+</mapper>

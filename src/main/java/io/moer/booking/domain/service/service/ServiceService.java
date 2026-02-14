@@ -31,6 +31,7 @@ public class ServiceService {
     private final ServiceRepository serviceRepository;
     private final BusinessRepository businessRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
+    private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
 
     /**
      * 서비스 생성
@@ -65,6 +66,9 @@ public class ServiceService {
 
         log.info("Service created: id={}, businessId={}, name={}",
                 service.getId(), businessId, service.getName());
+
+        // 온보딩 스텝 자동 완료
+        onboardingService.markStepComplete(businessId, "service");
 
         // JOIN된 정보를 포함하여 반환하기 위해 다시 조회
         return getService(businessId, service.getId());

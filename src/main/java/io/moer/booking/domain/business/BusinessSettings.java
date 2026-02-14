@@ -155,6 +155,16 @@ public class BusinessSettings {
      */
     private String language;
 
+    // ========================================
+    // 온보딩
+    // ========================================
+
+    private String onboardingCompleted;
+    private String onboardingSkipped;
+    private String onboardingStepService;
+    private String onboardingStepStaff;
+    private String onboardingStepReservation;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

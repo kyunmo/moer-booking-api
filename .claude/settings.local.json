@@ -28,7 +28,11 @@
       "Bash(cmd //c \"taskkill /PID 22096 /F\")",
       "Bash(cmd //c \"taskkill /PID 27536 /F\")",
       "Bash(cmd //c \"taskkill /PID 12160 /F\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "WebSearch",
+      "Bash(gh pr view:*)",
+      "Bash(where:*)"
     ]
   }
 }

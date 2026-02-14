@@ -15,6 +15,8 @@
         <result property="description" column="description"/>
         <result property="imageUrl" column="image_url"/>
         <result property="tags" column="tags"/>
+        <result property="serviceCategory" column="service_category"/>
+        <result property="sortOrder" column="sort_order"/>
         <result property="isVisible" column="is_visible"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
@@ -25,9 +27,10 @@
     <insert id="save" parameterType="io.moer.booking.domain.staff.Portfolio"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO portfolios (
-            staff_id, title, description, image_url, tags, is_visible
+            staff_id, title, description, image_url, tags, service_category, sort_order, is_visible
         ) VALUES (
-                     #{staffId}, #{title}, #{description}, #{imageUrl}, #{tags}, #{isVisible}
+                     #{staffId}, #{title}, #{description}, #{imageUrl}, #{tags},
+                     #{serviceCategory}, #{sortOrder}, #{isVisible}
                  )
     </insert>
 

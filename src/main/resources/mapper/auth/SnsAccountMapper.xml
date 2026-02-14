@@ -67,4 +67,26 @@
         WHERE user_id = #{userId}
     </delete>
 
+    <!-- 사용자 ID와 제공자로 조회 -->
+    <select id="findByUserIdAndProvider" resultMap="SnsAccountResultMap">
+        SELECT id, user_id, provider, provider_user_id, email, name, profile_image_url, created_at, updated_at
+        FROM sns_accounts
+        WHERE user_id = #{userId}
+          AND provider = #{provider}::VARCHAR
+    </select>
+
+    <!-- 사용자 ID와 제공자로 삭제 -->
+    <delete id="deleteByUserIdAndProvider">
+        DELETE FROM sns_accounts
+        WHERE user_id = #{userId}
+          AND provider = #{provider}::VARCHAR
+    </delete>
+
+    <!-- 사용자의 SNS 계정 수 -->
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM sns_accounts
+        WHERE user_id = #{userId}
+    </select>
+
 </mapper>

@@ -59,6 +59,12 @@ public enum ErrorCode {
     SERVICE_CATEGORY_HAS_SERVICES(HttpStatus.BAD_REQUEST, "SV005", "해당 카테고리에 서비스가 존재하여 삭제할 수 없습니다"),
     SERVICE_CATEGORY_SORT_ORDER_INVALID(HttpStatus.BAD_REQUEST, "SV006", "정렬 순서가 올바르지 않습니다"),
 
+    // Staff Position 관련 에러 (SP001~SP004)
+    STAFF_POSITION_NOT_FOUND(HttpStatus.NOT_FOUND, "SP001", "직급을 찾을 수 없습니다"),
+    STAFF_POSITION_DUPLICATE_NAME(HttpStatus.CONFLICT, "SP002", "이미 존재하는 직급명입니다"),
+    STAFF_POSITION_HAS_STAFFS(HttpStatus.BAD_REQUEST, "SP003", "해당 직급에 직원이 존재하여 삭제할 수 없습니다"),
+    STAFF_POSITION_SORT_ORDER_INVALID(HttpStatus.BAD_REQUEST, "SP004", "정렬 순서가 올바르지 않습니다"),
+
     // Portfolio 관련 에러 (P001) - 추가
     PORTFOLIO_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "포트폴리오를 찾을 수 없습니다"),
 
@@ -130,7 +136,41 @@ public enum ErrorCode {
 
     // ============ Billing (BI001 ~ BI002) ============
     BILLING_INFO_NOT_FOUND(HttpStatus.NOT_FOUND, "BI001", "결제 정보를 찾을 수 없습니다"),
-    BILLING_CALCULATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "BI002", "요금 계산 중 오류가 발생했습니다");
+    BILLING_CALCULATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "BI002", "요금 계산 중 오류가 발생했습니다"),
+
+    // ============ 프로필/계정 관련 (AC001 ~ AC008) ============
+    PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "AC001", "현재 비밀번호가 일치하지 않습니다"),
+    PASSWORD_CONFIRM_MISMATCH(HttpStatus.BAD_REQUEST, "AC002", "새 비밀번호와 확인 비밀번호가 일치하지 않습니다"),
+    PASSWORD_POLICY_VIOLATION(HttpStatus.BAD_REQUEST, "AC003", "비밀번호는 8자 이상, 영문과 숫자를 포함해야 합니다"),
+    ACCOUNT_DELETE_HAS_ACTIVE_RESERVATIONS(HttpStatus.BAD_REQUEST, "AC004", "진행 중인 예약이 있어 탈퇴할 수 없습니다"),
+    ACCOUNT_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "AC005", "이미 탈퇴된 계정입니다"),
+    LAST_LOGIN_METHOD_CANNOT_REMOVE(HttpStatus.BAD_REQUEST, "AC006", "마지막 로그인 수단은 해제할 수 없습니다"),
+    SNS_ACCOUNT_NOT_CONNECTED(HttpStatus.NOT_FOUND, "AC007", "연결되지 않은 SNS 계정입니다"),
+    SAME_PASSWORD(HttpStatus.BAD_REQUEST, "AC008", "새 비밀번호는 현재 비밀번호와 달라야 합니다"),
+
+    // ============ 파일 업로드 관련 (FI001 ~ FI005) ============
+    FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FI001", "파일 업로드에 실패했습니다"),
+    FILE_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, "FI002", "파일 크기가 제한을 초과했습니다"),
+    UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "FI003", "지원하지 않는 파일 형식입니다"),
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "FI004", "파일을 찾을 수 없습니다"),
+    FILE_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FI005", "파일 삭제에 실패했습니다"),
+
+    // ============ 알림 관련 (NT001 ~ NT003) ============
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NT001", "알림을 찾을 수 없습니다"),
+    NOTIFICATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "NT002", "해당 알림에 접근 권한이 없습니다"),
+
+    // ============ 스태프 스케줄 관련 (SS001 ~ SS004) ============
+    SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SS001", "근무 스케줄을 찾을 수 없습니다"),
+    INVALID_SCHEDULE_TIME(HttpStatus.BAD_REQUEST, "SS002", "근무 시간이 올바르지 않습니다"),
+    STAFF_NOT_WORKING_DAY(HttpStatus.BAD_REQUEST, "SS003", "해당 직원의 근무일이 아닙니다"),
+    NO_AVAILABLE_SLOTS(HttpStatus.NOT_FOUND, "SS004", "예약 가능한 시간이 없습니다"),
+
+    // ============ 포트폴리오 확장 (P002) ============
+    PORTFOLIO_IMAGE_REQUIRED(HttpStatus.BAD_REQUEST, "P002", "포트폴리오 이미지는 필수입니다"),
+
+    // ============ 온보딩 관련 (OB001 ~ OB002) ============
+    ONBOARDING_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "OB001", "이미 온보딩이 완료되었습니다"),
+    ONBOARDING_ALREADY_SKIPPED(HttpStatus.BAD_REQUEST, "OB002", "이미 온보딩을 건너뛰었습니다");
 
     private final HttpStatus status;
     private final String code;

@@ -83,6 +83,14 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 상태만 변경 -->
+    <update id="updateStatus">
+        UPDATE businesses
+        SET status = #{status},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
     <!-- ========================================
          삭제 (DELETE)
          ======================================== -->

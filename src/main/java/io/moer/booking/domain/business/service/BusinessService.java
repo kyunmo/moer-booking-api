@@ -39,6 +39,7 @@ public class BusinessService {
 
     private final BusinessRepository businessRepository;
     private final BusinessSettingsRepository businessSettingsRepository;
+    private final BusinessSettingsService businessSettingsService;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
@@ -184,10 +185,18 @@ public class BusinessService {
                 .address(request.getAddress() != null ? request.getAddress() : business.getAddress())
                 .description(request.getDescription() != null ? request.getDescription() : business.getDescription())
                 .businessHours(request.getBusinessHours() != null ? request.getBusinessHours() : business.getBusinessHours())
+                .status(business.getStatus())
                 .dailyRevenueGoal(request.getDailyRevenueGoal() != null ? request.getDailyRevenueGoal() : business.getDailyRevenueGoal())
                 .monthlyRevenueGoal(request.getMonthlyRevenueGoal() != null ? request.getMonthlyRevenueGoal() : business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(request.getMonthlyNewCustomerGoal() != null ? request.getMonthlyNewCustomerGoal() : business.getMonthlyNewCustomerGoal())
-                .status(business.getStatus())
+                .subscriptionPlan(business.getSubscriptionPlan())
+                .subscriptionStatus(business.getSubscriptionStatus())
+                .trialStartedAt(business.getTrialStartedAt())
+                .trialEndsAt(business.getTrialEndsAt())
+                .subscriptionStartedAt(business.getSubscriptionStartedAt())
+                .nextBillingDate(business.getNextBillingDate())
+                .currentStaffCount(business.getCurrentStaffCount())
+                .currentMonthReservationCount(business.getCurrentMonthReservationCount())
                 .createdAt(business.getCreatedAt())
                 .build();
 
@@ -320,20 +329,7 @@ public class BusinessService {
 
         BusinessStatus oldStatus = business.getStatus();
 
-        Business updated = Business.builder()
-                .id(business.getId())
-                .ownerId(business.getOwnerId())
-                .businessType(business.getBusinessType())
-                .name(business.getName())
-                .phone(business.getPhone())
-                .address(business.getAddress())
-                .description(business.getDescription())
-                .businessHours(business.getBusinessHours())
-                .status(status)
-                .createdAt(business.getCreatedAt())
-                .build();
-
-        businessRepository.update(updated);
+        businessRepository.updateStatus(id, status);
 
         // 감사 로그 기록
         Map<String, Object> metadata = new HashMap<>();
@@ -363,45 +359,9 @@ public class BusinessService {
 
         BusinessSettings settings = businessSettingsRepository
                 .findByBusinessId(businessId)
-                .orElseGet(() -> createDefaultSettings(businessId));
+                .orElseGet(() -> businessSettingsService.createDefaultSettings(businessId));
 
         return BusinessResponse.from(business, settings);
     }
 
-    /**
-     * 기본 설정 생성 (Settings가 없는 기존 매장용)
-     * REQUIRES_NEW: 별도 트랜잭션으로 실행 (readOnly 트랜잭션에서 호출 가능)
-     */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    public BusinessSettings createDefaultSettings(Long businessId) {
-        log.info("Creating default settings for business: {}", businessId);
-
-        BusinessSettings settings = BusinessSettings.builder()
-                .businessId(businessId)
-                .bookingInterval(30)
-                .autoConfirm("N")
-                .allowOnlineBooking("Y")
-                .maxAdvanceBookingDays(30)
-                .minAdvanceBookingHours(2)
-                .sendConfirmationSms("Y")
-                .sendReminderSms("Y")
-                .reminderHoursBefore(24)
-                .sendCancelSms("Y")
-                .kakaoEnabled("N")
-                .paymentMethods("CARD,CASH")
-                .requireDeposit("N")
-                .depositAmount(0)
-                .allowCancellation("Y")
-                .cancelDeadlineHours(24)
-                .noShowPenaltyEnabled("N")
-                .timezone("Asia/Seoul")
-                .language("ko")
-                .build();
-
-        businessSettingsRepository.save(settings);
-
-        log.info("Default settings created for business: {}", businessId);
-
-        return settings;
-    }
 }

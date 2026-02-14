@@ -29,10 +29,16 @@ public class StaffCreateRequest {
     private String name;
 
     /**
-     * 직급 (선택)
+     * 직급 (선택) - 텍스트
      * 예: 원장, 실장, 디자이너, 수석
      */
     private String position;
+
+    /**
+     * 직급 ID (선택)
+     * staff_positions 테이블 참조. 설정 시 position 텍스트 자동 채움.
+     */
+    private Long positionId;
 
     /**
      * 전화번호 (선택)

@@ -1,13 +1,14 @@
 package io.moer.booking.domain.customer.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
-import io.moer.booking.domain.customer.dto.CustomerCreateRequest;
-import io.moer.booking.domain.customer.dto.CustomerResponse;
-import io.moer.booking.domain.customer.dto.CustomerSearchCondition;
-import io.moer.booking.domain.customer.dto.CustomerUpdateRequest;
+import io.moer.booking.common.security.CustomUserDetails;
+import io.moer.booking.domain.customer.dto.*;
 import io.moer.booking.domain.customer.service.CustomerService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/businesses/{businessId}/customers")
 @RequiredArgsConstructor
+@Tag(name = "Customer", description = "고객 관리 API")
 public class CustomerController {
 
     private final CustomerService customerService;
@@ -39,6 +41,23 @@ public class CustomerController {
             @PathVariable Long customerId) {
         CustomerResponse response = customerService.getCustomer(businessId, customerId);
         return ApiResponse.success(response);
+    }
+
+    /**
+     * 고객 예약 이력 조회
+     */
+    @Operation(summary = "고객 예약 이력 조회", description = "특정 고객의 과거 예약 목록과 요약 통계를 조회합니다.")
+    @GetMapping("/{customerId}/reservations")
+    public ApiResponse<CustomerReservationHistoryResponse> getCustomerReservationHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long businessId,
+            @PathVariable Long customerId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status) {
+        userDetails.getUser().canAccessBusiness(businessId);
+        return ApiResponse.success(
+                customerService.getCustomerReservationHistory(businessId, customerId, status, page, size));
     }
 
     /**

@@ -26,6 +26,7 @@ public interface BusinessRepository {
 
     // 수정
     void update(Business business);
+    void updateStatus(@Param("id") Long id, @Param("status") BusinessStatus status);
 
     // 삭제
     void delete(Long id);

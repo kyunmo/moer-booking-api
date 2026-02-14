@@ -20,6 +20,7 @@ public class UserResponse {
     private String email;
     private String name;
     private String phone;
+    private String profileImageUrl;
     private UserRole role;  // Enum 그대로
     private String roleDescription;
     private UserStatus status;  // Enum 그대로
@@ -43,6 +44,7 @@ public class UserResponse {
                 .email(user.getEmail())
                 .name(user.getName())
                 .phone(user.getPhone())
+                .profileImageUrl(user.getProfileImageUrl())
                 .role(user.getRole())
                 .roleDescription(user.getRole().getDescription())  // Enum 사용
                 .status(user.getStatus())

@@ -4,12 +4,9 @@ import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.security.CustomUserDetails;
 import io.moer.booking.domain.business.BusinessStatus;
-import io.moer.booking.domain.business.dto.BusinessCreateRequest;
-import io.moer.booking.domain.business.dto.BusinessResponse;
-import io.moer.booking.domain.business.dto.BusinessSearchCondition;
-import io.moer.booking.domain.business.dto.BusinessSettingsUpdateRequest;
-import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
+import io.moer.booking.domain.business.dto.*;
 import io.moer.booking.domain.business.service.BusinessService;
+import io.moer.booking.domain.business.service.OnboardingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,6 +23,7 @@ import java.util.List;
 public class BusinessController {
 
     private final BusinessService businessService;
+    private final OnboardingService onboardingService;
 
     /**
      * 매장 생성
@@ -112,5 +110,28 @@ public class BusinessController {
             @RequestParam BusinessStatus status) {
         BusinessResponse response = businessService.changeBusinessStatus(id, status, currentUser.getUser());
         return ApiResponse.success(response);
+    }
+
+    /**
+     * 온보딩 상태 조회
+     */
+    @GetMapping("/{id}/onboarding")
+    public ApiResponse<OnboardingStatusResponse> getOnboardingStatus(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        currentUser.getUser().canAccessBusiness(id);
+        return ApiResponse.success(onboardingService.getOnboardingStatus(id));
+    }
+
+    /**
+     * 온보딩 건너뛰기
+     */
+    @PostMapping("/{id}/onboarding/skip")
+    public ApiResponse<Void> skipOnboarding(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        currentUser.getUser().canAccessBusiness(id);
+        onboardingService.skipOnboarding(id);
+        return ApiResponse.success(null, "온보딩을 건너뛰었습니다.");
     }
 }

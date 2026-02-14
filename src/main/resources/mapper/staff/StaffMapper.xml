@@ -12,6 +12,7 @@
         <result property="businessId" column="business_id"/>
         <result property="name" column="name"/>
         <result property="position" column="position"/>
+        <result property="positionId" column="position_id"/>
         <result property="phone" column="phone"/>
         <result property="email" column="email"/>
         <result property="specialty" column="specialty"/>
@@ -29,10 +30,10 @@
     <insert id="save" parameterType="io.moer.booking.domain.staff.Staff"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO staffs (
-            business_id, name, position, phone, email, specialty,
+            business_id, name, position, position_id, phone, email, specialty,
             career_years, profile_image_url, introduction, is_active
         ) VALUES (
-                     #{businessId}, #{name}, #{position}, #{phone}, #{email}, #{specialty},
+                     #{businessId}, #{name}, #{position}, #{positionId}, #{phone}, #{email}, #{specialty},
                      #{careerYears}, #{profileImageUrl}, #{introduction}, #{isActive}
                  )
     </insert>
@@ -46,6 +47,7 @@
         UPDATE staffs
         SET name = #{name},
             position = #{position},
+            position_id = #{positionId},
             phone = #{phone},
             email = #{email},
             specialty = #{specialty},
@@ -56,12 +58,36 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 프로필 이미지 URL 수정 -->
+    <update id="updateProfileImageUrl">
+        UPDATE staffs
+        SET profile_image_url = #{profileImageUrl},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
     <!-- 활성 여부 토글 -->
     <update id="toggleActive">
         UPDATE staffs
         SET is_active = CASE WHEN is_active = 'Y' THEN 'N' ELSE 'Y' END,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
+    </update>
+
+    <!-- 직원 비활성화 -->
+    <update id="deactivate">
+        UPDATE staffs
+        SET is_active = 'N',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 매장의 모든 직원 비활성화 -->
+    <update id="deactivateByBusinessId">
+        UPDATE staffs
+        SET is_active = 'N',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE business_id = #{businessId}
     </update>
 
     <!-- ========================================
@@ -122,6 +148,61 @@
     <select id="countByBusinessId" resultType="long">
         SELECT COUNT(*) FROM staffs
         WHERE business_id = #{businessId}
+    </select>
+
+    <!-- ========================================
+         조건 기반 검색
+         ======================================== -->
+
+    <!-- 검색 공통 WHERE 조건 -->
+    <sql id="searchCondition">
+        <where>
+            <if test="businessId != null">
+                AND s.business_id = #{businessId}
+            </if>
+            <if test="name != null and name != ''">
+                AND s.name LIKE '%' || #{name} || '%'
+            </if>
+            <if test="positionId != null">
+                AND s.position_id = #{positionId}
+            </if>
+            <if test="specialty != null and specialty != ''">
+                AND s.specialty LIKE '%' || #{specialty} || '%'
+            </if>
+            <if test="isActive != null">
+                <choose>
+                    <when test="isActive == true">AND s.is_active = 'Y'</when>
+                    <otherwise>AND s.is_active = 'N'</otherwise>
+                </choose>
+            </if>
+            <if test="minCareerYears != null">
+                AND s.career_years >= #{minCareerYears}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 조건 기반 검색 -->
+    <select id="findByCondition" parameterType="io.moer.booking.domain.staff.dto.StaffSearchCondition"
+            resultMap="StaffResultMap">
+        SELECT s.* FROM staffs s
+        <include refid="searchCondition"/>
+        <choose>
+            <when test="sortBy == 'name'">ORDER BY s.name</when>
+            <when test="sortBy == 'position'">ORDER BY s.position</when>
+            <when test="sortBy == 'career_years'">ORDER BY s.career_years</when>
+            <otherwise>ORDER BY s.created_at</otherwise>
+        </choose>
+        <choose>
+            <when test="sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+    </select>
+
+    <!-- 조건 기반 검색 결과 수 -->
+    <select id="countByCondition" parameterType="io.moer.booking.domain.staff.dto.StaffSearchCondition"
+            resultType="int">
+        SELECT COUNT(*) FROM staffs s
+        <include refid="searchCondition"/>
     </select>
 
 </mapper>

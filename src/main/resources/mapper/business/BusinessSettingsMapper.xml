@@ -43,6 +43,13 @@
         <result property="timezone" column="timezone"/>
         <result property="language" column="language"/>
 
+        <!-- 온보딩 -->
+        <result property="onboardingCompleted" column="onboarding_completed"/>
+        <result property="onboardingSkipped" column="onboarding_skipped"/>
+        <result property="onboardingStepService" column="onboarding_step_service"/>
+        <result property="onboardingStepStaff" column="onboarding_step_staff"/>
+        <result property="onboardingStepReservation" column="onboarding_step_reservation"/>
+
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -117,5 +124,30 @@
         DELETE FROM business_settings
         WHERE business_id = #{businessId}
     </delete>
+
+    <!-- ========================================
+         온보딩
+         ======================================== -->
+    <update id="updateOnboardingStep">
+        UPDATE business_settings
+        SET ${column} = #{value},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE business_id = #{businessId}
+    </update>
+
+    <update id="completeOnboarding">
+        UPDATE business_settings
+        SET onboarding_completed = 'Y',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE business_id = #{businessId}
+    </update>
+
+    <update id="skipOnboarding">
+        UPDATE business_settings
+        SET onboarding_skipped = 'Y',
+            onboarding_completed = 'Y',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE business_id = #{businessId}
+    </update>
 
 </mapper>

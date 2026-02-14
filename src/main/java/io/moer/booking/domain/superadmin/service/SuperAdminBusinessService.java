@@ -109,20 +109,7 @@ public class SuperAdminBusinessService {
             Business business = businessRepository.findById(businessId)
                     .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
-            Business updated = Business.builder()
-                    .id(business.getId())
-                    .ownerId(business.getOwnerId())
-                    .businessType(business.getBusinessType())
-                    .name(business.getName())
-                    .phone(business.getPhone())
-                    .address(business.getAddress())
-                    .description(business.getDescription())
-                    .businessHours(business.getBusinessHours())
-                    .status(request.getStatus())
-                    .createdAt(business.getCreatedAt())
-                    .build();
-
-            businessRepository.update(updated);
+            businessRepository.updateStatus(businessId, request.getStatus());
 
             // 감사 로그 기록
             Map<String, Object> metadata = new HashMap<>();

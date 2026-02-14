@@ -16,6 +16,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     name VARCHAR(50) NOT NULL,
     phone VARCHAR(20),
+    profile_image_url TEXT,
     role VARCHAR(20) NOT NULL DEFAULT 'OWNER',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     staff_id BIGINT,
@@ -35,8 +36,9 @@ COMMENT ON COLUMN users.email IS '이메일 (로그인 ID)';
 COMMENT ON COLUMN users.password IS '비밀번호 (BCrypt 암호화)';
 COMMENT ON COLUMN users.name IS '이름';
 COMMENT ON COLUMN users.phone IS '전화번호';
+COMMENT ON COLUMN users.profile_image_url IS '프로필 이미지 URL';
 COMMENT ON COLUMN users.role IS '역할 (SUPER_ADMIN, ADMIN, OWNER, STAFF)';
-COMMENT ON COLUMN users.status IS '상태 (ACTIVE, INACTIVE, SUSPENDED)';
+COMMENT ON COLUMN users.status IS '상태 (ACTIVE, INACTIVE, SUSPENDED, DELETED)';
 COMMENT ON COLUMN users.staff_id IS '연결된 직원 ID (STAFF 역할인 경우)';
 COMMENT ON COLUMN users.business_id IS '소속 매장 ID (OWNER/STAFF)';
 COMMENT ON COLUMN users.email_verified IS '이메일 인증 여부 (Y/N)';
@@ -198,6 +200,11 @@ CREATE TABLE business_settings (
     no_show_penalty_enabled CHAR(1) DEFAULT 'N',
     timezone VARCHAR(50) DEFAULT 'Asia/Seoul',
     language VARCHAR(10) DEFAULT 'ko',
+    onboarding_completed CHAR(1) DEFAULT 'N',
+    onboarding_skipped CHAR(1) DEFAULT 'N',
+    onboarding_step_service CHAR(1) DEFAULT 'N',
+    onboarding_step_staff CHAR(1) DEFAULT 'N',
+    onboarding_step_reservation CHAR(1) DEFAULT 'N',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -214,6 +221,11 @@ COMMENT ON COLUMN business_settings.kakao_enabled IS '카카오 알림톡 사용
 COMMENT ON COLUMN business_settings.payment_methods IS '결제 수단 (콤마 구분)';
 COMMENT ON COLUMN business_settings.timezone IS '시간대';
 COMMENT ON COLUMN business_settings.language IS '언어';
+COMMENT ON COLUMN business_settings.onboarding_completed IS '온보딩 완료 여부 (Y/N)';
+COMMENT ON COLUMN business_settings.onboarding_skipped IS '온보딩 건너뛰기 여부 (Y/N)';
+COMMENT ON COLUMN business_settings.onboarding_step_service IS '서비스 등록 스텝 완료 (Y/N)';
+COMMENT ON COLUMN business_settings.onboarding_step_staff IS '스태프 등록 스텝 완료 (Y/N)';
+COMMENT ON COLUMN business_settings.onboarding_step_reservation IS '예약 생성 스텝 완료 (Y/N)';
 
 CREATE UNIQUE INDEX idx_business_settings_business_id ON business_settings(business_id);
 
@@ -227,6 +239,7 @@ CREATE TABLE staffs (
     business_id BIGINT NOT NULL,
     name VARCHAR(50) NOT NULL,
     position VARCHAR(50),
+    position_id BIGINT,
     phone VARCHAR(20),
     email VARCHAR(100),
     specialty TEXT,
@@ -242,7 +255,8 @@ COMMENT ON TABLE staffs IS '직원 (디자이너/강사)';
 COMMENT ON COLUMN staffs.id IS '직원 ID';
 COMMENT ON COLUMN staffs.business_id IS '소속 매장 ID';
 COMMENT ON COLUMN staffs.name IS '이름';
-COMMENT ON COLUMN staffs.position IS '직급 (원장, 실장, 디자이너 등)';
+COMMENT ON COLUMN staffs.position IS '직급 텍스트 (원장, 실장, 디자이너 등)';
+COMMENT ON COLUMN staffs.position_id IS '직급 ID (staff_positions 참조)';
 COMMENT ON COLUMN staffs.phone IS '전화번호';
 COMMENT ON COLUMN staffs.email IS '이메일';
 COMMENT ON COLUMN staffs.specialty IS '전문분야 (예: 펌, 컬러, 남성컷)';
@@ -254,6 +268,30 @@ COMMENT ON COLUMN staffs.created_at IS '생성일시';
 COMMENT ON COLUMN staffs.updated_at IS '수정일시';
 
 CREATE INDEX idx_staffs_business_id ON staffs(business_id);
+CREATE INDEX idx_staffs_position_id ON staffs(position_id);
+
+-- 직급 테이블
+CREATE TABLE staff_positions (
+    id BIGSERIAL PRIMARY KEY,
+    business_id BIGINT NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    description VARCHAR(200),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE staff_positions IS '직급 (원장, 실장, 디자이너 등)';
+COMMENT ON COLUMN staff_positions.id IS '직급 ID';
+COMMENT ON COLUMN staff_positions.business_id IS '매장 ID';
+COMMENT ON COLUMN staff_positions.name IS '직급명';
+COMMENT ON COLUMN staff_positions.description IS '설명';
+COMMENT ON COLUMN staff_positions.sort_order IS '정렬 순서';
+COMMENT ON COLUMN staff_positions.created_at IS '생성일시';
+COMMENT ON COLUMN staff_positions.updated_at IS '수정일시';
+
+CREATE INDEX idx_staff_positions_business_id ON staff_positions(business_id);
+CREATE UNIQUE INDEX idx_staff_positions_business_name ON staff_positions(business_id, name);
 
 -- 포트폴리오 테이블
 CREATE TABLE portfolios (
@@ -263,6 +301,8 @@ CREATE TABLE portfolios (
     description TEXT,
     image_url TEXT NOT NULL,
     tags TEXT,
+    service_category VARCHAR(100),
+    sort_order INTEGER DEFAULT 0,
     is_visible CHAR(1) DEFAULT 'Y',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -274,10 +314,13 @@ COMMENT ON COLUMN portfolios.title IS '제목';
 COMMENT ON COLUMN portfolios.description IS '설명';
 COMMENT ON COLUMN portfolios.image_url IS '이미지 URL';
 COMMENT ON COLUMN portfolios.tags IS '태그 (콤마 구분)';
+COMMENT ON COLUMN portfolios.service_category IS '서비스 카테고리 (예: 커트, 펌, 컬러)';
+COMMENT ON COLUMN portfolios.sort_order IS '정렬 순서';
 COMMENT ON COLUMN portfolios.is_visible IS '공개 여부 (Y/N)';
 COMMENT ON COLUMN portfolios.created_at IS '생성일시';
 
 CREATE INDEX idx_portfolios_staff_id ON portfolios(staff_id);
+CREATE INDEX idx_portfolios_sort_order ON portfolios(staff_id, sort_order);
 
 -- =============================================================================
 -- 4. 서비스
@@ -705,3 +748,75 @@ COMMENT ON TABLE business_coupon_usages IS '매장 쿠폰 사용 내역';
 CREATE INDEX idx_business_coupon_usages_coupon_id ON business_coupon_usages(coupon_id);
 CREATE INDEX idx_business_coupon_usages_user_id ON business_coupon_usages(user_id);
 CREATE INDEX idx_business_coupon_usages_payment_id ON business_coupon_usages(payment_id);
+
+-- =============================================================================
+-- 9. 알림
+-- =============================================================================
+CREATE TABLE notifications (
+                               id BIGSERIAL PRIMARY KEY,
+                               user_id BIGINT NOT NULL,
+                               business_id BIGINT,
+                               type VARCHAR(30) NOT NULL,
+                               title VARCHAR(200) NOT NULL,
+                               message TEXT NOT NULL,
+                               link VARCHAR(500),
+                               reference_type VARCHAR(50),
+                               reference_id BIGINT,
+                               is_read CHAR(1) DEFAULT 'N',
+                               read_at TIMESTAMP,
+                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                               CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE notifications IS '사용자 알림';
+COMMENT ON COLUMN notifications.user_id IS '수신 사용자 ID';
+COMMENT ON COLUMN notifications.business_id IS '관련 매장 ID';
+COMMENT ON COLUMN notifications.type IS '알림 유형 (RESERVATION_NEW, RESERVATION_CONFIRMED, RESERVATION_CANCELLED, RESERVATION_COMPLETED, SYSTEM)';
+COMMENT ON COLUMN notifications.title IS '알림 제목';
+COMMENT ON COLUMN notifications.message IS '알림 내용';
+COMMENT ON COLUMN notifications.link IS '클릭 시 이동 경로';
+COMMENT ON COLUMN notifications.reference_type IS '참조 엔티티 타입';
+COMMENT ON COLUMN notifications.reference_id IS '참조 엔티티 ID';
+COMMENT ON COLUMN notifications.is_read IS '읽음 여부 (Y/N)';
+COMMENT ON COLUMN notifications.read_at IS '읽은 시각';
+
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = 'N';
+CREATE INDEX idx_notifications_business_id ON notifications(business_id);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+
+-- =============================================================================
+-- 10. 직원 근무 스케줄
+-- =============================================================================
+
+CREATE TABLE staff_schedules (
+    id BIGSERIAL PRIMARY KEY,
+    staff_id BIGINT NOT NULL,
+    business_id BIGINT NOT NULL,
+    day_of_week INTEGER NOT NULL,
+    start_time TIME,
+    end_time TIME,
+    break_start_time TIME,
+    break_end_time TIME,
+    is_working CHAR(1) DEFAULT 'Y',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_staff_schedules_staff FOREIGN KEY (staff_id) REFERENCES staffs(id) ON DELETE CASCADE,
+    CONSTRAINT fk_staff_schedules_business FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+    CONSTRAINT uq_staff_schedule_day UNIQUE (staff_id, day_of_week),
+    CONSTRAINT check_day_of_week CHECK (day_of_week BETWEEN 1 AND 7)
+);
+
+COMMENT ON TABLE staff_schedules IS '직원 근무 스케줄 (요일별)';
+COMMENT ON COLUMN staff_schedules.staff_id IS '직원 ID';
+COMMENT ON COLUMN staff_schedules.business_id IS '매장 ID';
+COMMENT ON COLUMN staff_schedules.day_of_week IS '요일 (1=월, 2=화, ..., 7=일)';
+COMMENT ON COLUMN staff_schedules.start_time IS '근무 시작 시간';
+COMMENT ON COLUMN staff_schedules.end_time IS '근무 종료 시간';
+COMMENT ON COLUMN staff_schedules.break_start_time IS '휴식 시작 시간';
+COMMENT ON COLUMN staff_schedules.break_end_time IS '휴식 종료 시간';
+COMMENT ON COLUMN staff_schedules.is_working IS '근무 여부 (Y/N)';
+
+CREATE INDEX idx_staff_schedules_staff_id ON staff_schedules(staff_id);
+CREATE INDEX idx_staff_schedules_business_id ON staff_schedules(business_id);
+

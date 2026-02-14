@@ -9,6 +9,8 @@ import io.moer.booking.domain.customer.Customer;
 import io.moer.booking.domain.customer.repository.CustomerRepository;
 import io.moer.booking.domain.customer.service.CustomerHistoryService;
 import io.moer.booking.domain.customer.service.CustomerService;
+import io.moer.booking.domain.notification.NotificationType;
+import io.moer.booking.domain.notification.service.NotificationService;
 import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.holiday.repository.SpecialHolidayRepository;
 import io.moer.booking.domain.reservation.Reservation;
@@ -21,7 +23,11 @@ import io.moer.booking.domain.reservation.repository.ReservationRepository;
 import io.moer.booking.domain.service.Service;
 import io.moer.booking.domain.service.repository.ServiceRepository;
 import io.moer.booking.domain.staff.Staff;
+import io.moer.booking.domain.staff.StaffSchedule;
 import io.moer.booking.domain.staff.repository.StaffRepository;
+import io.moer.booking.domain.staff.repository.StaffScheduleRepository;
+import io.moer.booking.domain.business.BusinessSettings;
+import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
 import io.moer.booking.domain.subscription.service.UsageLimitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,10 +54,14 @@ public class ReservationService {
     private final CustomerRepository customerRepository;
     private final CustomerService customerService;
     private final StaffRepository staffRepository;
+    private final StaffScheduleRepository staffScheduleRepository;
     private final ServiceRepository serviceRepository;
     private final SpecialHolidayRepository specialHolidayRepository;
+    private final BusinessSettingsRepository businessSettingsRepository;
     private final CustomerHistoryService customerHistoryService;
     private final UsageLimitService usageLimitService;
+    private final NotificationService notificationService;
+    private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
 
     // ========================================
     // 생성
@@ -129,7 +139,15 @@ public class ReservationService {
                 })
                 .collect(Collectors.toList());
 
-        // 10. Reservation 엔티티 생성
+        // 10. 자동 확정 여부 확인
+        ReservationStatus initialStatus = ReservationStatus.PENDING;
+        BusinessSettings settings = businessSettingsRepository.findByBusinessId(businessId).orElse(null);
+        if (settings != null && settings.hasAutoConfirm()) {
+            initialStatus = ReservationStatus.CONFIRMED;
+            log.info("Auto-confirm enabled for business: {}", businessId);
+        }
+
+        // 11. Reservation 엔티티 생성
         Reservation reservation = Reservation.builder()
                 .businessId(businessId)
                 .customerId(customer.getId())
@@ -141,7 +159,7 @@ public class ReservationService {
                 .services(servicesJsonb)
                 .totalDuration(totalDuration)
                 .totalPrice(totalPrice)
-                .status(ReservationStatus.PENDING)
+                .status(initialStatus)
                 .customerMemo(request.getCustomerMemo())
                 .staffMemo(null)
                 .build();
@@ -155,6 +173,12 @@ public class ReservationService {
         log.info("Reservation created: id={}, businessId={}, customerId={} ({}), date={}, time={}",
                 reservation.getId(), businessId, customer.getId(),
                 customer.getName(), request.getReservationDate(), request.getStartTime());
+
+        // 13. 알림 생성 (매장 OWNER에게)
+        sendReservationNotification(business, reservation, customer.getName(), NotificationType.RESERVATION_NEW);
+
+        // 14. 온보딩 스텝 자동 완료
+        onboardingService.markStepComplete(businessId, "reservation");
 
         return getReservation(businessId, reservation.getId());
     }
@@ -534,7 +558,12 @@ public class ReservationService {
 
         reservationRepository.updateStatus(reservationId, ReservationStatus.CONFIRMED);
 
-        // TODO: 카카오톡 알림 발송
+        // 알림 생성
+        Business business = businessRepository.findById(businessId).orElse(null);
+        String customerName = getCustomerName(reservation.getCustomerId());
+        if (business != null) {
+            sendReservationNotification(business, reservation, customerName, NotificationType.RESERVATION_CONFIRMED);
+        }
 
         log.info("Reservation confirmed: id={}, businessId={}", reservationId, businessId);
 
@@ -579,6 +608,13 @@ public class ReservationService {
                 reservation.getServiceNames(),
                 reservation.getTotalPrice()
         );
+
+        // 알림 생성
+        Business completedBusiness = businessRepository.findById(businessId).orElse(null);
+        String completedCustomerName = getCustomerName(reservation.getCustomerId());
+        if (completedBusiness != null) {
+            sendReservationNotification(completedBusiness, reservation, completedCustomerName, NotificationType.RESERVATION_COMPLETED);
+        }
 
         log.info("Reservation completed, customer stats updated, and history created: id={}, businessId={}, customerId={}",
                 reservationId, businessId, reservation.getCustomerId());
@@ -631,7 +667,12 @@ public class ReservationService {
         // 예약 수 감소
         usageLimitService.decrementReservationCount(businessId);
 
-        // TODO: 카카오톡 알림 발송
+        // 알림 생성
+        Business cancelledBusiness = businessRepository.findById(businessId).orElse(null);
+        String cancelledCustomerName = getCustomerName(reservation.getCustomerId());
+        if (cancelledBusiness != null) {
+            sendReservationNotification(cancelledBusiness, reservation, cancelledCustomerName, NotificationType.RESERVATION_CANCELLED);
+        }
 
         log.info("Reservation cancelled: id={}, businessId={}, wasCompleted={}, reason={}",
                 reservationId, businessId, wasCompleted, reason);
@@ -657,6 +698,13 @@ public class ReservationService {
         }
 
         reservationRepository.updateStatus(reservationId, ReservationStatus.NO_SHOW);
+
+        // 알림 생성
+        Business noShowBusiness = businessRepository.findById(businessId).orElse(null);
+        String noShowCustomerName = getCustomerName(reservation.getCustomerId());
+        if (noShowBusiness != null) {
+            sendReservationNotification(noShowBusiness, reservation, noShowCustomerName, NotificationType.RESERVATION_NO_SHOW);
+        }
 
         log.info("Reservation marked as no-show: id={}, businessId={}", reservationId, businessId);
 
@@ -703,7 +751,38 @@ public class ReservationService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "과거 날짜는 예약할 수 없습니다");
         }
 
-        // 3. 시간 충돌 확인 (staffId가 있는 경우만)
+        // 3. 스태프 근무 스케줄 확인 (staffId가 있는 경우)
+        if (staffId != null) {
+            int dayOfWeek = date.getDayOfWeek().getValue(); // ISO-8601: 1=월 ~ 7=일
+            Optional<StaffSchedule> schedule = staffScheduleRepository.findByStaffIdAndDayOfWeek(staffId, dayOfWeek);
+
+            if (schedule.isPresent()) {
+                StaffSchedule ss = schedule.get();
+                if (!ss.isWorkingDay()) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            "해당 직원의 휴무일입니다: " + date.getDayOfWeek());
+                }
+
+                // 근무 시간 범위 체크
+                if (startTime.isBefore(ss.getStartTime()) || endTime.isAfter(ss.getEndTime())) {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                            String.format("해당 직원의 근무시간(%s~%s)을 벗어납니다",
+                                    ss.getStartTime(), ss.getEndTime()));
+                }
+
+                // 휴식 시간 겹침 체크
+                if (ss.hasBreakTime()) {
+                    if (startTime.isBefore(ss.getBreakEndTime()) && endTime.isAfter(ss.getBreakStartTime())) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                                String.format("해당 직원의 휴식시간(%s~%s)과 겹칩니다",
+                                        ss.getBreakStartTime(), ss.getBreakEndTime()));
+                    }
+                }
+            }
+            // 스케줄이 없으면 제한 없이 예약 가능 (아직 스케줄 미설정)
+        }
+
+        // 4. 시간 충돌 확인 (staffId가 있는 경우만)
         if (staffId != null) {
             List<Reservation> conflicting = reservationRepository.findConflictingReservations(
                     staffId, date, startTime, endTime);
@@ -724,6 +803,55 @@ public class ReservationService {
                                 conflict.getEndTime()));
             }
         }
+    }
+
+    // ========================================
+    // 알림 헬퍼
+    // ========================================
+
+    /**
+     * 예약 관련 알림 생성
+     */
+    private void sendReservationNotification(Business business, Reservation reservation,
+                                              String customerName, NotificationType type) {
+        try {
+            String title = switch (type) {
+                case RESERVATION_NEW -> "새 예약이 등록되었습니다";
+                case RESERVATION_CONFIRMED -> "예약이 확정되었습니다";
+                case RESERVATION_CANCELLED -> "예약이 취소되었습니다";
+                case RESERVATION_COMPLETED -> "예약이 완료되었습니다";
+                case RESERVATION_NO_SHOW -> "고객 노쇼가 처리되었습니다";
+                default -> "예약 상태가 변경되었습니다";
+            };
+
+            String message = String.format("%s 고객님 - %s %s",
+                    customerName != null ? customerName : "미확인",
+                    reservation.getReservationDate(),
+                    reservation.getStartTime() != null ? reservation.getStartTime().toString() : "");
+
+            notificationService.createNotification(
+                    business.getOwnerId(),
+                    business.getId(),
+                    type,
+                    title,
+                    message,
+                    "/shop-admin/reservations/list",
+                    "Reservation",
+                    reservation.getId()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to create notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 고객 이름 조회 헬퍼
+     */
+    private String getCustomerName(Long customerId) {
+        if (customerId == null) return null;
+        return customerRepository.findById(customerId)
+                .map(Customer::getName)
+                .orElse(null);
     }
 
     /**

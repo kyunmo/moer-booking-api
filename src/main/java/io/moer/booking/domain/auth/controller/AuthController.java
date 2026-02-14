@@ -9,8 +9,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Tag(name = "인증", description = "로그인, 로그아웃, 토큰 갱신, 회원가입 API")  // 👈 수정
 @RestController
@@ -94,5 +98,76 @@ public class AuthController {
                 null,
                 "비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요."
         );
+    }
+
+    @Operation(
+            summary = "비밀번호 변경",
+            description = "현재 비밀번호를 확인하고 새 비밀번호로 변경합니다."
+    )
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(userDetails.getUserId(), request);
+        return ApiResponse.success(null, "비밀번호가 변경되었습니다.");
+    }
+
+    @Operation(
+            summary = "프로필 수정",
+            description = "이름, 전화번호를 수정합니다. null인 필드는 변경하지 않습니다."
+    )
+    @PatchMapping("/profile")
+    public ApiResponse<UserResponse> updateProfile(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ProfileUpdateRequest request) {
+        UserResponse response = authService.updateProfile(userDetails.getUserId(), request);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(
+            summary = "프로필 이미지 업로드",
+            description = "프로필 이미지를 업로드합니다. (최대 5MB, jpg/png/webp)"
+    )
+    @PostMapping(value = "/profile/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ProfileImageResponse> uploadProfileImage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam("file") MultipartFile file) {
+        ProfileImageResponse response = authService.uploadProfileImage(userDetails.getUserId(), file);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(
+            summary = "SNS 연결 계정 목록",
+            description = "현재 사용자에게 연결된 SNS 계정 목록을 조회합니다."
+    )
+    @GetMapping("/social-accounts")
+    public ApiResponse<List<SnsAccountResponse>> getSocialAccounts(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        List<SnsAccountResponse> response = authService.getSocialAccounts(userDetails.getUserId());
+        return ApiResponse.success(response);
+    }
+
+    @Operation(
+            summary = "SNS 계정 연결 해제",
+            description = "특정 SNS 계정의 연결을 해제합니다."
+    )
+    @DeleteMapping("/social-accounts/{provider}")
+    public ApiResponse<Void> disconnectSocialAccount(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable String provider) {
+        authService.disconnectSocialAccount(userDetails.getUserId(), provider);
+        return ApiResponse.success(null, provider.toUpperCase() + " 계정 연결이 해제되었습니다.");
+    }
+
+    @Operation(
+            summary = "회원 탈퇴",
+            description = "비밀번호를 확인하고 회원 탈퇴를 진행합니다. (Soft Delete)"
+    )
+    @DeleteMapping("/account")
+    public ApiResponse<Void> deleteAccount(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody DeleteAccountRequest request) {
+        authService.deleteAccount(userDetails.getUserId(), request);
+        return ApiResponse.success(null, "회원 탈퇴가 완료되었습니다.");
     }
 }

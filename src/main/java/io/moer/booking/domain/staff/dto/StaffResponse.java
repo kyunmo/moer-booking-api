@@ -21,6 +21,8 @@ public class StaffResponse {
     private Long businessId;
     private String name;
     private String position;
+    private Long positionId;
+    private String positionName;
     private String phone;
     private String email;
     private String specialty;
@@ -49,6 +51,7 @@ public class StaffResponse {
                 .businessId(staff.getBusinessId())
                 .name(staff.getName())
                 .position(staff.getPosition())
+                .positionId(staff.getPositionId())
                 .phone(staff.getPhone())
                 .email(staff.getEmail())
                 .specialty(staff.getSpecialty())
@@ -56,6 +59,29 @@ public class StaffResponse {
                 .profileImageUrl(staff.getProfileImageUrl())
                 .introduction(staff.getIntroduction())
                 .isActive("Y".equals(staff.getIsActive()))  // Y/N → boolean
+                .createdAt(staff.getCreatedAt())
+                .updatedAt(staff.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Entity → DTO 변환 (positionName 포함)
+     */
+    public static StaffResponse from(Staff staff, String positionName) {
+        return StaffResponse.builder()
+                .id(staff.getId())
+                .businessId(staff.getBusinessId())
+                .name(staff.getName())
+                .position(staff.getPosition())
+                .positionId(staff.getPositionId())
+                .positionName(positionName)
+                .phone(staff.getPhone())
+                .email(staff.getEmail())
+                .specialty(staff.getSpecialty())
+                .careerYears(staff.getCareerYears())
+                .profileImageUrl(staff.getProfileImageUrl())
+                .introduction(staff.getIntroduction())
+                .isActive("Y".equals(staff.getIsActive()))
                 .createdAt(staff.getCreatedAt())
                 .updatedAt(staff.getUpdatedAt())
                 .build();

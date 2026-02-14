@@ -22,6 +22,7 @@ public class User {
     private String password;
     private String name;
     private String phone;
+    private String profileImageUrl;
 
     /**
      * 역할 (Enum)

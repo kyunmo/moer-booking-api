@@ -22,9 +22,15 @@ public class StaffUpdateRequest {
     private String name;
 
     /**
-     * 직급
+     * 직급 (텍스트)
      */
     private String position;
+
+    /**
+     * 직급 ID
+     * staff_positions 테이블 참조. 설정 시 position 텍스트 자동 채움.
+     */
+    private Long positionId;
 
     /**
      * 전화번호

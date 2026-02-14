@@ -20,6 +20,10 @@ public enum AuditAction {
     USER_ROLE_CHANGED("사용자 역할 변경"),
     USER_STATUS_CHANGED("사용자 상태 변경"),
     USER_DELETED("사용자 삭제"),
+    USER_PASSWORD_CHANGED("비밀번호 변경"),
+    USER_PROFILE_UPDATED("프로필 수정"),
+    USER_ACCOUNT_DELETED("회원 탈퇴"),
+    SNS_ACCOUNT_DISCONNECTED("SNS 계정 연결 해제"),
 
     // System
     SYSTEM_BACKUP("시스템 백업"),

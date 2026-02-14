@@ -46,4 +46,25 @@ public interface SnsAccountRepository {
      * 사용자 ID로 모든 SNS 계정 삭제
      */
     void deleteByUserId(@Param("userId") Long userId);
+
+    /**
+     * 사용자 ID와 제공자로 조회
+     */
+    Optional<SnsAccount> findByUserIdAndProvider(
+            @Param("userId") Long userId,
+            @Param("provider") SnsProvider provider
+    );
+
+    /**
+     * 사용자 ID와 제공자로 삭제
+     */
+    void deleteByUserIdAndProvider(
+            @Param("userId") Long userId,
+            @Param("provider") SnsProvider provider
+    );
+
+    /**
+     * 사용자의 SNS 계정 수
+     */
+    int countByUserId(@Param("userId") Long userId);
 }
