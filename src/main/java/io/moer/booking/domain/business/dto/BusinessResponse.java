@@ -25,6 +25,7 @@ public class BusinessResponse {
     private String ownerName;
     private BusinessType businessType;
     private String name;
+    private String slug;
     private String phone;
     private String address;
     private String description;
@@ -50,6 +51,7 @@ public class BusinessResponse {
                 .ownerName(business.getOwnerName())
                 .businessType(business.getBusinessType())
                 .name(business.getName())
+                .slug(business.getSlug())
                 .phone(business.getPhone())
                 .address(business.getAddress())
                 .description(business.getDescription())
@@ -70,6 +72,7 @@ public class BusinessResponse {
                 .ownerName(business.getOwnerName())
                 .businessType(business.getBusinessType())
                 .name(business.getName())
+                .slug(business.getSlug())
                 .phone(business.getPhone())
                 .address(business.getAddress())
                 .description(business.getDescription())

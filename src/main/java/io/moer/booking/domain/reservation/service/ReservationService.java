@@ -11,6 +11,7 @@ import io.moer.booking.domain.customer.service.CustomerHistoryService;
 import io.moer.booking.domain.customer.service.CustomerService;
 import io.moer.booking.domain.notification.NotificationType;
 import io.moer.booking.domain.notification.service.NotificationService;
+import io.moer.booking.domain.notificationlog.dto.NotificationSender;
 import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.holiday.repository.SpecialHolidayRepository;
 import io.moer.booking.domain.reservation.Reservation;
@@ -61,6 +62,7 @@ public class ReservationService {
     private final CustomerHistoryService customerHistoryService;
     private final UsageLimitService usageLimitService;
     private final NotificationService notificationService;
+    private final NotificationSender notificationSender;
     private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
 
     // ========================================
@@ -176,6 +178,11 @@ public class ReservationService {
 
         // 13. 알림 생성 (매장 OWNER에게)
         sendReservationNotification(business, reservation, customer.getName(), NotificationType.RESERVATION_NEW);
+
+        // 13-1. 외부 알림 로그 기록 (고객에게)
+        String serviceName = services.stream().map(Service::getName).collect(Collectors.joining(", "));
+        sendExternalNotificationLog(business, reservation, customer.getPhone(), customer.getName(),
+                serviceName, "created");
 
         // 14. 온보딩 스텝 자동 완료
         onboardingService.markStepComplete(businessId, "reservation");
@@ -560,9 +567,17 @@ public class ReservationService {
 
         // 알림 생성
         Business business = businessRepository.findById(businessId).orElse(null);
-        String customerName = getCustomerName(reservation.getCustomerId());
+        Customer customer = customerRepository.findById(reservation.getCustomerId()).orElse(null);
+        String customerName = customer != null ? customer.getName() : null;
         if (business != null) {
             sendReservationNotification(business, reservation, customerName, NotificationType.RESERVATION_CONFIRMED);
+
+            // 외부 알림 로그 기록 (고객에게)
+            if (customer != null) {
+                sendExternalNotificationLog(business, reservation, customer.getPhone(), customer.getName(),
+                        reservation.getServiceNames() != null ? String.join(", ", reservation.getServiceNames()) : "",
+                        "confirmed");
+            }
         }
 
         log.info("Reservation confirmed: id={}, businessId={}", reservationId, businessId);
@@ -611,9 +626,16 @@ public class ReservationService {
 
         // 알림 생성
         Business completedBusiness = businessRepository.findById(businessId).orElse(null);
-        String completedCustomerName = getCustomerName(reservation.getCustomerId());
+        Customer completedCustomer = customerRepository.findById(reservation.getCustomerId()).orElse(null);
+        String completedCustomerName = completedCustomer != null ? completedCustomer.getName() : null;
         if (completedBusiness != null) {
             sendReservationNotification(completedBusiness, reservation, completedCustomerName, NotificationType.RESERVATION_COMPLETED);
+
+            // 외부 알림 로그 기록 - 리뷰 요청 (고객에게)
+            if (completedCustomer != null) {
+                sendExternalNotificationLog(completedBusiness, reservation, completedCustomer.getPhone(),
+                        completedCustomer.getName(), null, "review_request");
+            }
         }
 
         log.info("Reservation completed, customer stats updated, and history created: id={}, businessId={}, customerId={}",
@@ -669,9 +691,18 @@ public class ReservationService {
 
         // 알림 생성
         Business cancelledBusiness = businessRepository.findById(businessId).orElse(null);
-        String cancelledCustomerName = getCustomerName(reservation.getCustomerId());
+        Customer cancelledCustomer = customerRepository.findById(reservation.getCustomerId()).orElse(null);
+        String cancelledCustomerName = cancelledCustomer != null ? cancelledCustomer.getName() : null;
         if (cancelledBusiness != null) {
             sendReservationNotification(cancelledBusiness, reservation, cancelledCustomerName, NotificationType.RESERVATION_CANCELLED);
+
+            // 외부 알림 로그 기록 (고객에게)
+            if (cancelledCustomer != null) {
+                sendExternalNotificationLog(cancelledBusiness, reservation, cancelledCustomer.getPhone(),
+                        cancelledCustomer.getName(),
+                        reservation.getServiceNames() != null ? String.join(", ", reservation.getServiceNames()) : "",
+                        "cancelled");
+            }
         }
 
         log.info("Reservation cancelled: id={}, businessId={}, wasCompleted={}, reason={}",
@@ -841,6 +872,35 @@ public class ReservationService {
             );
         } catch (Exception e) {
             log.warn("Failed to create notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 외부 알림 로그 기록 (고객 대상 카카오/SMS)
+     */
+    private void sendExternalNotificationLog(Business business, Reservation reservation,
+                                              String recipientPhone, String recipientName,
+                                              String serviceName, String type) {
+        try {
+            Map<String, String> params = Map.of(
+                    "businessName", business.getName(),
+                    "date", reservation.getReservationDate().toString(),
+                    "time", reservation.getStartTime() != null ? reservation.getStartTime().toString() : "",
+                    "serviceName", serviceName != null ? serviceName : ""
+            );
+
+            switch (type) {
+                case "created" -> notificationSender.sendReservationCreated(
+                        business.getId(), reservation.getId(), recipientPhone, recipientName, params);
+                case "confirmed" -> notificationSender.sendReservationConfirmed(
+                        business.getId(), reservation.getId(), recipientPhone, recipientName, params);
+                case "cancelled" -> notificationSender.sendReservationCancelled(
+                        business.getId(), reservation.getId(), recipientPhone, recipientName, params);
+                case "review_request" -> notificationSender.sendReviewRequest(
+                        business.getId(), reservation.getId(), recipientPhone, recipientName, params);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send external notification log: {}", e.getMessage());
         }
     }
 
