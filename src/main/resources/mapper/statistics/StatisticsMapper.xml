@@ -1,0 +1,744 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.statistics.repository.StatisticsRepository">
+
+    <!-- ========================================
+         Revenue Statistics (매출 통계)
+         ======================================== -->
+
+    <!-- 매출 요약 -->
+    <select id="getRevenueSummary" resultType="map">
+        SELECT
+            COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN total_price ELSE 0 END), 0) AS "totalRevenue",
+            COUNT(*) AS "totalReservations",
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS "completedReservations",
+            COALESCE(AVG(CASE WHEN status = 'COMPLETED' THEN total_price END), 0)::bigint AS "averageTransactionAmount",
+            ROUND(
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) * 100.0
+                / NULLIF(COUNT(*), 0), 1
+            ) AS "completionRate",
+            COALESCE(
+                (SELECT AVG(total_spent)::bigint FROM customers
+                 WHERE business_id = #{businessId} AND total_spent &gt; 0), 0
+            ) AS "customerLTV",
+            COALESCE(AVG(CASE WHEN status = 'COMPLETED' THEN total_duration END), 0)::integer AS "averageServiceDuration"
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <!-- 매출 트렌드 (일별/주별/월별) -->
+    <select id="getRevenueTrend" resultType="map">
+        SELECT
+            <choose>
+                <when test="groupBy == 'daily'">
+                    TO_CHAR(reservation_date, 'YYYY-MM-DD') AS "date",
+                </when>
+                <when test="groupBy == 'weekly'">
+                    TO_CHAR(DATE_TRUNC('week', reservation_date), 'YYYY-MM-DD') AS "date",
+                </when>
+                <otherwise>
+                    TO_CHAR(reservation_date, 'YYYY-MM') AS "date",
+                </otherwise>
+            </choose>
+            COALESCE(SUM(CASE WHEN status = 'COMPLETED' THEN total_price ELSE 0 END), 0) AS "revenue",
+            COUNT(*) AS "reservationCount",
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS "completedCount"
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY
+            <choose>
+                <when test="groupBy == 'daily'">
+                    TO_CHAR(reservation_date, 'YYYY-MM-DD')
+                </when>
+                <when test="groupBy == 'weekly'">
+                    TO_CHAR(DATE_TRUNC('week', reservation_date), 'YYYY-MM-DD')
+                </when>
+                <otherwise>
+                    TO_CHAR(reservation_date, 'YYYY-MM')
+                </otherwise>
+            </choose>
+        ORDER BY "date" ASC
+    </select>
+
+    <!-- 서비스별 매출 (JSONB 배열 집계) -->
+    <select id="getRevenueByService" resultType="map">
+        WITH service_data AS (
+            SELECT
+                (jsonb_array_elements(r.services)-&gt;&gt;'id')::bigint AS service_id,
+                jsonb_array_elements(r.services)-&gt;&gt;'name' AS service_name,
+                (jsonb_array_elements(r.services)-&gt;&gt;'price')::integer AS service_price
+            FROM reservations r
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.status = 'COMPLETED'
+              AND r.services IS NOT NULL
+        ),
+        total AS (
+            SELECT COALESCE(SUM(service_price), 1) AS total_revenue FROM service_data
+        )
+        SELECT
+            sd.service_id AS "serviceId",
+            sd.service_name AS "serviceName",
+            sc.name AS "categoryName",
+            COALESCE(SUM(sd.service_price), 0) AS "revenue",
+            ROUND(SUM(sd.service_price) * 100.0 / t.total_revenue, 1) AS "percentage",
+            COUNT(*) AS "reservationCount"
+        FROM service_data sd
+        LEFT JOIN services s ON sd.service_id = s.id
+        LEFT JOIN service_categories sc ON s.category_id = sc.id
+        CROSS JOIN total t
+        GROUP BY sd.service_id, sd.service_name, sc.name, t.total_revenue
+        ORDER BY "revenue" DESC
+        LIMIT 10
+    </select>
+
+    <!-- 결제 수단별 매출 -->
+    <select id="getRevenueByPaymentMethod" resultType="map">
+        WITH total AS (
+            SELECT COALESCE(SUM(total_price), 1) AS total_revenue
+            FROM customer_histories
+            WHERE business_id = #{businessId}
+              AND visit_date BETWEEN #{startDate} AND #{endDate}
+        )
+        SELECT
+            ch.payment_method AS "method",
+            CASE ch.payment_method
+                WHEN 'CARD' THEN '카드'
+                WHEN 'CASH' THEN '현금'
+                WHEN 'TRANSFER' THEN '계좌이체'
+                ELSE '기타'
+            END AS "methodName",
+            COALESCE(SUM(ch.total_price), 0) AS "revenue",
+            ROUND(SUM(ch.total_price) * 100.0 / t.total_revenue, 1) AS "percentage",
+            COUNT(*) AS "count"
+        FROM customer_histories ch
+        CROSS JOIN total t
+        WHERE ch.business_id = #{businessId}
+          AND ch.visit_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY ch.payment_method, t.total_revenue
+        ORDER BY "revenue" DESC
+    </select>
+
+    <!-- ========================================
+         Reservation Statistics (예약 통계)
+         ======================================== -->
+
+    <!-- 예약 요약 (상태별 건수, 비율, 손실 매출) -->
+    <select id="getReservationSummary" resultType="map">
+        SELECT
+            COUNT(*) AS "totalReservations",
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS "completedReservations",
+            COUNT(CASE WHEN status = 'CANCELLED' THEN 1 END) AS "cancelledReservations",
+            COUNT(CASE WHEN status = 'NO_SHOW' THEN 1 END) AS "noShowReservations",
+            COUNT(CASE WHEN status IN ('PENDING', 'CONFIRMED') THEN 1 END) AS "pendingReservations",
+            ROUND(
+                COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) * 100.0
+                / NULLIF(COUNT(*), 0), 1
+            ) AS "completionRate",
+            ROUND(
+                COUNT(CASE WHEN status = 'CANCELLED' THEN 1 END) * 100.0
+                / NULLIF(COUNT(*), 0), 1
+            ) AS "cancellationRate",
+            ROUND(
+                COUNT(CASE WHEN status = 'NO_SHOW' THEN 1 END) * 100.0
+                / NULLIF(COUNT(*), 0), 1
+            ) AS "noShowRate",
+            COALESCE(SUM(CASE WHEN status IN ('CANCELLED', 'NO_SHOW') THEN total_price ELSE 0 END), 0) AS "lostRevenue"
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <!-- 예약 트렌드 (일별/주별/월별) -->
+    <select id="getReservationTrend" resultType="map">
+        SELECT
+            <choose>
+                <when test="groupBy == 'daily'">
+                    TO_CHAR(reservation_date, 'YYYY-MM-DD') AS "date",
+                </when>
+                <when test="groupBy == 'weekly'">
+                    TO_CHAR(DATE_TRUNC('week', reservation_date), 'YYYY-MM-DD') AS "date",
+                </when>
+                <otherwise>
+                    TO_CHAR(reservation_date, 'YYYY-MM') AS "date",
+                </otherwise>
+            </choose>
+            COUNT(*) AS "total",
+            COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) AS "completed",
+            COUNT(CASE WHEN status = 'CANCELLED' THEN 1 END) AS "cancelled",
+            COUNT(CASE WHEN status = 'NO_SHOW' THEN 1 END) AS "noShow",
+            COUNT(CASE WHEN status IN ('PENDING', 'CONFIRMED') THEN 1 END) AS "pending"
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY
+            <choose>
+                <when test="groupBy == 'daily'">
+                    TO_CHAR(reservation_date, 'YYYY-MM-DD')
+                </when>
+                <when test="groupBy == 'weekly'">
+                    TO_CHAR(DATE_TRUNC('week', reservation_date), 'YYYY-MM-DD')
+                </when>
+                <otherwise>
+                    TO_CHAR(reservation_date, 'YYYY-MM')
+                </otherwise>
+            </choose>
+        ORDER BY "date" ASC
+    </select>
+
+    <!-- 시간대 x 요일 히트맵 (ISODOW: 1=월~7=일) -->
+    <select id="getHourlyHeatmap" resultType="map">
+        SELECT
+            EXTRACT(ISODOW FROM reservation_date)::integer AS "dayOfWeek",
+            EXTRACT(HOUR FROM start_time)::integer AS "hour",
+            COUNT(*) AS "count"
+        FROM reservations
+        WHERE business_id = #{businessId}
+          AND reservation_date BETWEEN #{startDate} AND #{endDate}
+          AND status IN ('PENDING', 'CONFIRMED', 'COMPLETED')
+        GROUP BY EXTRACT(ISODOW FROM reservation_date), EXTRACT(HOUR FROM start_time)
+        ORDER BY "dayOfWeek", "hour"
+    </select>
+
+    <!-- 상태별 예약 분포 -->
+    <select id="getStatusDistribution" resultType="map">
+        WITH total AS (
+            SELECT NULLIF(COUNT(*), 0) AS total_count
+            FROM reservations
+            WHERE business_id = #{businessId}
+              AND reservation_date BETWEEN #{startDate} AND #{endDate}
+        )
+        SELECT
+            r.status AS "status",
+            CASE r.status
+                WHEN 'PENDING' THEN '대기'
+                WHEN 'CONFIRMED' THEN '확정'
+                WHEN 'COMPLETED' THEN '완료'
+                WHEN 'CANCELLED' THEN '취소'
+                WHEN 'NO_SHOW' THEN '노쇼'
+                ELSE r.status
+            END AS "statusName",
+            COUNT(*) AS "count",
+            ROUND(COUNT(*) * 100.0 / t.total_count, 1) AS "percentage"
+        FROM reservations r
+        CROSS JOIN total t
+        WHERE r.business_id = #{businessId}
+          AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+        GROUP BY r.status, t.total_count
+        ORDER BY "count" DESC
+    </select>
+
+    <!-- 요일별 예약 분포 (평균 + 총합) -->
+    <select id="getDailyDistribution" resultType="map">
+        WITH daily_counts AS (
+            SELECT
+                EXTRACT(ISODOW FROM reservation_date)::integer AS day_of_week,
+                reservation_date,
+                COUNT(*) AS day_count
+            FROM reservations
+            WHERE business_id = #{businessId}
+              AND reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND status IN ('PENDING', 'CONFIRMED', 'COMPLETED')
+            GROUP BY EXTRACT(ISODOW FROM reservation_date), reservation_date
+        )
+        SELECT
+            day_of_week AS "dayOfWeek",
+            CASE day_of_week
+                WHEN 1 THEN '월'
+                WHEN 2 THEN '화'
+                WHEN 3 THEN '수'
+                WHEN 4 THEN '목'
+                WHEN 5 THEN '금'
+                WHEN 6 THEN '토'
+                WHEN 7 THEN '일'
+            END AS "dayName",
+            ROUND(AVG(day_count), 1) AS "averageCount",
+            SUM(day_count)::integer AS "totalCount"
+        FROM daily_counts
+        GROUP BY day_of_week
+        ORDER BY day_of_week
+    </select>
+
+    <!-- ========================================
+         Customer Statistics (고객 통계)
+         ======================================== -->
+
+    <!-- 고객 요약 -->
+    <select id="getCustomerSummary" resultType="map">
+        SELECT
+            (SELECT COUNT(*) FROM customers WHERE business_id = #{businessId}) AS "totalCustomers",
+            (SELECT COUNT(*) FROM customers
+             WHERE business_id = #{businessId}
+               AND created_at &gt;= #{startDate}::date
+               AND created_at &lt; (#{endDate}::date + INTERVAL '1 day')
+            ) AS "newCustomers",
+            ROUND(
+                (SELECT COUNT(*) FROM customers
+                 WHERE business_id = #{businessId} AND visit_count &gt;= 2) * 100.0
+                / NULLIF((SELECT COUNT(*) FROM customers WHERE business_id = #{businessId}), 0), 1
+            ) AS "returningRate",
+            COALESCE(
+                (SELECT ROUND(AVG(visit_count), 1) FROM customers
+                 WHERE business_id = #{businessId} AND visit_count &gt; 0), 0
+            ) AS "averageVisitCount",
+            COALESCE(
+                (SELECT AVG(total_spent)::bigint FROM customers
+                 WHERE business_id = #{businessId} AND total_spent &gt; 0), 0
+            ) AS "averageLTV",
+            ROUND(
+                (SELECT COUNT(*) FROM customers
+                 WHERE business_id = #{businessId}
+                   AND visit_count &gt; 0
+                   AND last_visit_date &lt; (CURRENT_DATE - INTERVAL '3 months')
+                ) * 100.0
+                / NULLIF((SELECT COUNT(*) FROM customers
+                          WHERE business_id = #{businessId} AND visit_count &gt; 0), 0), 1
+            ) AS "churnRate"
+    </select>
+
+    <!-- 고객 트렌드 (월별 신규/재방문/활성/이탈) -->
+    <select id="getCustomerTrend" resultType="map">
+        WITH months AS (
+            SELECT TO_CHAR(generate_series(
+                DATE_TRUNC('month', #{startDate}::date),
+                DATE_TRUNC('month', #{endDate}::date),
+                '1 month'
+            ), 'YYYY-MM') AS month
+        ),
+        new_customers AS (
+            SELECT
+                TO_CHAR(created_at, 'YYYY-MM') AS month,
+                COUNT(*) AS cnt
+            FROM customers
+            WHERE business_id = #{businessId}
+              AND created_at &gt;= #{startDate}::date
+              AND created_at &lt; (#{endDate}::date + INTERVAL '1 day')
+            GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+        ),
+        returning_customers AS (
+            SELECT
+                TO_CHAR(r.reservation_date, 'YYYY-MM') AS month,
+                COUNT(DISTINCT r.customer_id) AS cnt
+            FROM reservations r
+            JOIN customers c ON r.customer_id = c.id
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.status IN ('COMPLETED', 'CONFIRMED', 'PENDING')
+              AND c.visit_count &gt;= 2
+            GROUP BY TO_CHAR(r.reservation_date, 'YYYY-MM')
+        ),
+        active_customers AS (
+            SELECT
+                TO_CHAR(reservation_date, 'YYYY-MM') AS month,
+                COUNT(DISTINCT customer_id) AS cnt
+            FROM reservations
+            WHERE business_id = #{businessId}
+              AND reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND status IN ('COMPLETED', 'CONFIRMED', 'PENDING')
+            GROUP BY TO_CHAR(reservation_date, 'YYYY-MM')
+        ),
+        churned_customers AS (
+            SELECT
+                TO_CHAR(gs, 'YYYY-MM') AS month,
+                (SELECT COUNT(*) FROM customers
+                 WHERE business_id = #{businessId}
+                   AND visit_count &gt; 0
+                   AND last_visit_date &lt; (DATE_TRUNC('month', gs) - INTERVAL '3 months')
+                ) AS cnt
+            FROM generate_series(
+                DATE_TRUNC('month', #{startDate}::date),
+                DATE_TRUNC('month', #{endDate}::date),
+                '1 month'
+            ) AS gs
+        )
+        SELECT
+            m.month AS "date",
+            COALESCE(nc.cnt, 0) AS "newCustomers",
+            COALESCE(rc.cnt, 0) AS "returningCustomers",
+            COALESCE(ac.cnt, 0) AS "totalActive",
+            COALESCE(cc.cnt, 0) AS "churned"
+        FROM months m
+        LEFT JOIN new_customers nc ON m.month = nc.month
+        LEFT JOIN returning_customers rc ON m.month = rc.month
+        LEFT JOIN active_customers ac ON m.month = ac.month
+        LEFT JOIN churned_customers cc ON m.month = cc.month
+        ORDER BY m.month ASC
+    </select>
+
+    <!-- 고객 세그먼트 (VIP/REGULAR/NEW/INACTIVE) -->
+    <select id="getCustomerSegments" resultType="map">
+        WITH total AS (
+            SELECT NULLIF(COUNT(*), 0) AS total_count
+            FROM customers
+            WHERE business_id = #{businessId}
+        ),
+        segments AS (
+            SELECT 'VIP' AS segment, 'VIP 고객' AS segment_name,
+                   '10회 이상 방문' AS description,
+                   COUNT(*) AS cnt,
+                   COALESCE(SUM(total_spent), 0) AS total_revenue
+            FROM customers
+            WHERE business_id = #{businessId} AND visit_count &gt;= 10
+            UNION ALL
+            SELECT 'REGULAR', '단골 고객',
+                   '3~9회 방문',
+                   COUNT(*),
+                   COALESCE(SUM(total_spent), 0)
+            FROM customers
+            WHERE business_id = #{businessId} AND visit_count BETWEEN 3 AND 9
+            UNION ALL
+            SELECT 'NEW', '신규 고객',
+                   '1~2회 방문',
+                   COUNT(*),
+                   COALESCE(SUM(total_spent), 0)
+            FROM customers
+            WHERE business_id = #{businessId} AND visit_count BETWEEN 1 AND 2
+            UNION ALL
+            SELECT 'INACTIVE', '휴면 고객',
+                   '3개월 이상 미방문',
+                   COUNT(*),
+                   COALESCE(SUM(total_spent), 0)
+            FROM customers
+            WHERE business_id = #{businessId}
+              AND visit_count &gt; 0
+              AND last_visit_date &lt; (CURRENT_DATE - INTERVAL '3 months')
+        )
+        SELECT
+            s.segment AS "segment",
+            s.segment_name AS "segmentName",
+            s.description AS "description",
+            s.cnt AS "count",
+            ROUND(s.cnt * 100.0 / t.total_count, 1) AS "percentage",
+            s.total_revenue AS "totalRevenue",
+            CASE WHEN s.cnt &gt; 0 THEN (s.total_revenue / s.cnt) ELSE 0 END AS "averageRevenue"
+        FROM segments s
+        CROSS JOIN total t
+        ORDER BY
+            CASE s.segment
+                WHEN 'VIP' THEN 1
+                WHEN 'REGULAR' THEN 2
+                WHEN 'NEW' THEN 3
+                WHEN 'INACTIVE' THEN 4
+            END
+    </select>
+
+    <!-- 재방문율 추이 (월별) -->
+    <select id="getReturningRateTrend" resultType="map">
+        WITH monthly_data AS (
+            SELECT
+                TO_CHAR(r.reservation_date, 'YYYY-MM') AS month,
+                COUNT(DISTINCT r.customer_id) AS total_customers,
+                COUNT(DISTINCT CASE WHEN c.visit_count &gt;= 2 THEN r.customer_id END) AS returning_customers
+            FROM reservations r
+            JOIN customers c ON r.customer_id = c.id
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.status IN ('COMPLETED', 'CONFIRMED', 'PENDING')
+            GROUP BY TO_CHAR(r.reservation_date, 'YYYY-MM')
+        )
+        SELECT
+            month AS "date",
+            ROUND(returning_customers * 100.0 / NULLIF(total_customers, 0), 1) AS "rate"
+        FROM monthly_data
+        ORDER BY month ASC
+    </select>
+
+    <!-- LTV 분포 (지출 구간별 고객 수) -->
+    <select id="getLtvDistribution" resultType="map">
+        SELECT
+            r.range_label AS "range",
+            r.min_val AS "min",
+            r.max_val AS "max",
+            COALESCE(c.cnt, 0) AS "count"
+        FROM (
+            VALUES
+                ('0~5만', 0, 50000, 1),
+                ('5~10만', 50000, 100000, 2),
+                ('10~30만', 100000, 300000, 3),
+                ('30~50만', 300000, 500000, 4),
+                ('50~100만', 500000, 1000000, 5),
+                ('100만 이상', 1000000, 999999999, 6)
+        ) AS r(range_label, min_val, max_val, sort_order)
+        LEFT JOIN (
+            SELECT
+                CASE
+                    WHEN total_spent &lt; 50000 THEN '0~5만'
+                    WHEN total_spent &lt; 100000 THEN '5~10만'
+                    WHEN total_spent &lt; 300000 THEN '10~30만'
+                    WHEN total_spent &lt; 500000 THEN '30~50만'
+                    WHEN total_spent &lt; 1000000 THEN '50~100만'
+                    ELSE '100만 이상'
+                END AS range_label,
+                COUNT(*) AS cnt
+            FROM customers
+            WHERE business_id = #{businessId}
+              AND total_spent &gt; 0
+            GROUP BY range_label
+        ) c ON r.range_label = c.range_label
+        ORDER BY r.sort_order
+    </select>
+
+    <!-- ========================================
+         Staff Statistics (스태프 통계)
+         ======================================== -->
+
+    <!-- 스태프별 성과 -->
+    <select id="getStaffPerformances" resultType="map">
+        SELECT
+            s.id AS "staffId",
+            s.name AS "staffName",
+            COALESCE(sp.name, s.position) AS "positionName",
+            s.profile_image_url AS "profileImageUrl",
+            COUNT(r.id) AS "reservationCount",
+            COUNT(CASE WHEN r.status = 'COMPLETED' THEN 1 END) AS "completedCount",
+            COUNT(CASE WHEN r.status = 'CANCELLED' THEN 1 END) AS "cancelledCount",
+            COUNT(CASE WHEN r.status = 'NO_SHOW' THEN 1 END) AS "noShowCount",
+            COALESCE(SUM(CASE WHEN r.status = 'COMPLETED' THEN r.total_price ELSE 0 END), 0) AS "totalRevenue",
+            COALESCE(AVG(CASE WHEN r.status = 'COMPLETED' THEN r.total_price END), 0)::bigint AS "averageRevenue",
+            COALESCE(AVG(CASE WHEN r.status = 'COMPLETED' THEN r.total_duration END), 0)::integer AS "averageDuration",
+            ROUND(
+                COUNT(CASE WHEN r.status = 'COMPLETED' THEN 1 END) * 100.0
+                / NULLIF(COUNT(r.id), 0), 1
+            ) AS "completionRate",
+            COUNT(DISTINCT r.customer_id) AS "customerCount"
+        FROM staffs s
+        LEFT JOIN staff_positions sp ON s.position_id = sp.id
+        LEFT JOIN reservations r ON s.id = r.staff_id
+            AND r.business_id = #{businessId}
+            AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+        WHERE s.business_id = #{businessId}
+          AND s.is_active = 'Y'
+          <if test="staffId != null">
+              AND s.id = #{staffId}
+          </if>
+        GROUP BY s.id, s.name, sp.name, s.position, s.profile_image_url
+        ORDER BY "totalRevenue" DESC
+    </select>
+
+    <!-- 스태프별 매출 트렌드 (월별) -->
+    <select id="getStaffRevenueTrend" resultType="map">
+        SELECT
+            s.id AS "staffId",
+            s.name AS "staffName",
+            TO_CHAR(r.reservation_date, 'YYYY-MM') AS "date",
+            COALESCE(SUM(CASE WHEN r.status = 'COMPLETED' THEN r.total_price ELSE 0 END), 0) AS "revenue",
+            COUNT(r.id) AS "reservationCount"
+        FROM staffs s
+        LEFT JOIN reservations r ON s.id = r.staff_id
+            AND r.business_id = #{businessId}
+            AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+        WHERE s.business_id = #{businessId}
+          AND s.is_active = 'Y'
+          <if test="staffId != null">
+              AND s.id = #{staffId}
+          </if>
+        GROUP BY s.id, s.name, TO_CHAR(r.reservation_date, 'YYYY-MM')
+        ORDER BY s.id, "date" ASC
+    </select>
+
+    <!-- 스태프 레이더 차트 원시 데이터 -->
+    <select id="getStaffRadarData" resultType="map">
+        SELECT
+            s.id AS "staffId",
+            s.name AS "staffName",
+            COUNT(r.id) AS "reservationVolume",
+            COALESCE(SUM(CASE WHEN r.status = 'COMPLETED' THEN r.total_price ELSE 0 END), 0) AS "revenue",
+            ROUND(
+                COUNT(CASE WHEN r.status = 'COMPLETED' THEN 1 END) * 100.0
+                / NULLIF(COUNT(r.id), 0), 1
+            ) AS "completionRate",
+            COALESCE(
+                (SELECT ROUND(AVG(rv.rating), 1)
+                 FROM reviews rv
+                 WHERE rv.staff_id = s.id
+                   AND rv.business_id = #{businessId}
+                   AND rv.status = 'ACTIVE'
+                   AND rv.created_at &gt;= #{startDate}::date
+                   AND rv.created_at &lt; (#{endDate}::date + INTERVAL '1 day')
+                ), 0
+            ) AS "averageRating",
+            COALESCE(AVG(CASE WHEN r.status = 'COMPLETED' THEN r.total_duration END), 0)::integer AS "averageDuration"
+        FROM staffs s
+        LEFT JOIN reservations r ON s.id = r.staff_id
+            AND r.business_id = #{businessId}
+            AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+        WHERE s.business_id = #{businessId}
+          AND s.is_active = 'Y'
+        GROUP BY s.id, s.name
+        ORDER BY "revenue" DESC
+    </select>
+
+    <!-- ========================================
+         Service Statistics (서비스 통계)
+         ======================================== -->
+
+    <!-- 서비스 요약 -->
+    <select id="getServiceSummary" resultType="map">
+        WITH service_data AS (
+            SELECT
+                (jsonb_array_elements(r.services)-&gt;&gt;'id')::bigint AS service_id,
+                jsonb_array_elements(r.services)-&gt;&gt;'name' AS service_name,
+                (jsonb_array_elements(r.services)-&gt;&gt;'price')::integer AS service_price
+            FROM reservations r
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.status = 'COMPLETED'
+              AND r.services IS NOT NULL
+        ),
+        service_counts AS (
+            SELECT
+                service_id,
+                service_name,
+                COUNT(*) AS cnt,
+                SUM(service_price) AS total_revenue
+            FROM service_data
+            GROUP BY service_id, service_name
+        )
+        SELECT
+            COALESCE((SELECT SUM(cnt) FROM service_counts), 0) AS "totalServiceCount",
+            COALESCE((SELECT COUNT(DISTINCT service_id) FROM service_data), 0) AS "uniqueServiceTypes",
+            COALESCE((SELECT AVG(service_price)::bigint FROM service_data), 0) AS "averagePrice",
+            COALESCE(
+                (SELECT COUNT(DISTINCT sc.id)
+                 FROM service_data sd
+                 JOIN services s ON sd.service_id = s.id
+                 JOIN service_categories sc ON s.category_id = sc.id), 0
+            ) AS "categoryCount",
+            (SELECT service_name FROM service_counts ORDER BY cnt DESC LIMIT 1) AS "mostPopularService",
+            (SELECT service_name FROM service_counts ORDER BY total_revenue DESC LIMIT 1) AS "mostProfitableService"
+    </select>
+
+    <!-- 서비스 랭킹 -->
+    <select id="getServiceRankings" resultType="map">
+        WITH service_data AS (
+            SELECT
+                (jsonb_array_elements(r.services)-&gt;&gt;'id')::bigint AS service_id,
+                jsonb_array_elements(r.services)-&gt;&gt;'name' AS service_name,
+                (jsonb_array_elements(r.services)-&gt;&gt;'price')::integer AS service_price,
+                (jsonb_array_elements(r.services)-&gt;&gt;'duration')::integer AS service_duration,
+                r.status
+            FROM reservations r
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.services IS NOT NULL
+        ),
+        total AS (
+            SELECT COALESCE(SUM(service_price), 1) AS total_revenue
+            FROM service_data
+            WHERE status = 'COMPLETED'
+        ),
+        ranked AS (
+            SELECT
+                sd.service_id,
+                sd.service_name,
+                s.category_id,
+                sc.name AS category_name,
+                COUNT(*) AS reservation_count,
+                COALESCE(SUM(CASE WHEN sd.status = 'COMPLETED' THEN sd.service_price ELSE 0 END), 0) AS total_revenue,
+                COALESCE(AVG(sd.service_price), 0)::bigint AS average_price,
+                ROUND(
+                    SUM(CASE WHEN sd.status = 'COMPLETED' THEN sd.service_price ELSE 0 END) * 100.0
+                    / t.total_revenue, 1
+                ) AS revenue_percentage,
+                COALESCE(AVG(sd.service_duration), 0)::integer AS average_duration,
+                ROUND(
+                    COUNT(CASE WHEN sd.status = 'COMPLETED' THEN 1 END) * 100.0
+                    / NULLIF(COUNT(*), 0), 1
+                ) AS completion_rate,
+                ROW_NUMBER() OVER (ORDER BY SUM(CASE WHEN sd.status = 'COMPLETED' THEN sd.service_price ELSE 0 END) DESC) AS rn
+            FROM service_data sd
+            LEFT JOIN services s ON sd.service_id = s.id
+            LEFT JOIN service_categories sc ON s.category_id = sc.id
+            CROSS JOIN total t
+            WHERE 1=1
+            <if test="categoryId != null">
+                AND s.category_id = #{categoryId}
+            </if>
+            GROUP BY sd.service_id, sd.service_name, s.category_id, sc.name, t.total_revenue
+        )
+        SELECT
+            rn::integer AS "rank",
+            service_id AS "serviceId",
+            service_name AS "serviceName",
+            category_id AS "categoryId",
+            category_name AS "categoryName",
+            reservation_count AS "reservationCount",
+            total_revenue AS "totalRevenue",
+            average_price AS "averagePrice",
+            revenue_percentage AS "revenuePercentage",
+            average_duration AS "averageDuration",
+            completion_rate AS "completionRate"
+        FROM ranked
+        ORDER BY rn
+        LIMIT 20
+    </select>
+
+    <!-- 카테고리별 분포 -->
+    <select id="getCategoryDistribution" resultType="map">
+        WITH service_data AS (
+            SELECT
+                (jsonb_array_elements(r.services)-&gt;&gt;'id')::bigint AS service_id,
+                (jsonb_array_elements(r.services)-&gt;&gt;'price')::integer AS service_price
+            FROM reservations r
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.status = 'COMPLETED'
+              AND r.services IS NOT NULL
+        ),
+        total AS (
+            SELECT COALESCE(SUM(service_price), 1) AS total_revenue
+            FROM service_data
+        )
+        SELECT
+            COALESCE(sc.id, 0) AS "categoryId",
+            COALESCE(sc.name, '미분류') AS "categoryName",
+            COUNT(DISTINCT sd.service_id) AS "serviceCount",
+            COUNT(*) AS "reservationCount",
+            COALESCE(SUM(sd.service_price), 0) AS "revenue",
+            ROUND(SUM(sd.service_price) * 100.0 / t.total_revenue, 1) AS "percentage"
+        FROM service_data sd
+        LEFT JOIN services s ON sd.service_id = s.id
+        LEFT JOIN service_categories sc ON s.category_id = sc.id
+        CROSS JOIN total t
+        GROUP BY sc.id, sc.name, t.total_revenue
+        ORDER BY "revenue" DESC
+    </select>
+
+    <!-- 서비스 트렌드 (상위 5개 서비스의 월별 추이) -->
+    <select id="getServiceTrend" resultType="map">
+        WITH service_data AS (
+            SELECT
+                (jsonb_array_elements(r.services)-&gt;&gt;'id')::bigint AS service_id,
+                jsonb_array_elements(r.services)-&gt;&gt;'name' AS service_name,
+                (jsonb_array_elements(r.services)-&gt;&gt;'price')::integer AS service_price,
+                r.reservation_date
+            FROM reservations r
+            WHERE r.business_id = #{businessId}
+              AND r.reservation_date BETWEEN #{startDate} AND #{endDate}
+              AND r.status = 'COMPLETED'
+              AND r.services IS NOT NULL
+        ),
+        top_services AS (
+            SELECT service_id, service_name
+            FROM service_data
+            GROUP BY service_id, service_name
+            ORDER BY SUM(service_price) DESC
+            LIMIT 5
+        )
+        SELECT
+            sd.service_id AS "serviceId",
+            sd.service_name AS "serviceName",
+            TO_CHAR(sd.reservation_date, 'YYYY-MM') AS "date",
+            COALESCE(SUM(sd.service_price), 0) AS "revenue",
+            COUNT(*) AS "count"
+        FROM service_data sd
+        INNER JOIN top_services ts ON sd.service_id = ts.service_id
+        GROUP BY sd.service_id, sd.service_name, TO_CHAR(sd.reservation_date, 'YYYY-MM')
+        ORDER BY sd.service_id, "date" ASC
+    </select>
+
+</mapper>

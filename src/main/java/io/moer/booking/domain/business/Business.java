@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -23,6 +24,11 @@ public class Business {
     private String name;
 
     /**
+     * 매장 슬러그 (고객용 URL: /booking/{slug})
+     */
+    private String slug;
+
+    /**
      * 업종 (Enum)
      * DB: VARCHAR(50)
      */
@@ -31,6 +37,41 @@ public class Business {
     private String phone;
     private String address;
     private String description;
+
+    /**
+     * 매장 프로필 이미지 URL
+     */
+    private String profileImageUrl;
+
+    /**
+     * 매장 갤러리 이미지 URL 목록 (JSONB)
+     */
+    private List<String> galleryImages;
+
+    /**
+     * 위도 (위치 기반 검색용)
+     */
+    private Double latitude;
+
+    /**
+     * 경도 (위치 기반 검색용)
+     */
+    private Double longitude;
+
+    /**
+     * 태그 (콤마 구분: "예약가능,주차가능,카드결제")
+     */
+    private String tags;
+
+    /**
+     * 평균 평점 (리뷰 비정규화)
+     */
+    private Double averageRating;
+
+    /**
+     * 리뷰 수 (비정규화)
+     */
+    private Integer reviewCount;
 
     /**
      * 영업시간 (JSONB)

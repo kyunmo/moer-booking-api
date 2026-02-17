@@ -8,6 +8,7 @@
     <resultMap id="CustomerResultMap" type="io.moer.booking.domain.customer.Customer">
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
+        <result property="userId" column="user_id"/>
         <result property="name" column="name"/>
         <result property="phone" column="phone"/>
         <result property="email" column="email"/>
@@ -26,10 +27,10 @@
     <insert id="save" parameterType="io.moer.booking.domain.customer.Customer"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO customers (
-            business_id, name, phone, email, birth_date, gender,
+            business_id, user_id, name, phone, email, birth_date, gender,
             visit_count, total_spent, last_visit_date, tags, memo
         ) VALUES (
-                     #{businessId}, #{name}, #{phone}, #{email}, #{birthDate}, #{gender},
+                     #{businessId}, #{userId}, #{name}, #{phone}, #{email}, #{birthDate}, #{gender},
                      #{visitCount}, #{totalSpent}, #{lastVisitDate}, #{tags}, #{memo}
                  )
     </insert>
@@ -182,6 +183,21 @@
         ORDER BY created_at DESC
             LIMIT #{limit}
     </select>
+
+    <!-- userId + businessId로 고객 조회 -->
+    <select id="findByUserIdAndBusinessId" resultMap="CustomerResultMap">
+        SELECT * FROM customers
+        WHERE user_id = #{userId}
+          AND business_id = #{businessId}
+    </select>
+
+    <!-- 고객의 user_id 업데이트 -->
+    <update id="updateUserId">
+        UPDATE customers
+        SET user_id = #{userId},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{customerId}
+    </update>
 
     <!-- ========================================
          대시보드 통계 - 액션 알림

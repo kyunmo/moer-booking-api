@@ -53,6 +53,10 @@ public class CustomUserDetails implements UserDetails {
         return user.isStaff();
     }
 
+    public boolean isCustomer() {
+        return user.isCustomer();
+    }
+
     public boolean canAccessBusiness(Long businessId) {
         return user.canAccessBusiness(businessId);
     }

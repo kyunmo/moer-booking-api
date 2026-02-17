@@ -43,6 +43,16 @@ public interface UserRepository {
 
     void updateBusinessId(@Param("userId") Long userId, @Param("businessId") Long businessId);
 
+    // 고객 프로필 수정
+    void updateCustomerProfile(@Param("id") Long id,
+                                @Param("name") String name,
+                                @Param("phone") String phone,
+                                @Param("marketingAgree") String marketingAgree);
+
+    // 고객별 예약/리뷰 수
+    int countReservationsByUserId(@Param("userId") Long userId);
+    int countReviewsByUserId(@Param("userId") Long userId);
+
     // SuperAdmin 통계 쿼리
     long countAll();
     long countByRole(UserRole role);

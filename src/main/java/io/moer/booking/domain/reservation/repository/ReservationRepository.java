@@ -141,6 +141,11 @@ public interface ReservationRepository {
     );
 
     /**
+     * 예약 출처(source) 업데이트
+     */
+    void updateSource(@Param("id") Long id, @Param("source") String source);
+
+    /**
      * 예약번호 존재 확인
      */
     boolean existsByReservationNumber(String reservationNumber);
@@ -332,6 +337,40 @@ public interface ReservationRepository {
      * 업종별 전체 매출
      */
     BigDecimal sumRevenueByBusinessType(BusinessType type);
+
+    // ========================================
+    // 로그인 고객(user_id) 예약 조회
+    // ========================================
+
+    /**
+     * userId로 예약 목록 조회 (페이징, status 필터)
+     */
+    List<Reservation> findByUserId(
+            @Param("userId") Long userId,
+            @Param("status") String status,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
+
+    /**
+     * userId로 예약 수
+     */
+    int countByUserId(
+            @Param("userId") Long userId,
+            @Param("status") String status);
+
+    /**
+     * userId + reservationNumber로 예약 조회
+     */
+    Optional<Reservation> findByUserIdAndReservationNumber(
+            @Param("userId") Long userId,
+            @Param("reservationNumber") String reservationNumber);
+
+    /**
+     * 예약의 user_id 업데이트
+     */
+    void updateUserId(
+            @Param("reservationId") Long reservationId,
+            @Param("userId") Long userId);
 
     // ========================================
     // 고객 예약 이력 조회

@@ -159,6 +159,9 @@ public enum ErrorCode {
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NT001", "알림을 찾을 수 없습니다"),
     NOTIFICATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "NT002", "해당 알림에 접근 권한이 없습니다"),
 
+    // ============ 알림 발송 로그 관련 (NL001) ============
+    NOTIFICATION_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "NL001", "알림 발송 이력을 찾을 수 없습니다"),
+
     // ============ 스태프 스케줄 관련 (SS001 ~ SS004) ============
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "SS001", "근무 스케줄을 찾을 수 없습니다"),
     INVALID_SCHEDULE_TIME(HttpStatus.BAD_REQUEST, "SS002", "근무 시간이 올바르지 않습니다"),
@@ -170,7 +173,45 @@ public enum ErrorCode {
 
     // ============ 온보딩 관련 (OB001 ~ OB002) ============
     ONBOARDING_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "OB001", "이미 온보딩이 완료되었습니다"),
-    ONBOARDING_ALREADY_SKIPPED(HttpStatus.BAD_REQUEST, "OB002", "이미 온보딩을 건너뛰었습니다");
+    ONBOARDING_ALREADY_SKIPPED(HttpStatus.BAD_REQUEST, "OB002", "이미 온보딩을 건너뛰었습니다"),
+
+    // ============ 고객 예약 Public (BK001 ~ BK010) ============
+    BOOKING_TIME_UNAVAILABLE(HttpStatus.CONFLICT, "BK001", "해당 시간대에 예약할 수 없습니다"),
+    BOOKING_OUTSIDE_HOURS(HttpStatus.BAD_REQUEST, "BK002", "영업시간 외에는 예약할 수 없습니다"),
+    BOOKING_HOLIDAY(HttpStatus.BAD_REQUEST, "BK003", "휴무일에는 예약할 수 없습니다"),
+    BOOKING_STAFF_UNAVAILABLE(HttpStatus.BAD_REQUEST, "BK004", "해당 스태프가 근무하지 않는 시간입니다"),
+    CANCEL_DEADLINE_EXCEEDED(HttpStatus.BAD_REQUEST, "BK005", "취소 가능 시간이 지났습니다"),
+    RESERVATION_ALREADY_CANCELLED(HttpStatus.BAD_REQUEST, "BK006", "이미 취소된 예약입니다"),
+    ONLINE_BOOKING_DISABLED(HttpStatus.FORBIDDEN, "BK007", "온라인 예약이 비활성화되어 있습니다"),
+    ADVANCE_BOOKING_EXCEEDED(HttpStatus.BAD_REQUEST, "BK008", "예약 가능 기간을 초과했습니다"),
+    MIN_ADVANCE_TIME_NOT_MET(HttpStatus.BAD_REQUEST, "BK009", "최소 사전 예약 시간을 충족하지 않습니다"),
+    RESERVATION_PHONE_MISMATCH(HttpStatus.FORBIDDEN, "BK010", "전화번호가 일치하지 않습니다"),
+
+    // ============ 슬러그 (BS001 ~ BS003) ============
+    SLUG_ALREADY_EXISTS(HttpStatus.CONFLICT, "BS001", "이미 사용 중인 슬러그입니다"),
+    SLUG_INVALID_FORMAT(HttpStatus.BAD_REQUEST, "BS002", "슬러그 형식이 올바르지 않습니다"),
+    SLUG_RESERVED_WORD(HttpStatus.BAD_REQUEST, "BS003", "사용할 수 없는 슬러그입니다"),
+
+    // ============ 리뷰 (RV001 ~ RV006) ============
+    REVIEW_RESERVATION_MISMATCH(HttpStatus.BAD_REQUEST, "RV001", "예약 정보가 일치하지 않습니다"),
+    REVIEW_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "RV002", "완료된 예약만 리뷰를 작성할 수 있습니다"),
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV003", "이미 리뷰가 작성된 예약입니다"),
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "RV004", "리뷰를 찾을 수 없습니다"),
+    REVIEW_ALREADY_REPLIED(HttpStatus.BAD_REQUEST, "RV005", "이미 답변이 등록된 리뷰입니다"),
+    REVIEW_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "RV006", "이미 삭제된 리뷰입니다"),
+
+    // ============ 고객 인증 (CP001 ~ CP004) ============
+    CUSTOMER_PHONE_REQUIRED(HttpStatus.BAD_REQUEST, "CP001", "예약을 위해 전화번호 등록이 필요합니다"),
+    CUSTOMER_ROLE_REQUIRED(HttpStatus.FORBIDDEN, "CP002", "고객 권한이 필요합니다"),
+    CUSTOMER_RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "CP003", "고객의 예약을 찾을 수 없습니다"),
+    CUSTOMER_REVIEW_UNAUTHORIZED(HttpStatus.FORBIDDEN, "CP004", "본인의 예약에 대해서만 리뷰를 작성할 수 있습니다"),
+
+    // ============ 통계 (ST001 ~ ST005) ============
+    STATISTICS_INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "ST001", "시작일은 종료일보다 이전이어야 합니다"),
+    STATISTICS_DATE_RANGE_EXCEEDED(HttpStatus.BAD_REQUEST, "ST002", "조회 가능 기간은 최대 1년입니다"),
+    STATISTICS_INVALID_GROUP_BY(HttpStatus.BAD_REQUEST, "ST003", "유효하지 않은 집계 단위입니다 (daily/weekly/monthly)"),
+    STATISTICS_STAFF_NOT_FOUND(HttpStatus.NOT_FOUND, "ST004", "통계 조회 대상 직원을 찾을 수 없습니다"),
+    STATISTICS_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "ST005", "통계 조회 대상 카테고리를 찾을 수 없습니다");
 
     private final HttpStatus status;
     private final String code;

@@ -135,6 +135,7 @@ app:
     reset-password-url: ${FRONTEND_URL:http://localhost:3000}/reset-password
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/redirect}
+    customer-redirect-uri: ${OAUTH2_CUSTOMER_REDIRECT_URI:http://localhost:3000/oauth2/customer-redirect}
   storage:
     upload-dir: ${UPLOAD_DIR:C:/Project/uploads}
     allowed-extensions: jpg,jpeg,png,webp

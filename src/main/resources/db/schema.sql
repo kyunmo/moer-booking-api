@@ -25,19 +25,20 @@ CREATE TABLE users (
     trial_started_at TIMESTAMP,
     trial_expires_at TIMESTAMP,
     is_premium CHAR(1) DEFAULT 'N',
+    marketing_agree CHAR(1) DEFAULT 'N',
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE users IS '사용자 (시스템 관리자, 매장 사장님, 직원)';
+COMMENT ON TABLE users IS '사용자 (시스템 관리자, 매장 사장님, 직원, 고객)';
 COMMENT ON COLUMN users.id IS '사용자 ID';
 COMMENT ON COLUMN users.email IS '이메일 (로그인 ID)';
 COMMENT ON COLUMN users.password IS '비밀번호 (BCrypt 암호화)';
 COMMENT ON COLUMN users.name IS '이름';
 COMMENT ON COLUMN users.phone IS '전화번호';
 COMMENT ON COLUMN users.profile_image_url IS '프로필 이미지 URL';
-COMMENT ON COLUMN users.role IS '역할 (SUPER_ADMIN, ADMIN, OWNER, STAFF)';
+COMMENT ON COLUMN users.role IS '역할 (SUPER_ADMIN, ADMIN, OWNER, STAFF, CUSTOMER)';
 COMMENT ON COLUMN users.status IS '상태 (ACTIVE, INACTIVE, SUSPENDED, DELETED)';
 COMMENT ON COLUMN users.staff_id IS '연결된 직원 ID (STAFF 역할인 경우)';
 COMMENT ON COLUMN users.business_id IS '소속 매장 ID (OWNER/STAFF)';
@@ -45,6 +46,7 @@ COMMENT ON COLUMN users.email_verified IS '이메일 인증 여부 (Y/N)';
 COMMENT ON COLUMN users.trial_started_at IS '무료 체험 시작일';
 COMMENT ON COLUMN users.trial_expires_at IS '무료 체험 만료일';
 COMMENT ON COLUMN users.is_premium IS '프리미엄 여부 (Y/N)';
+COMMENT ON COLUMN users.marketing_agree IS '마케팅 수신 동의 여부 (Y/N)';
 COMMENT ON COLUMN users.last_login_at IS '마지막 로그인 시각';
 COMMENT ON COLUMN users.created_at IS '생성일시';
 COMMENT ON COLUMN users.updated_at IS '수정일시';
@@ -390,6 +392,7 @@ CREATE INDEX idx_services_category_id ON services(category_id);
 CREATE TABLE customers (
     id BIGSERIAL PRIMARY KEY,
     business_id BIGINT NOT NULL,
+    user_id BIGINT,
     name VARCHAR(50) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(100),
@@ -407,6 +410,7 @@ CREATE TABLE customers (
 COMMENT ON TABLE customers IS '고객';
 COMMENT ON COLUMN customers.id IS '고객 ID';
 COMMENT ON COLUMN customers.business_id IS '매장 ID';
+COMMENT ON COLUMN customers.user_id IS '로그인 고객 사용자 ID (users 테이블)';
 COMMENT ON COLUMN customers.name IS '이름';
 COMMENT ON COLUMN customers.phone IS '전화번호';
 COMMENT ON COLUMN customers.email IS '이메일';
@@ -467,6 +471,7 @@ CREATE TABLE reservations (
     id BIGSERIAL PRIMARY KEY,
     business_id BIGINT NOT NULL,
     customer_id BIGINT NOT NULL,
+    user_id BIGINT,
     staff_id BIGINT,
     reservation_date DATE NOT NULL,
     start_time TIME NOT NULL,
@@ -488,6 +493,7 @@ COMMENT ON TABLE reservations IS '예약';
 COMMENT ON COLUMN reservations.id IS '예약 ID';
 COMMENT ON COLUMN reservations.business_id IS '매장 ID';
 COMMENT ON COLUMN reservations.customer_id IS '고객 ID';
+COMMENT ON COLUMN reservations.user_id IS '로그인 고객 사용자 ID (users 테이블)';
 COMMENT ON COLUMN reservations.staff_id IS '담당 직원 ID';
 COMMENT ON COLUMN reservations.reservation_date IS '예약 날짜';
 COMMENT ON COLUMN reservations.start_time IS '시작 시각';
@@ -508,6 +514,7 @@ CREATE UNIQUE INDEX idx_reservations_number ON reservations(reservation_number);
 CREATE INDEX idx_reservations_business_date ON reservations(business_id, reservation_date);
 CREATE INDEX idx_reservations_customer_id ON reservations(customer_id);
 CREATE INDEX idx_reservations_staff_id ON reservations(staff_id);
+CREATE INDEX idx_reservations_user_id ON reservations(user_id);
 
 -- 특별 휴무일 테이블
 CREATE TABLE special_holidays (
@@ -819,4 +826,84 @@ COMMENT ON COLUMN staff_schedules.is_working IS '근무 여부 (Y/N)';
 
 CREATE INDEX idx_staff_schedules_staff_id ON staff_schedules(staff_id);
 CREATE INDEX idx_staff_schedules_business_id ON staff_schedules(business_id);
+
+-- =============================================================================
+-- 11. 리뷰
+=============================================================================
+
+CREATE TABLE reviews (
+    id BIGSERIAL PRIMARY KEY,
+    business_id BIGINT NOT NULL,
+    reservation_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    staff_id BIGINT,
+    customer_name VARCHAR(50) NOT NULL,
+    customer_phone VARCHAR(20) NOT NULL,
+    rating INTEGER NOT NULL,
+    content TEXT,
+    images JSONB,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    reply_content TEXT,
+    reply_created_at TIMESTAMP,
+    delete_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reviews_business FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_reservation FOREIGN KEY (reservation_id) REFERENCES reservations(id),
+    CONSTRAINT fk_reviews_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+    CONSTRAINT check_rating CHECK (rating BETWEEN 1 AND 5)
+);
+
+COMMENT ON TABLE reviews IS '고객 리뷰';
+COMMENT ON COLUMN reviews.business_id IS '매장 ID';
+COMMENT ON COLUMN reviews.reservation_id IS '예약 ID (1예약 1리뷰)';
+COMMENT ON COLUMN reviews.customer_id IS '고객 ID';
+COMMENT ON COLUMN reviews.staff_id IS '담당 스태프 ID';
+COMMENT ON COLUMN reviews.customer_name IS '고객 이름 (비정규화)';
+COMMENT ON COLUMN reviews.customer_phone IS '고객 전화번호 (본인 확인용)';
+COMMENT ON COLUMN reviews.rating IS '별점 (1~5)';
+COMMENT ON COLUMN reviews.content IS '리뷰 내용';
+COMMENT ON COLUMN reviews.images IS '리뷰 이미지 URL 목록 (JSONB)';
+COMMENT ON COLUMN reviews.status IS '리뷰 상태 (ACTIVE, HIDDEN, DELETED)';
+COMMENT ON COLUMN reviews.reply_content IS '관리자 답변';
+COMMENT ON COLUMN reviews.reply_created_at IS '답변 작성 시각';
+COMMENT ON COLUMN reviews.delete_reason IS '삭제 사유';
+
+CREATE UNIQUE INDEX idx_reviews_reservation_id ON reviews(reservation_id);
+CREATE INDEX idx_reviews_business_id ON reviews(business_id);
+CREATE INDEX idx_reviews_business_status ON reviews(business_id, status);
+CREATE INDEX idx_reviews_business_rating ON reviews(business_id, rating);
+CREATE INDEX idx_reviews_staff_id ON reviews(staff_id);
+CREATE INDEX idx_reviews_created_at ON reviews(created_at DESC);
+
+-- =============================================================================
+-- 12. 알림 발송 로그
+-- =============================================================================
+
+CREATE TABLE notification_logs (
+    id BIGSERIAL PRIMARY KEY,
+    business_id BIGINT NOT NULL,
+    reservation_id BIGINT,
+    channel VARCHAR(20) NOT NULL,
+    template_type VARCHAR(50) NOT NULL,
+    recipient_phone VARCHAR(20),
+    recipient_name VARCHAR(50),
+    title VARCHAR(200),
+    content TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    error_message TEXT,
+    sent_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notification_logs_business FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE notification_logs IS '알림 발송 기록 (카카오/SMS/이메일)';
+COMMENT ON COLUMN notification_logs.channel IS '발송 채널 (KAKAO, SMS, EMAIL, SYSTEM)';
+COMMENT ON COLUMN notification_logs.template_type IS '템플릿 타입 (RESERVATION_CREATED, RESERVATION_CONFIRMED 등)';
+COMMENT ON COLUMN notification_logs.status IS '발송 상태 (PENDING, SENT, FAILED)';
+
+CREATE INDEX idx_notification_logs_business_id ON notification_logs(business_id);
+CREATE INDEX idx_notification_logs_reservation_id ON notification_logs(reservation_id);
+CREATE INDEX idx_notification_logs_status ON notification_logs(status);
+CREATE INDEX idx_notification_logs_created_at ON notification_logs(created_at DESC);
 

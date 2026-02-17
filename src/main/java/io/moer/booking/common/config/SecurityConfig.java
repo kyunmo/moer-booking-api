@@ -1,5 +1,6 @@
 package io.moer.booking.common.config;
 
+import io.moer.booking.common.security.CustomAuthorizationRequestResolver;
 import io.moer.booking.common.security.CustomOAuth2UserService;
 import io.moer.booking.common.security.CustomUserDetailsService;
 import io.moer.booking.common.security.JwtAuthenticationFilter;
@@ -19,6 +20,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -39,6 +41,7 @@ public class SecurityConfig {
     private final OAuth2AuthenticationSuccessHandler oauth2SuccessHandler;
     private final OAuth2AuthenticationFailureHandler oauth2FailureHandler;
     private final PasswordEncoder passwordEncoder;
+    private final ClientRegistrationRepository clientRegistrationRepository;
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
@@ -89,6 +92,9 @@ public class SecurityConfig {
                         // OAuth2 엔드포인트 (Phase 3: SNS 로그인)
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 
+                        // Phase 3: 고객용 Public API (비인증)
+                        .requestMatchers("/api/public/**").permitAll()
+
                         // 업로드 파일 접근 (Public)
                         .requestMatchers("/uploads/**").permitAll()
 
@@ -101,12 +107,17 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
 
+                        // Customer 전용 (Phase 3 Addendum: 고객 인증)
+                        .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization
-                                .baseUri("/oauth2/authorize"))
+                                .baseUri("/oauth2/authorize")
+                                .authorizationRequestResolver(
+                                        new CustomAuthorizationRequestResolver(clientRegistrationRepository)))
                         .redirectionEndpoint(redirection -> redirection
                                 .baseUri("/login/oauth2/code/*"))
                         .userInfoEndpoint(userInfo -> userInfo

@@ -15,6 +15,8 @@ import io.moer.booking.domain.user.User;
 import io.moer.booking.domain.user.UserRole;
 import io.moer.booking.domain.user.UserStatus;
 import io.moer.booking.domain.user.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +26,8 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -32,6 +36,10 @@ import java.util.UUID;
 
 /**
  * OAuth2 사용자 정보 로드 서비스
+ *
+ * loginType 쿠키 기반으로 고객/관리자 분기:
+ * - loginType=customer: CUSTOMER 역할, 매장 미생성, 체험판 미설정
+ * - loginType=admin 또는 미지정: OWNER 역할, 매장 자동 생성, 30일 체험판
  */
 @Slf4j
 @Service
@@ -53,14 +61,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             // SNS별 사용자 정보 추출
             SnsUserInfo snsUserInfo = extractUserInfo(registrationId, oauth2User);
 
+            // loginType 쿠키 읽기
+            String loginType = getLoginTypeFromCookie();
+
             // 사용자 찾기 또는 생성
-            User user = findOrCreateUser(snsUserInfo);
+            User user = findOrCreateUser(snsUserInfo, loginType);
 
             // SNS 계정 저장/업데이트
             saveSnsAccount(user, snsUserInfo);
 
-            log.info("OAuth2 login successful: provider={}, userId={}, email={}",
-                    snsUserInfo.getProvider(), user.getId(), user.getEmail());
+            log.info("OAuth2 login successful: provider={}, userId={}, email={}, loginType={}",
+                    snsUserInfo.getProvider(), user.getId(), user.getEmail(), loginType);
 
             return new CustomOAuth2User(user, oauth2User.getAttributes());
 
@@ -149,8 +160,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     /**
      * 사용자 찾기 또는 생성
+     * 기존 사용자가 있으면 역할을 변경하지 않고 그대로 반환한다.
      */
-    private User findOrCreateUser(SnsUserInfo snsInfo) {
+    private User findOrCreateUser(SnsUserInfo snsInfo, String loginType) {
         // 1. SNS 계정으로 이미 연동된 사용자 찾기
         Optional<SnsAccount> existingSns = snsAccountRepository
                 .findByProviderAndProviderUserId(snsInfo.getProvider(), snsInfo.getProviderUserId());
@@ -169,14 +181,18 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             }
         }
 
-        // 3. 신규 사용자 생성
-        return createNewUser(snsInfo);
+        // 3. 신규 사용자 생성 (loginType에 따라 분기)
+        return createNewUser(snsInfo, loginType);
     }
 
     /**
      * 신규 사용자 생성 (SNS 로그인)
+     *
+     * loginType에 따라 역할과 초기 설정이 달라진다:
+     * - "customer": CUSTOMER 역할, 매장 미생성, 체험판 미설정
+     * - 그 외 (null, "admin" 등): OWNER 역할, 매장 자동 생성, 30일 체험판
      */
-    private User createNewUser(SnsUserInfo snsInfo) {
+    private User createNewUser(SnsUserInfo snsInfo, String loginType) {
         if (snsInfo.getEmail() == null) {
             throw new BusinessException(
                     ErrorCode.OAUTH2_EMAIL_NOT_PROVIDED,
@@ -184,16 +200,56 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             );
         }
 
+        if ("customer".equals(loginType)) {
+            return createCustomerUser(snsInfo);
+        } else {
+            return createOwnerUser(snsInfo);
+        }
+    }
+
+    /**
+     * 고객(CUSTOMER) 사용자 생성
+     * - CUSTOMER 역할
+     * - 매장 미생성
+     * - 체험판 미설정
+     * - 마케팅 수신 동의: N
+     */
+    private User createCustomerUser(SnsUserInfo snsInfo) {
+        User newUser = User.builder()
+                .email(snsInfo.getEmail())
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .name(snsInfo.getName())
+                .role(UserRole.CUSTOMER)
+                .status(UserStatus.ACTIVE)
+                .emailVerified("Y")
+                .marketingAgree("N")
+                .isPremium("N")
+                .build();
+        userRepository.save(newUser);
+
+        log.info("New CUSTOMER created via SNS login: userId={}, email={}, provider={}",
+                newUser.getId(), newUser.getEmail(), snsInfo.getProvider());
+
+        return newUser;
+    }
+
+    /**
+     * 사장님(OWNER) 사용자 생성
+     * - OWNER 역할
+     * - 기본 매장 자동 생성
+     * - 30일 체험판 자동 설정
+     */
+    private User createOwnerUser(SnsUserInfo snsInfo) {
         LocalDateTime now = LocalDateTime.now();
 
         // User 생성 (30일 체험판 자동 설정)
         User newUser = User.builder()
                 .email(snsInfo.getEmail())
-                .password(passwordEncoder.encode(UUID.randomUUID().toString())) // 임시 비밀번호
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .name(snsInfo.getName())
                 .role(UserRole.OWNER)
                 .status(UserStatus.ACTIVE)
-                .emailVerified("Y")  // SNS 로그인은 이메일 인증 완료로 간주
+                .emailVerified("Y")
                 .trialStartedAt(now)
                 .trialExpiresAt(now.plusDays(30))
                 .isPremium("N")
@@ -204,7 +260,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Business business = Business.builder()
                 .ownerId(newUser.getId())
                 .name(snsInfo.getName() + "님의 매장")
-                .businessType(BusinessType.BEAUTY_SHOP)  // 기본값
+                .businessType(BusinessType.BEAUTY_SHOP)
                 .status(BusinessStatus.ACTIVE)
                 .build();
         businessRepository.save(business);
@@ -213,8 +269,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         userRepository.updateBusinessId(newUser.getId(), business.getId());
         newUser.updateBusinessId(business.getId());
 
-        log.info("New user created via SNS login: userId={}, email={}, provider={}",
-                newUser.getId(), newUser.getEmail(), snsInfo.getProvider());
+        log.info("New OWNER created via SNS login: userId={}, email={}, provider={}, businessId={}",
+                newUser.getId(), newUser.getEmail(), snsInfo.getProvider(), business.getId());
 
         return newUser;
     }
@@ -239,5 +295,30 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             log.info("SNS account linked: userId={}, provider={}", user.getId(), snsInfo.getProvider());
         }
+    }
+
+    /**
+     * moer_login_type 쿠키에서 loginType 값을 읽는다.
+     *
+     * @return loginType 값 (없으면 null)
+     */
+    private String getLoginTypeFromCookie() {
+        try {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                HttpServletRequest request = attrs.getRequest();
+                if (request.getCookies() != null) {
+                    for (Cookie cookie : request.getCookies()) {
+                        if ("moer_login_type".equals(cookie.getName())) {
+                            return cookie.getValue();
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to read loginType cookie: {}", e.getMessage());
+        }
+        return null;
     }
 }

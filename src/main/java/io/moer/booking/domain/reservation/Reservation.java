@@ -23,6 +23,7 @@ public class Reservation {
     private Long id;
     private Long businessId;
     private Long customerId;
+    private Long userId;       // 로그인 고객 사용자 ID
     private Long staffId;
     private LocalDate reservationDate;
     private LocalTime startTime;
@@ -39,6 +40,7 @@ public class Reservation {
     private ReservationStatus status;
 
     private String reservationNumber;
+    private String source;        // 예약 출처 (ADMIN, ONLINE)
     private String customerMemo;  // 고객 요청사항
     private String staffMemo;     // 직원 메모
     private LocalDateTime cancelledAt;

@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.review.repository.ReviewRepository">
+
+    <!-- ========================================
+         Result Map
+         ======================================== -->
+    <resultMap id="ReviewResultMap" type="io.moer.booking.domain.review.Review">
+        <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="reservationId" column="reservation_id"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="staffId" column="staff_id"/>
+        <result property="customerName" column="customer_name"/>
+        <result property="customerPhone" column="customer_phone"/>
+        <result property="rating" column="rating"/>
+        <result property="content" column="content"/>
+        <result property="images" column="images"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="status" column="status"/>
+        <result property="replyContent" column="reply_content"/>
+        <result property="replyCreatedAt" column="reply_created_at"/>
+        <result property="deleteReason" column="delete_reason"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
+    <insert id="save" parameterType="io.moer.booking.domain.review.Review"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO reviews (
+            business_id, reservation_id, customer_id, staff_id,
+            customer_name, customer_phone, rating, content, images, status
+        ) VALUES (
+            #{businessId}, #{reservationId}, #{customerId}, #{staffId},
+            #{customerName}, #{customerPhone}, #{rating}, #{content},
+            #{images, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            #{status}
+        )
+    </insert>
+
+    <!-- ========================================
+         수정 (UPDATE)
+         ======================================== -->
+
+    <!-- 답변 등록 -->
+    <update id="updateReply">
+        UPDATE reviews
+        SET reply_content = #{replyContent},
+            reply_created_at = #{replyCreatedAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 상태 변경 (소프트 삭제 등) -->
+    <update id="updateStatus">
+        UPDATE reviews
+        SET status = #{status},
+            delete_reason = #{deleteReason},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========================================
+         조회 - 단건
+         ======================================== -->
+
+    <!-- ID로 조회 -->
+    <select id="findById" resultMap="ReviewResultMap">
+        SELECT * FROM reviews
+        WHERE id = #{id}
+    </select>
+
+    <!-- 예약 ID로 조회 -->
+    <select id="findByReservationId" resultMap="ReviewResultMap">
+        SELECT * FROM reviews
+        WHERE reservation_id = #{reservationId}
+    </select>
+
+    <!-- 예약 ID로 리뷰 존재 여부 확인 -->
+    <select id="existsByReservationId" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM reviews WHERE reservation_id = #{reservationId})
+    </select>
+
+    <!-- ========================================
+         조회 - 목록 (Admin, 동적 필터)
+         ======================================== -->
+
+    <!-- Admin용 리뷰 목록 -->
+    <select id="findByBusinessId" resultMap="ReviewResultMap">
+        SELECT * FROM reviews
+        <where>
+            business_id = #{businessId}
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="rating != null">
+                AND rating = #{rating}
+            </if>
+            <if test="staffId != null">
+                AND staff_id = #{staffId}
+            </if>
+            <if test="startDate != null">
+                AND created_at &gt;= #{startDate}::date
+            </if>
+            <if test="endDate != null">
+                AND created_at &lt; (#{endDate}::date + INTERVAL '1 day')
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- Admin용 리뷰 총 개수 -->
+    <select id="countByBusinessId" resultType="int">
+        SELECT COUNT(*) FROM reviews
+        <where>
+            business_id = #{businessId}
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="rating != null">
+                AND rating = #{rating}
+            </if>
+            <if test="staffId != null">
+                AND staff_id = #{staffId}
+            </if>
+            <if test="startDate != null">
+                AND created_at &gt;= #{startDate}::date
+            </if>
+            <if test="endDate != null">
+                AND created_at &lt; (#{endDate}::date + INTERVAL '1 day')
+            </if>
+        </where>
+    </select>
+
+    <!-- ========================================
+         조회 - 목록 (Public, status=ACTIVE)
+         ======================================== -->
+
+    <!-- Public용 리뷰 목록 -->
+    <select id="findPublicByBusinessId" resultMap="ReviewResultMap">
+        SELECT * FROM reviews
+        <where>
+            business_id = #{businessId}
+            AND status = 'ACTIVE'
+            <if test="rating != null">
+                AND rating = #{rating}
+            </if>
+            <if test="staffId != null">
+                AND staff_id = #{staffId}
+            </if>
+        </where>
+        <choose>
+            <when test="sortBy == 'rating_high'">
+                ORDER BY rating DESC, created_at DESC
+            </when>
+            <when test="sortBy == 'rating_low'">
+                ORDER BY rating ASC, created_at DESC
+            </when>
+            <otherwise>
+                ORDER BY created_at DESC
+            </otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- Public용 리뷰 총 개수 -->
+    <select id="countPublicByBusinessId" resultType="int">
+        SELECT COUNT(*) FROM reviews
+        <where>
+            business_id = #{businessId}
+            AND status = 'ACTIVE'
+            <if test="rating != null">
+                AND rating = #{rating}
+            </if>
+            <if test="staffId != null">
+                AND staff_id = #{staffId}
+            </if>
+        </where>
+    </select>
+
+    <!-- ========================================
+         통계
+         ======================================== -->
+
+    <!-- 매장의 평균 평점 (ACTIVE 상태만) -->
+    <select id="getAverageRatingByBusinessId" resultType="java.lang.Double">
+        SELECT AVG(rating)
+        FROM reviews
+        WHERE business_id = #{businessId}
+          AND status = 'ACTIVE'
+    </select>
+
+    <!-- 매장의 활성 리뷰 수 -->
+    <select id="countActiveByBusinessId" resultType="int">
+        SELECT COUNT(*)
+        FROM reviews
+        WHERE business_id = #{businessId}
+          AND status = 'ACTIVE'
+    </select>
+
+    <!-- 매장의 미답변 리뷰 수 -->
+    <select id="countUnrepliedByBusinessId" resultType="int">
+        SELECT COUNT(*)
+        FROM reviews
+        WHERE business_id = #{businessId}
+          AND status = 'ACTIVE'
+          AND reply_content IS NULL
+    </select>
+
+    <!-- 매장의 이번 달 리뷰 수 -->
+    <select id="countThisMonthByBusinessId" resultType="int">
+        SELECT COUNT(*)
+        FROM reviews
+        WHERE business_id = #{businessId}
+          AND status = 'ACTIVE'
+          AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    </select>
+
+    <!-- 별점 분포 (rating, count) -->
+    <select id="getRatingDistribution" resultType="java.util.Map">
+        SELECT rating, COUNT(*) AS count
+        FROM reviews
+        WHERE business_id = #{businessId}
+          AND status = 'ACTIVE'
+        GROUP BY rating
+        ORDER BY rating
+    </select>
+
+</mapper>

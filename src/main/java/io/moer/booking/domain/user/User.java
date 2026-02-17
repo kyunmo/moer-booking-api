@@ -52,6 +52,12 @@ public class User {
     private LocalDateTime trialExpiresAt;
     private String isPremium;  // Y/N
 
+    /**
+     * 마케팅 수신 동의 여부 (Y/N)
+     * DB: CHAR(1)
+     */
+    private String marketingAgree;
+
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -78,6 +84,10 @@ public class User {
 
     public boolean isStaff() {
         return this.role == UserRole.STAFF;
+    }
+
+    public boolean isCustomer() {
+        return this.role == UserRole.CUSTOMER;
     }
 
     // ========================================

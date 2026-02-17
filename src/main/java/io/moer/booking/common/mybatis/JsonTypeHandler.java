@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
-import org.apache.ibatis.type.MappedTypes;
 import org.postgresql.util.PGobject;
 
 import java.sql.CallableStatement;
@@ -14,7 +13,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-@MappedTypes({Map.class, List.class})
 public class JsonTypeHandler extends BaseTypeHandler<Object> {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();

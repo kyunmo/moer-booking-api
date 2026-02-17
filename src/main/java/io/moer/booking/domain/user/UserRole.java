@@ -9,7 +9,8 @@ public enum UserRole {
     SUPER_ADMIN("슈퍼 관리자"),
     ADMIN("시스템 관리자"),
     OWNER("매장 사장님"),
-    STAFF("직원");
+    STAFF("직원"),
+    CUSTOMER("고객");
 
     private final String description;
 }

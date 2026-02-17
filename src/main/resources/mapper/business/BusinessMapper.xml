@@ -12,10 +12,19 @@
         <result property="ownerId" column="owner_id"/>
         <result property="ownerName" column="owner_name"/>
         <result property="name" column="name"/>
+        <result property="slug" column="slug"/>
         <result property="businessType" column="business_type"/>
         <result property="phone" column="phone"/>
         <result property="address" column="address"/>
         <result property="description" column="description"/>
+        <result property="profileImageUrl" column="profile_image_url"/>
+        <result property="galleryImages" column="gallery_images"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="latitude" column="latitude"/>
+        <result property="longitude" column="longitude"/>
+        <result property="tags" column="tags"/>
+        <result property="averageRating" column="average_rating"/>
+        <result property="reviewCount" column="review_count"/>
         <result property="businessHours" column="business_hours"
                 typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
         <result property="status" column="status"/>
@@ -41,13 +50,19 @@
     <insert id="save" parameterType="io.moer.booking.domain.business.Business"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO businesses (
-            owner_id, name, business_type, phone, address, description,
+            owner_id, name, slug, business_type, phone, address, description,
+            profile_image_url, gallery_images, latitude, longitude, tags,
+            average_rating, review_count,
             business_hours, status,
             subscription_plan, subscription_status,
             trial_started_at, trial_ends_at,
             current_staff_count, current_month_reservation_count
         ) VALUES (
-                     #{ownerId}, #{name}, #{businessType}, #{phone}, #{address}, #{description},
+                     #{ownerId}, #{name}, #{slug}, #{businessType}, #{phone}, #{address}, #{description},
+                     #{profileImageUrl},
+                     #{galleryImages, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+                     #{latitude}, #{longitude}, #{tags},
+                     #{averageRating}, #{reviewCount},
                      #{businessHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
                      #{status},
                      #{subscriptionPlan}, #{subscriptionStatus},
@@ -62,10 +77,18 @@
     <update id="update">
         UPDATE businesses
         SET name = #{name},
+            slug = #{slug},
             business_type = #{businessType},
             phone = #{phone},
             address = #{address},
             description = #{description},
+            profile_image_url = #{profileImageUrl},
+            gallery_images = #{galleryImages, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            latitude = #{latitude},
+            longitude = #{longitude},
+            tags = #{tags},
+            average_rating = #{averageRating},
+            review_count = #{reviewCount},
             business_hours = #{businessHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
             status = #{status},
             daily_revenue_goal = #{dailyRevenueGoal},
@@ -218,6 +241,75 @@
         GROUP BY b.id, b.name, u.name
         ORDER BY totalRevenue DESC
         LIMIT #{limit}
+    </select>
+
+    <!-- ========================================
+         Slug 관련 쿼리
+         ======================================== -->
+
+    <!-- slug로 조회 -->
+    <select id="findBySlug" resultMap="BusinessResultMap">
+        SELECT * FROM businesses WHERE slug = #{slug}
+    </select>
+
+    <!-- slug 존재 확인 -->
+    <select id="existsBySlug" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM businesses WHERE slug = #{slug})
+    </select>
+
+    <!-- slug 업데이트 -->
+    <update id="updateSlug">
+        UPDATE businesses
+        SET slug = #{slug},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 평점/리뷰 수 갱신 -->
+    <update id="updateRatingStats">
+        UPDATE businesses
+        SET average_rating = #{averageRating},
+            review_count = #{reviewCount},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========================================
+         Public API 쿼리 (고객용 매장 검색)
+         ======================================== -->
+
+    <!-- Public 매장 검색 (활성 + 온라인 예약 허용) -->
+    <select id="searchPublic" resultMap="BusinessResultMap">
+        SELECT b.* FROM businesses b
+        LEFT JOIN business_settings bs ON b.id = bs.business_id
+        WHERE b.status = 'ACTIVE'
+          AND COALESCE(bs.allow_online_booking, 'Y') = 'Y'
+        <if test="keyword != null and keyword != ''">
+            AND (b.name LIKE '%' || #{keyword} || '%' OR b.address LIKE '%' || #{keyword} || '%')
+        </if>
+        <if test="businessType != null and businessType != ''">
+            AND b.business_type = #{businessType}
+        </if>
+        <choose>
+            <when test="sortBy == 'rating'">ORDER BY b.average_rating DESC NULLS LAST</when>
+            <when test="sortBy == 'name'">ORDER BY b.name ASC</when>
+            <otherwise>ORDER BY b.created_at DESC</otherwise>
+        </choose>
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- Public 매장 검색 결과 수 -->
+    <select id="countSearchPublic" resultType="int">
+        SELECT COUNT(*) FROM businesses b
+        LEFT JOIN business_settings bs ON b.id = bs.business_id
+        WHERE b.status = 'ACTIVE'
+          AND COALESCE(bs.allow_online_booking, 'Y') = 'Y'
+        <if test="keyword != null and keyword != ''">
+            AND (b.name LIKE '%' || #{keyword} || '%' OR b.address LIKE '%' || #{keyword} || '%')
+        </if>
+        <if test="businessType != null and businessType != ''">
+            AND b.business_type = #{businessType}
+        </if>
     </select>
 
     <!-- ========================================

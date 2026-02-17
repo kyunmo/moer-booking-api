@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class Customer {
     private Long id;
     private Long businessId;
+    private Long userId;        // 로그인 고객 사용자 ID
     private String name;
     private String phone;
     private String email;

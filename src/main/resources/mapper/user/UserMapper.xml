@@ -20,6 +20,7 @@
         <result property="trialStartedAt" column="trial_started_at"/>
         <result property="trialExpiresAt" column="trial_expires_at"/>
         <result property="isPremium" column="is_premium"/>
+        <result property="marketingAgree" column="marketing_agree"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -29,7 +30,7 @@
     <sql id="baseColumns">
         id, email, password, name, phone, profile_image_url, role, status,
         staff_id, business_id, email_verified,
-        trial_started_at, trial_expires_at, is_premium,
+        trial_started_at, trial_expires_at, is_premium, marketing_agree,
         last_login_at, created_at, updated_at
     </sql>
 
@@ -66,12 +67,12 @@
         INSERT INTO users (
             email, password, name, phone, profile_image_url, role, status,
             staff_id, business_id, email_verified,
-            trial_started_at, trial_expires_at, is_premium
+            trial_started_at, trial_expires_at, is_premium, marketing_agree
         ) VALUES (
             #{email}, #{password}, #{name}, #{phone}, #{profileImageUrl},
             #{role}, #{status},
             #{staffId}, #{businessId}, #{emailVerified},
-            #{trialStartedAt}, #{trialExpiresAt}, #{isPremium}
+            #{trialStartedAt}, #{trialExpiresAt}, #{isPremium}, #{marketingAgree}
         )
     </insert>
 
@@ -181,6 +182,32 @@
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{userId}
     </update>
+
+    <!-- 고객 프로필 수정 (name, phone, marketing_agree) -->
+    <update id="updateCustomerProfile">
+        UPDATE users
+        SET name = #{name},
+            phone = #{phone},
+            marketing_agree = #{marketingAgree},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 고객(user_id)별 예약 수 -->
+    <select id="countReservationsByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM reservations
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 고객(user_id)별 리뷰 수 -->
+    <select id="countReviewsByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM reviews r
+        INNER JOIN reservations res ON r.reservation_id = res.id
+        WHERE res.user_id = #{userId}
+          AND r.status = 'ACTIVE'
+    </select>
 
     <!-- ========================================
          SuperAdmin 통계 쿼리

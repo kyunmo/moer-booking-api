@@ -35,6 +35,25 @@ public interface BusinessRepository {
     boolean existsById(Long id);
     long countByOwnerId(Long ownerId);
 
+    // Slug 관련
+    Optional<Business> findBySlug(String slug);
+    boolean existsBySlug(String slug);
+    void updateSlug(@Param("id") Long id, @Param("slug") String slug);
+
+    // 평점/리뷰 수 갱신
+    void updateRatingStats(@Param("id") Long id,
+                           @Param("averageRating") Double averageRating,
+                           @Param("reviewCount") Integer reviewCount);
+
+    // Public API (고객용 매장 검색)
+    List<Business> searchPublic(@Param("keyword") String keyword,
+                                @Param("businessType") String businessType,
+                                @Param("sortBy") String sortBy,
+                                @Param("size") int size,
+                                @Param("offset") int offset);
+    int countSearchPublic(@Param("keyword") String keyword,
+                          @Param("businessType") String businessType);
+
     // SuperAdmin 통계 쿼리
     long countByStatus(BusinessStatus status);
     long countByType(BusinessType type);

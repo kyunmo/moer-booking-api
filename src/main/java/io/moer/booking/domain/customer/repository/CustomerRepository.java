@@ -58,6 +58,20 @@ public interface CustomerRepository {
      */
     List<RecentCustomer> findRecentByBusinessId(Long businessId, int limit);
 
+    /**
+     * userId + businessId로 고객 조회
+     */
+    Optional<Customer> findByUserIdAndBusinessId(
+            @Param("userId") Long userId,
+            @Param("businessId") Long businessId);
+
+    /**
+     * 고객의 user_id 업데이트
+     */
+    void updateUserId(
+            @Param("customerId") Long customerId,
+            @Param("userId") Long userId);
+
     // ========================================
     // 대시보드 통계 - 액션 알림
     // ========================================

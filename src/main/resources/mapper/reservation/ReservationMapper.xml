@@ -11,6 +11,7 @@
         <id property="id" column="id"/>
         <result property="businessId" column="business_id"/>
         <result property="customerId" column="customer_id"/>
+        <result property="userId" column="user_id"/>
         <result property="staffId" column="staff_id"/>
         <result property="reservationDate" column="reservation_date"/>
         <result property="startTime" column="start_time"/>
@@ -21,6 +22,7 @@
         <result property="totalPrice" column="total_price"/>
         <result property="status" column="status" />
         <result property="reservationNumber" column="reservation_number"/>
+        <result property="source" column="source"/>
         <result property="customerMemo" column="customer_memo"/>
         <result property="staffMemo" column="staff_memo"/>
         <result property="cancelledAt" column="cancelled_at"/>
@@ -35,15 +37,15 @@
     <insert id="save" parameterType="io.moer.booking.domain.reservation.Reservation"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO reservations (
-            business_id, customer_id, staff_id, reservation_date,
+            business_id, customer_id, user_id, staff_id, reservation_date,
             start_time, end_time, services, total_duration, total_price,
-            status, reservation_number, customer_memo, staff_memo
+            status, reservation_number, source, customer_memo, staff_memo
         ) VALUES (
-                     #{businessId}, #{customerId}, #{staffId}, #{reservationDate},
+                     #{businessId}, #{customerId}, #{userId}, #{staffId}, #{reservationDate},
                      #{startTime}, #{endTime},
                      #{services, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
                      #{totalDuration}, #{totalPrice}, #{status},
-                     #{reservationNumber}, #{customerMemo}, #{staffMemo}
+                     #{reservationNumber}, #{source}, #{customerMemo}, #{staffMemo}
                  )
     </insert>
 
@@ -56,6 +58,7 @@
         UPDATE reservations
         SET business_id = #{businessId},
             customer_id = #{customerId},
+            user_id = #{userId},
             staff_id = #{staffId},
             reservation_date = #{reservationDate},
             start_time = #{startTime},
@@ -76,6 +79,14 @@
     <update id="updateStatus">
         UPDATE reservations
         SET status = #{status},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 출처(source) 업데이트 -->
+    <update id="updateSource">
+        UPDATE reservations
+        SET source = #{source},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -542,6 +553,45 @@
         WHERE b.business_type = #{type}
           AND r.status = 'COMPLETED'
     </select>
+
+    <!-- ========================================
+         로그인 고객(user_id) 예약 조회
+         ======================================== -->
+
+    <!-- userId로 예약 목록 조회 (페이징, status 필터) -->
+    <select id="findByUserId" resultMap="ReservationResultMap">
+        SELECT * FROM reservations
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        ORDER BY reservation_date DESC, start_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- userId로 예약 수 -->
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM reservations
+        WHERE user_id = #{userId}
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <!-- userId + reservationNumber로 예약 조회 -->
+    <select id="findByUserIdAndReservationNumber" resultMap="ReservationResultMap">
+        SELECT * FROM reservations
+        WHERE user_id = #{userId}
+          AND reservation_number = #{reservationNumber}
+    </select>
+
+    <!-- 예약의 user_id 업데이트 -->
+    <update id="updateUserId">
+        UPDATE reservations
+        SET user_id = #{userId},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{reservationId}
+    </update>
 
     <!-- ========================================
          고객 예약 이력 조회
