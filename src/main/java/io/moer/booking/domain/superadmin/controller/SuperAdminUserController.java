@@ -82,6 +82,23 @@ public class SuperAdminUserController {
     }
 
     /**
+     * 사용자 활성화 (정지 해제)
+     */
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<ApiResponse<UserResponse>> activateUser(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+
+        if (!currentUser.isSuperAdmin()) {
+            throw new BusinessException(ErrorCode.SUPER_ADMIN_REQUIRED);
+        }
+
+        UserResponse response = superAdminUserService.activateUser(id, currentUser.getUser());
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
      * 사용자 강제 삭제
      */
     @DeleteMapping("/{id}")

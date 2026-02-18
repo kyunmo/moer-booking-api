@@ -152,6 +152,47 @@ public class SuperAdminUserService {
     }
 
     /**
+     * 사용자 활성화 (정지 해제)
+     */
+    @Transactional
+    public UserResponse activateUser(Long userId, User admin) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+
+        // 이미 활성 상태인 경우
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                    "이미 활성 상태인 사용자입니다");
+        }
+
+        // 상태 변경
+        userRepository.updateStatus(userId, UserStatus.ACTIVE);
+
+        // 감사 로그 기록
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("userEmail", user.getEmail());
+        metadata.put("userRole", user.getRole().name());
+        metadata.put("oldStatus", user.getStatus().name());
+        metadata.put("newStatus", UserStatus.ACTIVE.name());
+
+        auditLogService.log(AuditLogCreateRequest.builder()
+                .userId(admin.getId())
+                .userEmail(admin.getEmail())
+                .userRole(admin.getRole())
+                .action(AuditAction.USER_STATUS_CHANGED.name())
+                .entityType("User")
+                .entityId(userId)
+                .description("사용자 활성화 (정지 해제)")
+                .metadata(metadata)
+                .build());
+
+        log.info("User activated by SUPER_ADMIN: userId={}, adminId={}", userId, admin.getId());
+
+        User updated = userRepository.findById(userId).orElseThrow();
+        return UserResponse.from(updated);
+    }
+
+    /**
      * 사용자 강제 삭제
      */
     @Transactional
