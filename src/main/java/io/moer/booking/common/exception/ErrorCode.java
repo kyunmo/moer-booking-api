@@ -84,10 +84,11 @@ public enum ErrorCode {
     RESET_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "PR002", "만료된 재설정 토큰입니다"),
     RESET_TOKEN_USED(HttpStatus.BAD_REQUEST, "PR003", "이미 사용된 재설정 토큰입니다"),
 
-    // OAuth2 관련 에러 (OA001~OA003)
+    // OAuth2 관련 에러 (OA001~OA004)
     OAUTH2_PROVIDER_NOT_FOUND(HttpStatus.BAD_REQUEST, "OA001", "지원하지 않는 SNS 제공자입니다"),
     OAUTH2_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "OA002", "SNS 로그인에 실패했습니다"),
     OAUTH2_EMAIL_NOT_PROVIDED(HttpStatus.BAD_REQUEST, "OA003", "SNS에서 이메일 정보를 제공하지 않았습니다"),
+    OAUTH2_ROLE_MISMATCH(HttpStatus.FORBIDDEN, "OA004", "고객 계정으로는 관리자 로그인을 할 수 없습니다. 관리자 전용 회원가입을 이용해주세요"),
 
     // Super Admin 관련 (SA001~SA010)
     SUPER_ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "SA001", "슈퍼 관리자 권한이 필요합니다"),

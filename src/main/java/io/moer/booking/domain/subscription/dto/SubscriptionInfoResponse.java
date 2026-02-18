@@ -44,7 +44,9 @@ public class SubscriptionInfoResponse {
     private Boolean canCreateReservation;
 
     public static SubscriptionInfoResponse from(Business business) {
-        SubscriptionPlan plan = business.getSubscriptionPlan();
+        SubscriptionPlan plan = business.getSubscriptionPlan() != null
+                ? business.getSubscriptionPlan()
+                : SubscriptionPlan.FREE;
 
         return SubscriptionInfoResponse.builder()
                 .plan(plan)

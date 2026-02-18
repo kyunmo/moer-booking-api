@@ -10,6 +10,8 @@ import io.moer.booking.domain.auth.repository.SnsAccountRepository;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.BusinessType;
+import io.moer.booking.domain.business.SubscriptionPlan;
+import io.moer.booking.domain.business.SubscriptionStatus;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.user.User;
 import io.moer.booking.domain.user.UserRole;
@@ -161,20 +163,24 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     /**
      * 사용자 찾기 또는 생성
      * 기존 사용자가 있으면 역할을 변경하지 않고 그대로 반환한다.
+     * 단, CUSTOMER가 loginType=admin으로 접근하면 에러 처리한다.
      */
     private User findOrCreateUser(SnsUserInfo snsInfo, String loginType) {
         // 1. SNS 계정으로 이미 연동된 사용자 찾기
         Optional<SnsAccount> existingSns = snsAccountRepository
                 .findByProviderAndProviderUserId(snsInfo.getProvider(), snsInfo.getProviderUserId());
         if (existingSns.isPresent()) {
-            return userRepository.findById(existingSns.get().getUserId())
+            User user = userRepository.findById(existingSns.get().getUserId())
                     .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
+            validateRoleAndLoginType(user, loginType);
+            return user;
         }
 
         // 2. 이메일로 기존 사용자 찾기
         if (snsInfo.getEmail() != null) {
             Optional<User> existingUser = userRepository.findByEmail(snsInfo.getEmail());
             if (existingUser.isPresent()) {
+                validateRoleAndLoginType(existingUser.get(), loginType);
                 log.info("Linking SNS account to existing user: email={}, provider={}",
                         snsInfo.getEmail(), snsInfo.getProvider());
                 return existingUser.get();
@@ -183,6 +189,19 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         // 3. 신규 사용자 생성 (loginType에 따라 분기)
         return createNewUser(snsInfo, loginType);
+    }
+
+    /**
+     * loginType과 사용자 역할의 호환성을 검증한다.
+     * CUSTOMER 계정이 loginType=admin으로 접근하면 차단한다.
+     */
+    private void validateRoleAndLoginType(User user, String loginType) {
+        boolean isAdminLogin = !"customer".equals(loginType);
+        if (isAdminLogin && user.getRole() == UserRole.CUSTOMER) {
+            log.warn("CUSTOMER user attempted admin login: userId={}, email={}",
+                    user.getId(), user.getEmail());
+            throw new BusinessException(ErrorCode.OAUTH2_ROLE_MISMATCH);
+        }
     }
 
     /**
@@ -256,12 +275,18 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .build();
         userRepository.save(newUser);
 
-        // 기본 매장 생성
+        // 기본 매장 생성 (FREE 플랜 + TRIAL 상태)
         Business business = Business.builder()
                 .ownerId(newUser.getId())
                 .name(snsInfo.getName() + "님의 매장")
                 .businessType(BusinessType.BEAUTY_SHOP)
                 .status(BusinessStatus.ACTIVE)
+                .subscriptionPlan(SubscriptionPlan.FREE)
+                .subscriptionStatus(SubscriptionStatus.TRIAL)
+                .trialStartedAt(now)
+                .trialEndsAt(now.plusDays(30))
+                .currentStaffCount(0)
+                .currentMonthReservationCount(0)
                 .build();
         businessRepository.save(business);
 
