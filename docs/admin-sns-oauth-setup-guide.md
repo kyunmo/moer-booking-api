@@ -35,11 +35,11 @@
 3. **카카오 로그인 > Redirect URI** 메뉴
 4. 운영 URL 추가:
    ```
-   https://api.yemo.kr/login/oauth2/code/kakao
+   https://yemo.kr/login/oauth2/code/kakao
    ```
 5. (스테이징이 있다면)
    ```
-   https://api.staging.yemo.kr/login/oauth2/code/kakao
+   https://staging.yemo.kr/login/oauth2/code/kakao
    ```
 
 #### (B) 플랫폼 등록
@@ -83,7 +83,7 @@ KAKAO_CLIENT_SECRET=8zOJXees3y4v1Zz2vckIfmhjCVYRNVcU  # 현재 개발용 키
 5. PC웹/모바일웹 Callback URL 추가:
    ```
    http://localhost:8080/login/oauth2/code/naver
-   https://api.yemo.kr/login/oauth2/code/naver
+   https://yemo.kr/login/oauth2/code/naver
    ```
 
 #### (B) 테스터 등록 (개발 중 상태에서)
@@ -126,7 +126,7 @@ NAVER_CLIENT_SECRET=JcUZkcUPhe              # 현재 개발용 키
 3. OAuth 2.0 클라이언트 ID 클릭
 4. **승인된 리디렉션 URI** 추가:
    ```
-   https://api.yemo.kr/login/oauth2/code/google
+   https://yemo.kr/login/oauth2/code/google
    ```
 
 #### (B) 승인된 JavaScript 원본 추가
@@ -134,7 +134,6 @@ NAVER_CLIENT_SECRET=JcUZkcUPhe              # 현재 개발용 키
 2. **승인된 JavaScript 원본** 추가:
    ```
    https://yemo.kr
-   https://api.yemo.kr
    ```
 
 #### (C) OAuth 동의 화면 설정

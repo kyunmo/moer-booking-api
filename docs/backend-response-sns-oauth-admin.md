@@ -214,9 +214,9 @@ DELETE /api/auth/social-accounts/{provider}    → SNS 연결 해제
 | 작업 | 긴급도 | 설명 |
 |------|--------|------|
 | 네이버 테스터 등록 | 즉시 | 개발 테스트를 위해 필요 |
-| 카카오 운영 Redirect URI 추가 | 배포 전 | `https://api.yemo.kr/login/oauth2/code/kakao` |
-| 네이버 운영 Callback URL 추가 | 배포 전 | `https://api.yemo.kr/login/oauth2/code/naver` |
-| 구글 운영 리디렉션 URI 추가 | 배포 전 | `https://api.yemo.kr/login/oauth2/code/google` |
+| 카카오 운영 Redirect URI 추가 | 배포 전 | `https://yemo.kr/login/oauth2/code/kakao` |
+| 네이버 운영 Callback URL 추가 | 배포 전 | `https://yemo.kr/login/oauth2/code/naver` |
+| 구글 운영 리디렉션 URI 추가 | 배포 전 | `https://yemo.kr/login/oauth2/code/google` |
 | 카카오 배포 심사 | 배포 전 | 약 3~5 영업일 소요 |
 | 네이버 서비스 적용 신청 | 배포 전 | 약 2~3 영업일 소요 |
 | 이용약관/개인정보처리방침 URL | 심사 전 | 카카오/네이버 심사 시 필요 |

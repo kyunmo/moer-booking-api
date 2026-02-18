@@ -137,8 +137,8 @@ Google Cloud Console의 "승인된 리디렉션 URI"에 추가:
 | 환경 | Redirect URI |
 |------|-------------|
 | 개발 | `http://localhost:8080/login/oauth2/code/google` |
-| 스테이징 | `https://api.staging.yemo.kr/login/oauth2/code/google` |
-| 운영 | `https://api.yemo.kr/login/oauth2/code/google` |
+| 스테이징 | `https://staging.yemo.kr/login/oauth2/code/google` |
+| 운영 | `https://yemo.kr/login/oauth2/code/google` |
 
 ### 4-3. 필요한 Scope
 

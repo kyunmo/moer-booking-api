@@ -130,8 +130,8 @@ GET /oauth2/authorize/naver?loginType=admin
 | 환경 | Callback URL |
 |------|-------------|
 | 개발 | `http://localhost:8080/login/oauth2/code/naver` |
-| 스테이징 | `https://api.staging.yemo.kr/login/oauth2/code/naver` |
-| 운영 | `https://api.yemo.kr/login/oauth2/code/naver` |
+| 스테이징 | `https://staging.yemo.kr/login/oauth2/code/naver` |
+| 운영 | `https://yemo.kr/login/oauth2/code/naver` |
 
 네이버는 개발/운영 URL을 별도 등록해야 합니다.
 

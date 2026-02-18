@@ -138,8 +138,8 @@ GET /oauth2/authorize/kakao?loginType=admin
 | 환경 | Redirect URI |
 |------|-------------|
 | 개발 | `http://localhost:8080/login/oauth2/code/kakao` |
-| 스테이징 | `https://api.staging.yemo.kr/login/oauth2/code/kakao` |
-| 운영 | `https://api.yemo.kr/login/oauth2/code/kakao` |
+| 스테이징 | `https://staging.yemo.kr/login/oauth2/code/kakao` |
+| 운영 | `https://yemo.kr/login/oauth2/code/kakao` |
 
 ### 4-3. 필요한 동의항목 (Scope)
 
