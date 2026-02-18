@@ -128,10 +128,18 @@ CREATE TABLE businesses (
     id BIGSERIAL PRIMARY KEY,
     owner_id BIGINT NOT NULL,
     name VARCHAR(100) NOT NULL,
+    slug VARCHAR(50) UNIQUE,
     business_type VARCHAR(50) NOT NULL,
     phone VARCHAR(20),
     address TEXT,
     description TEXT,
+    profile_image_url TEXT,
+    gallery_images JSONB,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    tags TEXT,
+    average_rating DOUBLE PRECISION,
+    review_count INTEGER DEFAULT 0,
     business_hours JSONB,
     status VARCHAR(20) DEFAULT 'ACTIVE',
     daily_revenue_goal INTEGER,
@@ -153,10 +161,18 @@ COMMENT ON TABLE businesses IS '매장 정보';
 COMMENT ON COLUMN businesses.id IS '매장 ID';
 COMMENT ON COLUMN businesses.owner_id IS '사장님 사용자 ID';
 COMMENT ON COLUMN businesses.name IS '매장명';
+COMMENT ON COLUMN businesses.slug IS '매장 슬러그 (고객용 URL: /booking/{slug})';
 COMMENT ON COLUMN businesses.business_type IS '업종 (BEAUTY_SHOP, PILATES, YOGA, CAFE, STUDY_CAFE, WORKSHOP, ACADEMY, PET_SALON, OTHER)';
 COMMENT ON COLUMN businesses.phone IS '매장 전화번호';
 COMMENT ON COLUMN businesses.address IS '매장 주소';
 COMMENT ON COLUMN businesses.description IS '매장 소개';
+COMMENT ON COLUMN businesses.profile_image_url IS '매장 프로필 이미지 URL';
+COMMENT ON COLUMN businesses.gallery_images IS '갤러리 이미지 URL 목록 (JSONB)';
+COMMENT ON COLUMN businesses.latitude IS '위도 (위치 기반 검색용)';
+COMMENT ON COLUMN businesses.longitude IS '경도 (위치 기반 검색용)';
+COMMENT ON COLUMN businesses.tags IS '태그 (콤마 구분: 예약가능,주차가능,카드결제)';
+COMMENT ON COLUMN businesses.average_rating IS '평균 평점 (리뷰 비정규화)';
+COMMENT ON COLUMN businesses.review_count IS '리뷰 수 (비정규화)';
 COMMENT ON COLUMN businesses.business_hours IS '영업시간 (JSONB: {"mon":{"open":"10:00","close":"20:00"}, ...})';
 COMMENT ON COLUMN businesses.status IS '상태 (ACTIVE, INACTIVE, SUSPENDED)';
 COMMENT ON COLUMN businesses.daily_revenue_goal IS '일일 매출 목표 (원)';
@@ -174,6 +190,7 @@ COMMENT ON COLUMN businesses.created_at IS '생성일시';
 COMMENT ON COLUMN businesses.updated_at IS '수정일시';
 
 CREATE INDEX idx_businesses_owner_id ON businesses(owner_id);
+CREATE INDEX idx_businesses_slug ON businesses(slug);
 CREATE INDEX idx_businesses_status ON businesses(status);
 CREATE INDEX idx_businesses_subscription_status ON businesses(subscription_status);
 CREATE INDEX idx_businesses_trial_ends_at ON businesses(trial_ends_at);

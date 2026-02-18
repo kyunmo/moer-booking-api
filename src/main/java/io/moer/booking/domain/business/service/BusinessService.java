@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -52,11 +53,15 @@ public class BusinessService {
         User owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
+        // 임시 slug 자동 생성 (사용자가 나중에 변경 가능)
+        String autoSlug = generateUniqueSlug();
+
         // Business 엔티티 생성
         Business business = Business.builder()
                 .ownerId(request.getOwnerId())
                 .businessType(request.getBusinessType())
                 .name(request.getName())
+                .slug(autoSlug)
                 .phone(request.getPhone())
                 .address(request.getAddress())
                 .description(request.getDescription())
@@ -179,6 +184,7 @@ public class BusinessService {
         Business updatedBusiness = Business.builder()
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
+                .slug(business.getSlug())
                 .businessType(request.getBusinessType() != null ? request.getBusinessType() : business.getBusinessType())
                 .name(request.getName() != null ? request.getName() : business.getName())
                 .phone(request.getPhone() != null ? request.getPhone() : business.getPhone())
@@ -352,6 +358,21 @@ public class BusinessService {
     }
 
     // === Private Methods ===
+
+    /**
+     * 유니크 slug 자동 생성
+     * 형식: biz-{uuid8} (예: biz-a1b2c3d4)
+     */
+    private String generateUniqueSlug() {
+        for (int i = 0; i < 5; i++) {
+            String slug = "biz-" + UUID.randomUUID().toString().substring(0, 8);
+            if (!businessRepository.existsBySlug(slug)) {
+                return slug;
+            }
+        }
+        // 극히 드문 충돌 시 더 긴 UUID 사용
+        return "biz-" + UUID.randomUUID().toString().substring(0, 12);
+    }
 
     private BusinessResponse getBusinessWithSettings(Long businessId) {
         Business business = businessRepository.findById(businessId)

@@ -271,12 +271,14 @@ public class AuthService {
      */
     @Transactional
     public void requestPasswordReset(String email) {
-        // 1. 사용자 조회
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        ErrorCode.USER_NOT_FOUND,
-                        "해당 이메일로 등록된 사용자를 찾을 수 없습니다: " + email
-                ));
+        // 1. 사용자 조회 (보안: 미등록 이메일도 동일한 응답 반환)
+        var userOptional = userRepository.findByEmail(email);
+        if (userOptional.isEmpty()) {
+            log.info("Password reset requested for non-existent email: {}", email);
+            return; // 보안상 미등록 이메일에도 "발송 완료" 응답 (사용자 존재 여부 미노출)
+        }
+
+        User user = userOptional.get();
 
         // 2. 기존 미사용 토큰 삭제 (중복 방지)
         passwordResetTokenRepository.deleteUnusedByUserId(user.getId());
