@@ -31,6 +31,10 @@ public class BusinessResponse {
     private String description;
     private Map<String, Object> businessHours;
     private BusinessStatus status;
+    private String profileImageUrl;
+    private Integer dailyRevenueGoal;
+    private Integer monthlyRevenueGoal;
+    private Integer monthlyNewCustomerGoal;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
@@ -57,6 +61,10 @@ public class BusinessResponse {
                 .description(business.getDescription())
                 .businessHours(business.getBusinessHours())
                 .status(business.getStatus())
+                .profileImageUrl(business.getProfileImageUrl())
+                .dailyRevenueGoal(business.getDailyRevenueGoal())
+                .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
+                .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .createdAt(business.getCreatedAt())
                 .updatedAt(business.getUpdatedAt())
                 .build();
@@ -78,6 +86,10 @@ public class BusinessResponse {
                 .description(business.getDescription())
                 .businessHours(business.getBusinessHours())
                 .status(business.getStatus())
+                .profileImageUrl(business.getProfileImageUrl())
+                .dailyRevenueGoal(business.getDailyRevenueGoal())
+                .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
+                .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .createdAt(business.getCreatedAt())
                 .updatedAt(business.getUpdatedAt())
                 .settings(settings)

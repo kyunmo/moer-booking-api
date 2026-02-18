@@ -40,6 +40,9 @@ public interface BusinessRepository {
     boolean existsBySlug(String slug);
     void updateSlug(@Param("id") Long id, @Param("slug") String slug);
 
+    // 프로필 이미지 업데이트
+    void updateProfileImageUrl(@Param("id") Long id, @Param("profileImageUrl") String profileImageUrl);
+
     // 평점/리뷰 수 갱신
     void updateRatingStats(@Param("id") Long id,
                            @Param("averageRating") Double averageRating,

@@ -1,5 +1,6 @@
 package io.moer.booking.common.security;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -32,13 +33,39 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
         String errorMessage = exception.getMessage();
         log.error("OAuth2 authentication failed: {}", errorMessage, exception);
 
-        // 프론트엔드로 리다이렉트 (에러 정보 포함)
+        // loginType 쿠키 읽기 및 삭제
+        String loginType = readAndDeleteLoginTypeCookie(request, response);
+
+        // 프론트엔드로 리다이렉트 (에러 정보 + loginType 포함)
         String targetUrl = UriComponentsBuilder
                 .fromUriString(redirectUri)
-                .queryParam("error", "oauth2_failed")
+                .queryParam("error", "true")
                 .queryParam("message", errorMessage)
+                .queryParam("loginType", loginType != null ? loginType : "admin")
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
+    }
+
+    private String readAndDeleteLoginTypeCookie(HttpServletRequest request, HttpServletResponse response) {
+        String loginType = null;
+
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("moer_login_type".equals(cookie.getName())) {
+                    loginType = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        // 쿠키 삭제
+        Cookie deleteCookie = new Cookie("moer_login_type", "");
+        deleteCookie.setPath("/");
+        deleteCookie.setMaxAge(0);
+        deleteCookie.setHttpOnly(true);
+        response.addCookie(deleteCookie);
+
+        return loginType;
     }
 }

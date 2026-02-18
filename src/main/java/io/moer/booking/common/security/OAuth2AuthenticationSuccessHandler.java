@@ -75,11 +75,13 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                     ? customerRedirectUri
                     : redirectUri;
 
-            // 프론트엔드로 리다이렉트 (토큰 + isNewUser 포함)
+            // 프론트엔드로 리다이렉트 (토큰 + loginType + isNewUser 포함)
+            String effectiveLoginType = loginType != null ? loginType : "admin";
             String targetUrl = UriComponentsBuilder
                     .fromUriString(targetRedirectUri)
                     .queryParam("accessToken", accessToken)
                     .queryParam("refreshToken", refreshToken)
+                    .queryParam("loginType", effectiveLoginType)
                     .queryParam("isNewUser", isNewUser)
                     .build().toUriString();
 

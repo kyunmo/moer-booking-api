@@ -4,6 +4,8 @@ import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.common.storage.FileStorageService;
+import io.moer.booking.domain.auth.dto.ProfileImageResponse;
 import io.moer.booking.domain.auditlog.AuditAction;
 import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.business.Business;
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +46,7 @@ public class BusinessService {
     private final BusinessSettingsService businessSettingsService;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final FileStorageService fileStorageService;
 
     /**
      * 매장 생성
@@ -355,6 +359,52 @@ public class BusinessService {
         log.info("Business status changed: id={}, status={}", id, status);
 
         return getBusinessWithSettings(id);
+    }
+
+    /**
+     * 매장 프로필 이미지 업로드
+     */
+    @Transactional
+    public ProfileImageResponse uploadProfileImage(Long id, MultipartFile file, User currentUser) {
+        Business business = businessRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
+        // 기존 이미지 삭제
+        if (business.getProfileImageUrl() != null) {
+            fileStorageService.delete(business.getProfileImageUrl());
+        }
+
+        // 새 이미지 저장
+        String imageUrl = fileStorageService.store(file, "businesses");
+
+        // DB 업데이트
+        businessRepository.updateProfileImageUrl(id, imageUrl);
+
+        log.info("Business profile image uploaded: businessId={}, url={}", id, imageUrl);
+        return new ProfileImageResponse(imageUrl);
+    }
+
+    /**
+     * 매장 프로필 이미지 삭제
+     */
+    @Transactional
+    public void deleteProfileImage(Long id, User currentUser) {
+        Business business = businessRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        if (!currentUser.canAccessBusiness(id)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
+        if (business.getProfileImageUrl() != null) {
+            fileStorageService.delete(business.getProfileImageUrl());
+            businessRepository.updateProfileImageUrl(id, null);
+            log.info("Business profile image deleted: businessId={}", id);
+        }
     }
 
     // === Private Methods ===

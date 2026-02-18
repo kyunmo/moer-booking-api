@@ -265,6 +265,14 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 프로필 이미지 업데이트 -->
+    <update id="updateProfileImageUrl">
+        UPDATE businesses
+        SET profile_image_url = #{profileImageUrl},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
     <!-- 평점/리뷰 수 갱신 -->
     <update id="updateRatingStats">
         UPDATE businesses

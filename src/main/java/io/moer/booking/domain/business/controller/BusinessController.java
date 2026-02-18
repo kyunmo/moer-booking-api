@@ -3,14 +3,17 @@ package io.moer.booking.domain.business.controller;
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.security.CustomUserDetails;
+import io.moer.booking.domain.auth.dto.ProfileImageResponse;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.dto.*;
 import io.moer.booking.domain.business.service.BusinessService;
 import io.moer.booking.domain.business.service.OnboardingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -110,6 +113,29 @@ public class BusinessController {
             @RequestParam BusinessStatus status) {
         BusinessResponse response = businessService.changeBusinessStatus(id, status, currentUser.getUser());
         return ApiResponse.success(response);
+    }
+
+    /**
+     * 매장 프로필 이미지 업로드
+     */
+    @PostMapping(value = "/{id}/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ProfileImageResponse> uploadProfileImage(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id,
+            @RequestParam("image") MultipartFile file) {
+        ProfileImageResponse response = businessService.uploadProfileImage(id, file, currentUser.getUser());
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 매장 프로필 이미지 삭제
+     */
+    @DeleteMapping("/{id}/profile-image")
+    public ApiResponse<Void> deleteProfileImage(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        businessService.deleteProfileImage(id, currentUser.getUser());
+        return ApiResponse.success();
     }
 
     /**

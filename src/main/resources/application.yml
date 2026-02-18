@@ -33,8 +33,8 @@ spring:
   mail:
     host: smtp.worksmobile.com
     port: 587
-    username: ${MAIL_USERNAME:your-account@your-domain.com}
-    password: ${MAIL_PASSWORD:your-external-app-password}
+    username: ${MAIL_USERNAME:kkm@moer.io}
+    password: ${MAIL_PASSWORD:U3SXTOXHzkPX}
     properties:
       mail:
         smtp:
@@ -131,11 +131,11 @@ springdoc:
 # 애플리케이션 설정
 app:
   mail:
-    from: ${MAIL_FROM:noreply@moer-booking.com}
+    from: ${MAIL_FROM:kkm@moer.io}
     reset-password-url: ${FRONTEND_URL:http://localhost:3000}/reset-password
   oauth2:
-    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/redirect}
-    customer-redirect-uri: ${OAUTH2_CUSTOMER_REDIRECT_URI:http://localhost:3000/oauth2/customer-redirect}
+    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2-redirect}
+    customer-redirect-uri: ${OAUTH2_CUSTOMER_REDIRECT_URI:http://localhost:3000/oauth2-redirect}
   storage:
     upload-dir: ${UPLOAD_DIR:C:/Project/uploads}
     allowed-extensions: jpg,jpeg,png,webp
