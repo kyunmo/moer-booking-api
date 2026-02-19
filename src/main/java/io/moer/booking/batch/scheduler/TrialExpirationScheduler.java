@@ -59,6 +59,7 @@ public class TrialExpirationScheduler {
                         .businessHours(business.getBusinessHours())
                         .status(business.getStatus())
                         .subscriptionPlan(business.getSubscriptionPlan())
+                        .billingCycle(business.getBillingCycle())
                         .subscriptionStatus(SubscriptionStatus.EXPIRED) // TRIAL → EXPIRED
                         .trialStartedAt(business.getTrialStartedAt())
                         .trialEndsAt(business.getTrialEndsAt())

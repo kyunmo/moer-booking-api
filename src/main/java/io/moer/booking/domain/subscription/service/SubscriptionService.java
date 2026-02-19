@@ -3,6 +3,7 @@ package io.moer.booking.domain.subscription.service;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.business.SubscriptionStatus;
@@ -37,14 +38,15 @@ public class SubscriptionService {
      * 플랜 변경
      */
     @Transactional
-    public SubscriptionInfoResponse changePlan(Long businessId, SubscriptionPlan newPlan) {
+    public SubscriptionInfoResponse changePlan(Long businessId, SubscriptionPlan newPlan, BillingCycle billingCycle) {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
         SubscriptionPlan currentPlan = business.getSubscriptionPlan();
+        BillingCycle currentCycle = business.getBillingCycle();
 
-        // 1. 동일한 플랜 체크
-        if (currentPlan == newPlan) {
+        // 1. 동일한 플랜 + 동일 billingCycle 체크
+        if (currentPlan == newPlan && currentCycle == billingCycle) {
             throw new BusinessException(ErrorCode.SAME_PLAN);
         }
 
@@ -58,6 +60,7 @@ public class SubscriptionService {
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
                 .name(business.getName())
+                .slug(business.getSlug())
                 .businessType(business.getBusinessType())
                 .phone(business.getPhone())
                 .address(business.getAddress())
@@ -68,6 +71,7 @@ public class SubscriptionService {
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .subscriptionPlan(newPlan)  // 새 플랜
+                .billingCycle(billingCycle)  // 새 결제 주기
                 .subscriptionStatus(business.getSubscriptionStatus())
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
@@ -81,7 +85,7 @@ public class SubscriptionService {
 
         businessRepository.update(updatedBusiness);
 
-        log.info("Plan changed: businessId={}, {} -> {}", businessId, currentPlan, newPlan);
+        log.info("Plan changed: businessId={}, {} -> {}, billingCycle={}", businessId, currentPlan, newPlan, billingCycle);
 
         return SubscriptionInfoResponse.from(updatedBusiness);
     }
@@ -104,6 +108,7 @@ public class SubscriptionService {
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
                 .name(business.getName())
+                .slug(business.getSlug())
                 .businessType(business.getBusinessType())
                 .phone(business.getPhone())
                 .address(business.getAddress())
@@ -114,6 +119,7 @@ public class SubscriptionService {
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .subscriptionPlan(business.getSubscriptionPlan())
+                .billingCycle(business.getBillingCycle())
                 .subscriptionStatus(SubscriptionStatus.CANCELED)  // 취소 상태
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
@@ -131,24 +137,17 @@ public class SubscriptionService {
     }
 
     /**
-     * 체험판 상태 체크 (배치 작업용)
-     */
-    @Transactional
-    public void checkAndExpireTrials() {
-        // TODO: 만료된 체험판을 EXPIRED로 변경하는 배치 로직
-        // Phase 5에서 구현 예정
-    }
-
-    /**
      * 결제 완료 시 구독 활성화
      * PaymentService에서 결제 완료 후 호출
      *
      * @param businessId 매장 ID
      * @param newPlan 새 플랜
+     * @param billingCycle 결제 주기
      * @param billingEndDate 다음 결제일
      */
     @Transactional
-    public void activateSubscriptionAfterPayment(Long businessId, SubscriptionPlan newPlan, LocalDateTime billingEndDate) {
+    public void activateSubscriptionAfterPayment(Long businessId, SubscriptionPlan newPlan,
+                                                  BillingCycle billingCycle, LocalDateTime billingEndDate) {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
@@ -163,6 +162,7 @@ public class SubscriptionService {
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
                 .name(business.getName())
+                .slug(business.getSlug())
                 .businessType(business.getBusinessType())
                 .phone(business.getPhone())
                 .address(business.getAddress())
@@ -173,6 +173,7 @@ public class SubscriptionService {
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .subscriptionPlan(newPlan)
+                .billingCycle(billingCycle)
                 .subscriptionStatus(SubscriptionStatus.ACTIVE) // 체험판 → 활성
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
@@ -186,8 +187,8 @@ public class SubscriptionService {
 
         businessRepository.update(updatedBusiness);
 
-        log.info("유료 구독 활성화: businessId={}, plan={}, nextBillingDate={}",
-                businessId, newPlan, billingEndDate);
+        log.info("유료 구독 활성화: businessId={}, plan={}, billingCycle={}, nextBillingDate={}",
+                businessId, newPlan, billingCycle, billingEndDate);
     }
 
     // ========================================
@@ -204,14 +205,12 @@ public class SubscriptionService {
     }
 
     /**
-     * 플랜 순서 (FREE < BASIC < PRO < ENTERPRISE)
+     * 플랜 순서 (FREE < BASIC)
      */
     private int getPlanOrder(SubscriptionPlan plan) {
         return switch (plan) {
             case FREE -> 0;
             case BASIC -> 1;
-            case PRO -> 2;
-            case ENTERPRISE -> 3;
         };
     }
 

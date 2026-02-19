@@ -15,6 +15,7 @@ import io.moer.booking.domain.auth.dto.*;
 import io.moer.booking.domain.auth.repository.PasswordResetTokenRepository;
 import io.moer.booking.domain.auth.repository.RefreshTokenRepository;
 import io.moer.booking.domain.auth.repository.SnsAccountRepository;
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.dto.BusinessResponse;
@@ -186,6 +187,7 @@ public class AuthService {
                 .businessType(request.getBusinessType())
                 .status(BusinessStatus.ACTIVE)
                 .subscriptionPlan(request.getSubscriptionPlan())
+                .billingCycle(BillingCycle.MONTHLY)
                 .subscriptionStatus(io.moer.booking.domain.business.SubscriptionStatus.TRIAL)
                 .trialStartedAt(now)
                 .trialEndsAt(now.plusDays(30))

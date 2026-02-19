@@ -45,7 +45,7 @@ public class RegisterRequest {
      * 선택한 구독 플랜 (기본값: BASIC)
      * 프론트엔드에서 선택하지 않으면 BASIC 플랜으로 가입
      */
-    private String selectedPlan; // "FREE", "BASIC", "PRO", "ENTERPRISE"
+    private String selectedPlan; // "FREE", "BASIC"
 
     /**
      * 선택한 플랜을 Enum으로 변환

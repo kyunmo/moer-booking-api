@@ -12,6 +12,7 @@ import io.moer.booking.domain.service.dto.ServiceResponse;
 import io.moer.booking.domain.service.dto.ServiceSearchCondition;
 import io.moer.booking.domain.service.dto.ServiceUpdateRequest;
 import io.moer.booking.domain.service.repository.ServiceRepository;
+import io.moer.booking.domain.subscription.service.UsageLimitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class ServiceService {
     private final BusinessRepository businessRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
+    private final UsageLimitService usageLimitService;
 
     /**
      * 서비스 생성
@@ -41,6 +43,9 @@ public class ServiceService {
         if (!businessRepository.existsById(businessId)) {
             throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
         }
+
+        // 서비스 등록 제한 체크
+        usageLimitService.checkCanAddService(businessId);
 
         // categoryId 유효성 검증 (null 허용)
         if (request.getCategoryId() != null) {

@@ -7,6 +7,7 @@ import io.moer.booking.domain.auth.SnsAccount;
 import io.moer.booking.domain.auth.SnsProvider;
 import io.moer.booking.domain.auth.dto.SnsUserInfo;
 import io.moer.booking.domain.auth.repository.SnsAccountRepository;
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.BusinessType;
@@ -282,6 +283,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .businessType(BusinessType.BEAUTY_SHOP)
                 .status(BusinessStatus.ACTIVE)
                 .subscriptionPlan(SubscriptionPlan.FREE)
+                .billingCycle(BillingCycle.MONTHLY)
                 .subscriptionStatus(SubscriptionStatus.TRIAL)
                 .trialStartedAt(now)
                 .trialEndsAt(now.plusDays(30))

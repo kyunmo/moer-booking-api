@@ -9,6 +9,7 @@
         <result property="businessId" column="business_id"/>
         <result property="couponId" column="coupon_id"/>
         <result property="subscriptionPlan" column="subscription_plan"/>
+        <result property="billingCycle" column="billing_cycle"/>
         <result property="billingPeriodStart" column="billing_period_start"/>
         <result property="billingPeriodEnd" column="billing_period_end"/>
         <result property="amount" column="amount"/>
@@ -37,6 +38,7 @@
             business_id,
             coupon_id,
             subscription_plan,
+            billing_cycle,
             billing_period_start,
             billing_period_end,
             amount,
@@ -53,6 +55,7 @@
             #{businessId},
             #{couponId},
             #{subscriptionPlan},
+            #{billingCycle},
             #{billingPeriodStart},
             #{billingPeriodEnd},
             #{amount},

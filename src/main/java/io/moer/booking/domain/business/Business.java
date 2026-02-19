@@ -107,6 +107,11 @@ public class Business {
     private SubscriptionPlan subscriptionPlan;
 
     /**
+     * 결제 주기 (MONTHLY / YEARLY)
+     */
+    private BillingCycle billingCycle;
+
+    /**
      * 구독 상태
      */
     private SubscriptionStatus subscriptionStatus;

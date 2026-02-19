@@ -106,11 +106,13 @@ public enum ErrorCode {
     DOWNGRADE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "SU005", "현재 사용량이 다운그레이드할 플랜의 제한을 초과합니다"),
     SUBSCRIPTION_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SU006", "구독 변경에 실패했습니다"),
     INVALID_SUBSCRIPTION_PLAN(HttpStatus.BAD_REQUEST, "SU007", "유효하지 않은 구독 플랜입니다"),
+    INVALID_BILLING_CYCLE(HttpStatus.BAD_REQUEST, "SU008", "유효하지 않은 결제 주기입니다"),
 
     // ============ Usage Limits (SL001 ~ SL003) ============
     STAFF_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "SL001", "직원 수 제한에 도달했습니다. 플랜을 업그레이드하세요"),
     RESERVATION_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "SL002", "월간 예약 수 제한에 도달했습니다. 플랜을 업그레이드하세요"),
     USAGE_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SL003", "사용량 동기화에 실패했습니다"),
+    SERVICE_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "SL004", "서비스 등록 수 제한에 도달했습니다. 플랜을 업그레이드하세요"),
 
     // ============ Payment (PA001 ~ PA010) ============
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PA001", "결제 정보를 찾을 수 없습니다"),

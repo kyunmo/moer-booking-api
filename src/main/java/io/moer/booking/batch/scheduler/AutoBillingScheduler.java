@@ -1,5 +1,6 @@
 package io.moer.booking.batch.scheduler;
 
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.business.SubscriptionStatus;
@@ -92,15 +93,23 @@ public class AutoBillingScheduler {
      */
     private boolean processPayment(Business business) {
         try {
-            // 1. Payment 생성
-            int amount = business.getSubscriptionPlan().getMonthlyPrice();
+            // 1. billingCycle 결정
+            BillingCycle billingCycle = business.getBillingCycle() != null
+                    ? business.getBillingCycle()
+                    : BillingCycle.MONTHLY;
+
+            // 2. Payment 생성 (결제 주기에 따른 금액)
+            int amount = business.getSubscriptionPlan().getPrice(billingCycle);
             LocalDateTime now = LocalDateTime.now();
             LocalDate billingStart = now.toLocalDate();
-            LocalDate billingEnd = billingStart.plusMonths(1);
+            LocalDate billingEnd = billingCycle.isYearly()
+                    ? billingStart.plusYears(1)
+                    : billingStart.plusMonths(1);
 
             Payment payment = Payment.builder()
                 .businessId(business.getId())
                 .subscriptionPlan(business.getSubscriptionPlan())
+                .billingCycle(billingCycle)
                 .amount(amount)
                 .discountAmount(0)
                 .finalAmount(amount)
@@ -112,7 +121,7 @@ public class AutoBillingScheduler {
 
             paymentRepository.save(payment);
 
-            // 2. PG 호출 (Fake)
+            // 3. PG 호출 (Fake)
             Map<String, Object> pgResponse = fakePGService.requestPayment(
                 amount,
                 PaymentMethod.CARD.name()
@@ -123,12 +132,13 @@ public class AutoBillingScheduler {
                 ? PaymentStatus.COMPLETED
                 : PaymentStatus.FAILED;
 
-            // 3. Payment 업데이트
+            // 4. Payment 업데이트
             Payment updatedPayment = Payment.builder()
                 .id(payment.getId())
                 .businessId(payment.getBusinessId())
                 .couponId(payment.getCouponId())
                 .subscriptionPlan(payment.getSubscriptionPlan())
+                .billingCycle(payment.getBillingCycle())
                 .billingPeriodStart(payment.getBillingPeriodStart())
                 .billingPeriodEnd(payment.getBillingPeriodEnd())
                 .amount(payment.getAmount())
@@ -146,12 +156,17 @@ public class AutoBillingScheduler {
 
             paymentRepository.update(updatedPayment);
 
-            // 4. 결제 성공 시 다음 결제일 업데이트
+            // 5. 결제 성공 시 다음 결제일 업데이트
             if (newStatus == PaymentStatus.COMPLETED) {
+                LocalDateTime nextBilling = billingCycle.isYearly()
+                        ? now.plusYears(1)
+                        : now.plusMonths(1);
+
                 Business updatedBusiness = Business.builder()
                     .id(business.getId())
                     .ownerId(business.getOwnerId())
                     .name(business.getName())
+                    .slug(business.getSlug())
                     .businessType(business.getBusinessType())
                     .phone(business.getPhone())
                     .address(business.getAddress())
@@ -159,11 +174,12 @@ public class AutoBillingScheduler {
                     .businessHours(business.getBusinessHours())
                     .status(business.getStatus())
                     .subscriptionPlan(business.getSubscriptionPlan())
+                    .billingCycle(business.getBillingCycle())
                     .subscriptionStatus(business.getSubscriptionStatus())
                     .trialStartedAt(business.getTrialStartedAt())
                     .trialEndsAt(business.getTrialEndsAt())
                     .subscriptionStartedAt(business.getSubscriptionStartedAt())
-                    .nextBillingDate(now.plusMonths(1)) // 다음 달로 연장
+                    .nextBillingDate(nextBilling)
                     .currentStaffCount(business.getCurrentStaffCount())
                     .currentMonthReservationCount(business.getCurrentMonthReservationCount())
                     .dailyRevenueGoal(business.getDailyRevenueGoal())
@@ -173,15 +189,16 @@ public class AutoBillingScheduler {
 
                 businessRepository.update(updatedBusiness);
 
-                log.info("자동 결제 성공: businessId={}, amount={}원, nextBillingDate={}",
-                    business.getId(), amount, updatedBusiness.getNextBillingDate());
+                log.info("자동 결제 성공: businessId={}, amount={}원, billingCycle={}, nextBillingDate={}",
+                    business.getId(), amount, billingCycle, updatedBusiness.getNextBillingDate());
                 return true;
             } else {
-                // 5. 결제 실패 시 구독 상태를 EXPIRED로 변경
+                // 6. 결제 실패 시 구독 상태를 EXPIRED로 변경
                 Business expiredBusiness = Business.builder()
                     .id(business.getId())
                     .ownerId(business.getOwnerId())
                     .name(business.getName())
+                    .slug(business.getSlug())
                     .businessType(business.getBusinessType())
                     .phone(business.getPhone())
                     .address(business.getAddress())
@@ -189,6 +206,7 @@ public class AutoBillingScheduler {
                     .businessHours(business.getBusinessHours())
                     .status(business.getStatus())
                     .subscriptionPlan(business.getSubscriptionPlan())
+                    .billingCycle(business.getBillingCycle())
                     .subscriptionStatus(SubscriptionStatus.EXPIRED) // ACTIVE → EXPIRED
                     .trialStartedAt(business.getTrialStartedAt())
                     .trialEndsAt(business.getTrialEndsAt())

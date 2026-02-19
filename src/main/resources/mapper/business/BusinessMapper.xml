@@ -33,6 +33,7 @@
         <result property="monthlyNewCustomerGoal" column="monthly_new_customer_goal"/>
         <!-- Subscription fields -->
         <result property="subscriptionPlan" column="subscription_plan"/>
+        <result property="billingCycle" column="billing_cycle"/>
         <result property="subscriptionStatus" column="subscription_status"/>
         <result property="trialStartedAt" column="trial_started_at"/>
         <result property="trialEndsAt" column="trial_ends_at"/>
@@ -54,7 +55,7 @@
             profile_image_url, gallery_images, latitude, longitude, tags,
             average_rating, review_count,
             business_hours, status,
-            subscription_plan, subscription_status,
+            subscription_plan, billing_cycle, subscription_status,
             trial_started_at, trial_ends_at,
             current_staff_count, current_month_reservation_count
         ) VALUES (
@@ -65,7 +66,7 @@
                      #{averageRating}, #{reviewCount},
                      #{businessHours, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
                      #{status},
-                     #{subscriptionPlan}, #{subscriptionStatus},
+                     #{subscriptionPlan}, #{billingCycle}, #{subscriptionStatus},
                      #{trialStartedAt}, #{trialEndsAt},
                      #{currentStaffCount}, #{currentMonthReservationCount}
                  )
@@ -95,6 +96,7 @@
             monthly_revenue_goal = #{monthlyRevenueGoal},
             monthly_new_customer_goal = #{monthlyNewCustomerGoal},
             subscription_plan = #{subscriptionPlan},
+            billing_cycle = #{billingCycle},
             subscription_status = #{subscriptionStatus},
             trial_started_at = #{trialStartedAt},
             trial_ends_at = #{trialEndsAt},

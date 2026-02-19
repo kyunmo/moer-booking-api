@@ -1,5 +1,6 @@
 package io.moer.booking.domain.payment;
 
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +25,7 @@ public class Payment {
 
     // 구독 정보
     private SubscriptionPlan subscriptionPlan;
+    private BillingCycle billingCycle;
     private LocalDate billingPeriodStart;
     private LocalDate billingPeriodEnd;
 

@@ -3,6 +3,7 @@ package io.moer.booking.domain.payment.service;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.business.repository.BusinessRepository;
@@ -52,7 +53,7 @@ public class PaymentService {
      */
     @Transactional
     public PaymentResponse createAndProcessPayment(User user, PaymentCreateRequest request) {
-        log.info("결제 시작: userId={}, plan={}", user.getId(), request.getPlan());
+        log.info("결제 시작: userId={}, plan={}, billingCycle={}", user.getId(), request.getPlan(), request.getBillingCycle());
 
         // 1. Business 조회
         Business business = businessRepository.findById(user.getBusinessId())
@@ -66,13 +67,18 @@ public class PaymentService {
             );
         }
 
-        // 3. 금액 계산
-        int amount = request.getPlan().getMonthlyPrice();
+        // 3. billingCycle 기본값 처리
+        BillingCycle billingCycle = request.getBillingCycle() != null
+                ? request.getBillingCycle()
+                : BillingCycle.MONTHLY;
+
+        // 4. 금액 계산 (결제 주기에 따라)
+        int amount = request.getPlan().getPrice(billingCycle);
         int discountAmount = 0;
         Long couponId = null;
         CouponUsage couponUsage = null;
 
-        // 4. 쿠폰 적용
+        // 5. 쿠폰 적용
         if (request.getCouponCode() != null && !request.getCouponCode().isEmpty()) {
             // 쿠폰 검증
             CouponResponse couponResponse = couponService.validateCoupon(
@@ -95,15 +101,16 @@ public class PaymentService {
 
         int finalAmount = amount - discountAmount;
 
-        // 5. 청구 기간 계산 (오늘부터 1개월)
+        // 6. 청구 기간 계산 (결제 주기에 따라)
         LocalDate today = LocalDate.now();
-        LocalDate billingEnd = today.plusMonths(1);
+        LocalDate billingEnd = billingCycle.isYearly() ? today.plusYears(1) : today.plusMonths(1);
 
-        // 6. Payment 생성 (PENDING)
+        // 7. Payment 생성 (PENDING)
         Payment payment = Payment.builder()
                 .businessId(business.getId())
                 .couponId(couponId)
                 .subscriptionPlan(request.getPlan())
+                .billingCycle(billingCycle)
                 .billingPeriodStart(today)
                 .billingPeriodEnd(billingEnd)
                 .amount(amount)
@@ -116,15 +123,15 @@ public class PaymentService {
                 .build();
 
         paymentRepository.save(payment);
-        log.info("결제 생성: paymentId={}, amount={}원", payment.getId(), finalAmount);
+        log.info("결제 생성: paymentId={}, amount={}원, billingCycle={}", payment.getId(), finalAmount, billingCycle);
 
-        // 7. PG 호출 (Fake)
+        // 8. PG 호출 (Fake)
         Map<String, Object> pgResponse = fakePGService.requestPayment(
                 finalAmount,
                 request.getPaymentMethod().name()
         );
 
-        // 8. PG 응답 처리
+        // 9. PG 응답 처리
         String pgStatus = (String) pgResponse.get("status");
         PaymentStatus newStatus = "COMPLETED".equals(pgStatus)
                 ? PaymentStatus.COMPLETED
@@ -135,6 +142,7 @@ public class PaymentService {
                 .businessId(payment.getBusinessId())
                 .couponId(payment.getCouponId())
                 .subscriptionPlan(payment.getSubscriptionPlan())
+                .billingCycle(payment.getBillingCycle())
                 .billingPeriodStart(payment.getBillingPeriodStart())
                 .billingPeriodEnd(payment.getBillingPeriodEnd())
                 .amount(payment.getAmount())
@@ -156,9 +164,9 @@ public class PaymentService {
         log.info("결제 처리 완료: paymentId={}, status={}, txnId={}",
                 payment.getId(), newStatus, updatedPayment.getPgTransactionId());
 
-        // 9. 결제 성공 시
+        // 10. 결제 성공 시
         if (newStatus == PaymentStatus.COMPLETED) {
-            // 9.1 쿠폰 사용 처리
+            // 10.1 쿠폰 사용 처리
             if (couponId != null) {
                 couponUsage = couponService.useCoupon(
                     couponId,
@@ -170,13 +178,15 @@ public class PaymentService {
                     couponUsage.getId(), couponId, couponUsage.getDiscountAmount());
             }
 
-            // 9.2 구독 활성화
+            // 10.2 구독 활성화
             subscriptionService.activateSubscriptionAfterPayment(
                     business.getId(),
                     payment.getSubscriptionPlan(),
+                    billingCycle,
                     billingEnd.atStartOfDay()
             );
-            log.info("구독 활성화 완료: businessId={}, plan={}", business.getId(), payment.getSubscriptionPlan());
+            log.info("구독 활성화 완료: businessId={}, plan={}, billingCycle={}",
+                    business.getId(), payment.getSubscriptionPlan(), billingCycle);
         }
 
         return PaymentResponse.from(updatedPayment);
@@ -214,6 +224,7 @@ public class PaymentService {
                 .businessId(payment.getBusinessId())
                 .couponId(payment.getCouponId())
                 .subscriptionPlan(payment.getSubscriptionPlan())
+                .billingCycle(payment.getBillingCycle())
                 .billingPeriodStart(payment.getBillingPeriodStart())
                 .billingPeriodEnd(payment.getBillingPeriodEnd())
                 .amount(payment.getAmount())

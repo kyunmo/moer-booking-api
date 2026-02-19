@@ -1,5 +1,6 @@
 package io.moer.booking.domain.payment.dto;
 
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.payment.Payment;
 import io.moer.booking.domain.payment.PaymentMethod;
@@ -22,6 +23,7 @@ public class PaymentResponse {
 
     // 구독 정보
     private SubscriptionPlan subscriptionPlan;
+    private BillingCycle billingCycle;
     private LocalDate billingPeriodStart;
     private LocalDate billingPeriodEnd;
 
@@ -54,6 +56,7 @@ public class PaymentResponse {
                 .businessId(payment.getBusinessId())
                 .couponId(payment.getCouponId())
                 .subscriptionPlan(payment.getSubscriptionPlan())
+                .billingCycle(payment.getBillingCycle())
                 .billingPeriodStart(payment.getBillingPeriodStart())
                 .billingPeriodEnd(payment.getBillingPeriodEnd())
                 .amount(payment.getAmount())

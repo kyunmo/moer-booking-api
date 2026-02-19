@@ -146,6 +146,7 @@ CREATE TABLE businesses (
     monthly_revenue_goal INTEGER,
     monthly_new_customer_goal INTEGER,
     subscription_plan VARCHAR(20) DEFAULT 'FREE',
+    billing_cycle VARCHAR(10) DEFAULT 'MONTHLY',
     subscription_status VARCHAR(20) DEFAULT 'TRIAL',
     trial_started_at TIMESTAMP,
     trial_ends_at TIMESTAMP,
@@ -178,7 +179,8 @@ COMMENT ON COLUMN businesses.status IS '상태 (ACTIVE, INACTIVE, SUSPENDED)';
 COMMENT ON COLUMN businesses.daily_revenue_goal IS '일일 매출 목표 (원)';
 COMMENT ON COLUMN businesses.monthly_revenue_goal IS '월간 매출 목표 (원)';
 COMMENT ON COLUMN businesses.monthly_new_customer_goal IS '월간 신규 고객 목표 (명)';
-COMMENT ON COLUMN businesses.subscription_plan IS '구독 플랜 (FREE, BASIC, PRO, ENTERPRISE)';
+COMMENT ON COLUMN businesses.subscription_plan IS '구독 플랜 (FREE, BASIC)';
+COMMENT ON COLUMN businesses.billing_cycle IS '결제 주기 (MONTHLY, YEARLY)';
 COMMENT ON COLUMN businesses.subscription_status IS '구독 상태 (TRIAL, ACTIVE, EXPIRED, CANCELED, SUSPENDED)';
 COMMENT ON COLUMN businesses.trial_started_at IS '무료 체험 시작일';
 COMMENT ON COLUMN businesses.trial_ends_at IS '무료 체험 종료일';
@@ -664,7 +666,7 @@ COMMENT ON COLUMN coupons.code IS '쿠폰 코드 (유니크)';
 COMMENT ON COLUMN coupons.discount_type IS '할인 타입 (PERCENTAGE, FIXED_AMOUNT)';
 COMMENT ON COLUMN coupons.discount_value IS '할인 값 (PERCENTAGE: 1~100, FIXED_AMOUNT: 원)';
 COMMENT ON COLUMN coupons.max_discount_amount IS '최대 할인 금액 (PERCENTAGE 타입)';
-COMMENT ON COLUMN coupons.applicable_plans IS '적용 가능 플랜 (콤마 구분: BASIC,PRO, null=전체)';
+COMMENT ON COLUMN coupons.applicable_plans IS '적용 가능 플랜 (콤마 구분: BASIC, null=전체)';
 COMMENT ON COLUMN coupons.min_purchase_amount IS '최소 구매 금액';
 COMMENT ON COLUMN coupons.valid_from IS '쿠폰 유효 시작일';
 COMMENT ON COLUMN coupons.valid_until IS '쿠폰 유효 종료일';
@@ -685,6 +687,7 @@ CREATE TABLE payments (
     business_id BIGINT NOT NULL,
     coupon_id BIGINT,
     subscription_plan VARCHAR(20) NOT NULL,
+    billing_cycle VARCHAR(10),
     billing_period_start DATE NOT NULL,
     billing_period_end DATE NOT NULL,
     amount INTEGER NOT NULL,
@@ -710,7 +713,8 @@ CREATE TABLE payments (
 );
 
 COMMENT ON TABLE payments IS '구독 결제 내역';
-COMMENT ON COLUMN payments.subscription_plan IS '구독 플랜 (FREE, BASIC, PRO, ENTERPRISE)';
+COMMENT ON COLUMN payments.subscription_plan IS '구독 플랜 (FREE, BASIC)';
+COMMENT ON COLUMN payments.billing_cycle IS '결제 주기 (MONTHLY, YEARLY)';
 COMMENT ON COLUMN payments.billing_period_start IS '청구 기간 시작일';
 COMMENT ON COLUMN payments.billing_period_end IS '청구 기간 종료일';
 COMMENT ON COLUMN payments.amount IS '원래 금액 (할인 전)';
@@ -923,4 +927,24 @@ CREATE INDEX idx_notification_logs_business_id ON notification_logs(business_id)
 CREATE INDEX idx_notification_logs_reservation_id ON notification_logs(reservation_id);
 CREATE INDEX idx_notification_logs_status ON notification_logs(status);
 CREATE INDEX idx_notification_logs_created_at ON notification_logs(created_at DESC);
+
+-- =============================================================================
+-- 가격정책 변경 마이그레이션 (4티어 → 2티어)
+-- =============================================================================
+
+-- businesses 테이블에 billing_cycle 컬럼 추가
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(10) DEFAULT 'MONTHLY';
+
+-- payments 테이블에 billing_cycle 컬럼 추가
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(10);
+
+-- PRO/ENTERPRISE → BASIC 전환
+UPDATE businesses SET subscription_plan = 'BASIC', billing_cycle = 'MONTHLY'
+WHERE subscription_plan IN ('PRO', 'ENTERPRISE');
+
+-- 기존 BASIC → billing_cycle 기본값
+UPDATE businesses SET billing_cycle = 'MONTHLY' WHERE subscription_plan = 'BASIC' AND billing_cycle IS NULL;
+
+-- FREE → billing_cycle 기본값
+UPDATE businesses SET billing_cycle = 'MONTHLY' WHERE billing_cycle IS NULL;
 

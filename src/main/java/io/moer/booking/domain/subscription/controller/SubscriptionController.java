@@ -64,7 +64,8 @@ public class SubscriptionController {
         Long businessId = currentUser.getUser().getBusinessId();
         SubscriptionInfoResponse response = subscriptionService.changePlan(
                 businessId,
-                request.getNewPlan()
+                request.getNewPlan(),
+                request.getBillingCycle()
         );
         return ResponseEntity.ok(ApiResponse.success(response));
     }

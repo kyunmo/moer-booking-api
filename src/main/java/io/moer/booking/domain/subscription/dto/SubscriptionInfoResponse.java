@@ -1,5 +1,6 @@
 package io.moer.booking.domain.subscription.dto;
 
+import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.business.SubscriptionStatus;
@@ -19,6 +20,16 @@ public class SubscriptionInfoResponse {
     private SubscriptionStatus status;
     private String planDescription;
     private Integer monthlyPrice;
+    private Integer yearlyPrice;
+    private BillingCycle billingCycle;
+
+    // 플랜 제한
+    private Integer maxStaff;
+    private Integer maxMonthlyReservations;
+    private Integer maxServices;
+
+    // 부가 정보
+    private Boolean showAds;
 
     // 체험판 정보
     private Boolean isTrialActive;
@@ -29,10 +40,6 @@ public class SubscriptionInfoResponse {
     // 유료 구독 정보
     private LocalDateTime subscriptionStartedAt;
     private LocalDateTime nextBillingDate;
-
-    // 플랜 제한
-    private Integer maxStaff;
-    private Integer maxMonthlyReservations;
 
     // 현재 사용량
     private Integer currentStaffCount;
@@ -48,19 +55,27 @@ public class SubscriptionInfoResponse {
                 ? business.getSubscriptionPlan()
                 : SubscriptionPlan.FREE;
 
+        BillingCycle cycle = business.getBillingCycle() != null
+                ? business.getBillingCycle()
+                : BillingCycle.MONTHLY;
+
         return SubscriptionInfoResponse.builder()
                 .plan(plan)
                 .status(business.getSubscriptionStatus())
                 .planDescription(plan.getDescription())
                 .monthlyPrice(plan.getMonthlyPrice())
+                .yearlyPrice(plan.getYearlyPrice())
+                .billingCycle(cycle)
+                .maxStaff(plan.getMaxStaff())
+                .maxMonthlyReservations(plan.getMaxMonthlyReservations())
+                .maxServices(plan.getMaxServices())
+                .showAds(plan.isFree())
                 .isTrialActive(business.isTrialActive())
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
                 .daysUntilTrialEnd(business.getDaysUntilTrialEnd())
                 .subscriptionStartedAt(business.getSubscriptionStartedAt())
                 .nextBillingDate(business.getNextBillingDate())
-                .maxStaff(plan.getMaxStaff())
-                .maxMonthlyReservations(plan.getMaxMonthlyReservations())
                 .currentStaffCount(business.getCurrentStaffCount())
                 .currentMonthReservationCount(business.getCurrentMonthReservationCount())
                 .canUseService(business.canUseService())

@@ -6,6 +6,7 @@ import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.business.repository.BusinessRepository;
+import io.moer.booking.domain.service.repository.ServiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 public class UsageLimitService {
 
     private final BusinessRepository businessRepository;
+    private final ServiceRepository serviceRepository;
 
     /**
      * 직원 추가 가능 여부 체크
@@ -35,6 +37,29 @@ public class UsageLimitService {
                     ErrorCode.STAFF_LIMIT_EXCEEDED,
                     String.format("직원 수 제한에 도달했습니다 (현재: %d명, 최대: %d명). 플랜을 업그레이드하세요.",
                             business.getCurrentStaffCount(), plan.getMaxStaff())
+            );
+        }
+    }
+
+    /**
+     * 서비스 추가 가능 여부 체크
+     * @throws BusinessException SL004 SERVICE_LIMIT_EXCEEDED
+     */
+    public void checkCanAddService(Long businessId) {
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        SubscriptionPlan plan = business.getSubscriptionPlan();
+        if (plan.getMaxServices() == -1) {
+            return; // 무제한
+        }
+
+        long currentServiceCount = serviceRepository.countByBusinessId(businessId);
+        if (!plan.canAddService((int) currentServiceCount)) {
+            throw new BusinessException(
+                    ErrorCode.SERVICE_LIMIT_EXCEEDED,
+                    String.format("서비스 등록 수 제한에 도달했습니다 (현재: %d개, 최대: %d개). 플랜을 업그레이드하세요.",
+                            currentServiceCount, plan.getMaxServices())
             );
         }
     }
@@ -113,16 +138,6 @@ public class UsageLimitService {
         log.debug("Reservation count decremented: businessId={}, newCount={}", businessId, newCount);
     }
 
-    /**
-     * 월간 예약 수 초기화 (매월 1일 배치 작업용)
-     */
-    @Transactional
-    public void resetMonthlyReservationCounts() {
-        // TODO: 모든 매장의 current_month_reservation_count를 0으로 초기화
-        // Phase 5에서 배치 작업으로 구현 예정
-        log.info("Monthly reservation counts reset");
-    }
-
     // ========================================
     // Private 헬퍼 메서드
     // ========================================
@@ -142,6 +157,7 @@ public class UsageLimitService {
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .subscriptionPlan(business.getSubscriptionPlan())
+                .billingCycle(business.getBillingCycle())
                 .subscriptionStatus(business.getSubscriptionStatus())
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
@@ -171,6 +187,7 @@ public class UsageLimitService {
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
                 .subscriptionPlan(business.getSubscriptionPlan())
+                .billingCycle(business.getBillingCycle())
                 .subscriptionStatus(business.getSubscriptionStatus())
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
