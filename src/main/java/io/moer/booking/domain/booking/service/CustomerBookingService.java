@@ -247,6 +247,7 @@ public class CustomerBookingService {
         // Business 정보 조회
         Business business = businessRepository.findById(reservation.getBusinessId())
                 .orElse(null);
+        Long businessId = business != null ? business.getId() : reservation.getBusinessId();
         String businessName = business != null ? business.getName() : null;
         String businessSlug = business != null ? business.getSlug() : null;
         String businessProfileImageUrl = business != null ? business.getProfileImageUrl() : null;
@@ -263,6 +264,6 @@ public class CustomerBookingService {
         boolean hasReview = reviewRepository.existsByReservationId(reservation.getId());
 
         return CustomerReservationListResponse.from(
-                reservation, businessName, businessSlug, businessProfileImageUrl, staffName, hasReview);
+                reservation, businessId, businessName, businessSlug, businessProfileImageUrl, staffName, hasReview);
     }
 }

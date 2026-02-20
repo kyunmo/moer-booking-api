@@ -30,6 +30,9 @@ public class CustomerReservationListResponse {
     @Schema(description = "예약 상태", example = "CONFIRMED")
     private String status;
 
+    @Schema(description = "매장 ID", example = "1")
+    private Long businessId;
+
     @Schema(description = "매장 이름", example = "모어 헤어살롱")
     private String businessName;
 
@@ -76,11 +79,12 @@ public class CustomerReservationListResponse {
      * Reservation 엔티티 + 부가 정보를 통해 응답 DTO를 생성합니다.
      */
     public static CustomerReservationListResponse from(
-            Reservation reservation, String businessName, String businessSlug,
+            Reservation reservation, Long businessId, String businessName, String businessSlug,
             String businessProfileImageUrl, String staffName, boolean hasReview) {
         return CustomerReservationListResponse.builder()
                 .reservationNumber(reservation.getReservationNumber())
                 .status(reservation.getStatus().name())
+                .businessId(businessId)
                 .businessName(businessName)
                 .businessSlug(businessSlug)
                 .businessProfileImageUrl(businessProfileImageUrl)
