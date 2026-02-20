@@ -93,25 +93,21 @@ public class PublicBusinessService {
     // ========================================
 
     /**
-     * 슬러그로 매장 상세 조회
+     * 슬러그 또는 ID로 매장 상세 조회
      * 서비스 목록, 스태프 목록, 포트폴리오 수 포함
      *
-     * @param slug 매장 슬러그
+     * @param slugOrId 매장 슬러그 또는 ID (숫자)
      * @return 매장 상세 정보
      */
-    public PublicBusinessDetailResponse getBusinessDetail(String slug) {
-        // 1. 매장 조회
-        Business business = businessRepository.findBySlug(slug)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        ErrorCode.BUSINESS_NOT_FOUND,
-                        "매장을 찾을 수 없습니다: " + slug
-                ));
+    public PublicBusinessDetailResponse getBusinessDetail(String slugOrId) {
+        // 1. 매장 조회 (숫자이면 ID로 먼저 조회, 아니면 slug로 조회)
+        Business business = findBusinessBySlugOrId(slugOrId);
 
         // 2. 활성 매장인지 확인
         if (!business.isActive()) {
             throw new EntityNotFoundException(
                     ErrorCode.BUSINESS_NOT_FOUND,
-                    "매장을 찾을 수 없습니다: " + slug
+                    "매장을 찾을 수 없습니다: " + slugOrId
             );
         }
 
@@ -130,8 +126,8 @@ public class PublicBusinessService {
             }
         }
 
-        log.debug("Public business detail: slug={}, services={}, staffs={}",
-                slug,
+        log.debug("Public business detail: slugOrId={}, services={}, staffs={}",
+                slugOrId,
                 services != null ? services.size() : 0,
                 staffs != null ? staffs.size() : 0);
 
@@ -217,6 +213,35 @@ public class PublicBusinessService {
     // ========================================
     // Private Helper Methods
     // ========================================
+
+    /**
+     * slug 또는 ID로 매장을 조회한다.
+     * 숫자이면 ID로 먼저 시도하고, 실패 시 slug로 fallback.
+     * 문자열이면 slug로 조회.
+     */
+    private Business findBusinessBySlugOrId(String slugOrId) {
+        // 숫자인 경우 ID로 먼저 조회 시도
+        if (slugOrId.matches("^\\d+$")) {
+            try {
+                Long id = Long.parseLong(slugOrId);
+                return businessRepository.findById(id)
+                        .orElseGet(() -> businessRepository.findBySlug(slugOrId)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                        ErrorCode.BUSINESS_NOT_FOUND,
+                                        "매장을 찾을 수 없습니다: " + slugOrId
+                                )));
+            } catch (NumberFormatException e) {
+                // fallthrough to slug lookup
+            }
+        }
+
+        // 문자열이면 slug로 조회
+        return businessRepository.findBySlug(slugOrId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        ErrorCode.BUSINESS_NOT_FOUND,
+                        "매장을 찾을 수 없습니다: " + slugOrId
+                ));
+    }
 
     /**
      * 슬러그 형식 검증

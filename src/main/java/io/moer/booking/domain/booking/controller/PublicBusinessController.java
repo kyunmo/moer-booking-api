@@ -68,17 +68,17 @@ public class PublicBusinessController {
     }
 
     /**
-     * 매장 상세 조회 (슬러그)
+     * 매장 상세 조회 (슬러그 또는 ID)
      */
-    @GetMapping("/{slug}")
+    @GetMapping("/{slugOrId}")
     @Operation(
             summary = "매장 상세 조회",
-            description = "슬러그로 매장 상세 정보를 조회합니다. 서비스 목록, 스태프 목록 포함. 인증 불필요."
+            description = "슬러그 또는 ID로 매장 상세 정보를 조회합니다. 숫자이면 ID로, 문자열이면 slug로 조회합니다. 인증 불필요."
     )
     public ApiResponse<PublicBusinessDetailResponse> getBusinessDetail(
-            @Parameter(description = "매장 슬러그", required = true) @PathVariable String slug) {
+            @Parameter(description = "매장 슬러그 또는 ID", required = true) @PathVariable String slugOrId) {
 
-        PublicBusinessDetailResponse response = publicBusinessService.getBusinessDetail(slug);
+        PublicBusinessDetailResponse response = publicBusinessService.getBusinessDetail(slugOrId);
         return ApiResponse.success(response);
     }
 }
