@@ -3,7 +3,9 @@ package io.moer.booking.domain.customer.service;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.repository.BusinessRepository;
+import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
 import io.moer.booking.domain.customer.Customer;
 import io.moer.booking.domain.customer.dto.*;
 import io.moer.booking.domain.customer.repository.CustomerRepository;
@@ -33,6 +35,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final BusinessRepository businessRepository;
+    private final BusinessSettingsRepository businessSettingsRepository;
     private final ReservationRepository reservationRepository;
     private final StaffRepository staffRepository;
 
@@ -278,8 +281,8 @@ public class CustomerService {
         int newVisitCount = (customer.getVisitCount() != null ? customer.getVisitCount() : 0) + 1;
         int newTotalSpent = (customer.getTotalSpent() != null ? customer.getTotalSpent() : 0) + amount;
 
-        // tags 자동 업데이트
-        String newTags = generateAutoTags(newVisitCount);
+        // tags 자동 업데이트 (매장별 설정 참조)
+        String newTags = generateAutoTags(newVisitCount, customer.getBusinessId());
 
         // DB 업데이트
         customerRepository.updateVisitStats(customerId, newVisitCount, newTotalSpent, visitDate);
@@ -321,8 +324,8 @@ public class CustomerService {
         int newVisitCount = Math.max(0, (customer.getVisitCount() != null ? customer.getVisitCount() : 0) - 1);
         int newTotalSpent = Math.max(0, (customer.getTotalSpent() != null ? customer.getTotalSpent() : 0) - amount);
 
-        // tags 자동 업데이트
-        String newTags = generateAutoTags(newVisitCount);
+        // tags 자동 업데이트 (매장별 설정 참조)
+        String newTags = generateAutoTags(newVisitCount, customer.getBusinessId());
 
         // lastVisitDate는 유지 (다른 완료된 예약이 있을 수 있으므로)
         customerRepository.updateVisitStats(customerId, newVisitCount, newTotalSpent, customer.getLastVisitDate());
@@ -440,17 +443,26 @@ public class CustomerService {
 
     /**
      * visitCount 기반 자동 태그 생성
-     * - VIP: 10회 이상
-     * - 단골: 3회 이상
-     * - 신규: 1회
+     * 매장별 설정된 임계값을 참조 (미설정 시 기본값: VIP=10, 단골=3)
      */
-    private String generateAutoTags(int visitCount) {
+    private String generateAutoTags(int visitCount, Long businessId) {
+        int regularThreshold = 3;
+        int vipThreshold = 10;
+
+        if (businessId != null) {
+            BusinessSettings settings = businessSettingsRepository.findByBusinessId(businessId).orElse(null);
+            if (settings != null) {
+                regularThreshold = settings.getRegularThresholdValue();
+                vipThreshold = settings.getVipThresholdValue();
+            }
+        }
+
         List<String> tags = new java.util.ArrayList<>();
 
-        if (visitCount >= 10) {
+        if (visitCount >= vipThreshold) {
             tags.add("VIP");
         }
-        if (visitCount >= 3) {
+        if (visitCount >= regularThreshold) {
             tags.add("단골");
         }
         if (visitCount == 1) {

@@ -2,10 +2,7 @@ package io.moer.booking.domain.reservation.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.domain.reservation.ReservationStatus;
-import io.moer.booking.domain.reservation.dto.ReservationCreateRequest;
-import io.moer.booking.domain.reservation.dto.ReservationResponse;
-import io.moer.booking.domain.reservation.dto.ReservationSearchCondition;
-import io.moer.booking.domain.reservation.dto.ReservationUpdateRequest;
+import io.moer.booking.domain.reservation.dto.*;
 import io.moer.booking.domain.reservation.service.ReservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +10,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -25,6 +23,43 @@ import java.util.List;
 public class ReservationController {
 
     private final ReservationService reservationService;
+
+    // ========================================
+    // 가용성 확인
+    // ========================================
+
+    /**
+     * 직원 가용 시간 확인
+     * GET /api/businesses/{businessId}/reservations/availability
+     */
+    @GetMapping("/availability")
+    public ApiResponse<AvailabilityResponse> checkAvailability(
+            @PathVariable Long businessId,
+            @RequestParam Long staffId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
+            @RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime startTime,
+            @RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime endTime,
+            @RequestParam(required = false) Long excludeReservationId) {
+        AvailabilityResponse response = reservationService.checkAvailability(
+                businessId, staffId, date, startTime, endTime, excludeReservationId);
+        return ApiResponse.success(response);
+    }
+
+    // ========================================
+    // 일괄 상태 변경
+    // ========================================
+
+    /**
+     * 다중 예약 일괄 상태 변경
+     * PATCH /api/businesses/{businessId}/reservations/bulk-status
+     */
+    @PatchMapping("/bulk-status")
+    public ApiResponse<BulkStatusChangeResponse> bulkUpdateStatus(
+            @PathVariable Long businessId,
+            @Valid @RequestBody BulkStatusChangeRequest request) {
+        BulkStatusChangeResponse response = reservationService.bulkUpdateStatus(businessId, request);
+        return ApiResponse.success(response);
+    }
 
     // ========================================
     // 생성

@@ -43,6 +43,11 @@
         <result property="timezone" column="timezone"/>
         <result property="language" column="language"/>
 
+        <!-- 고객 등급 설정 -->
+        <result property="regularThreshold" column="regular_threshold"/>
+        <result property="vipThreshold" column="vip_threshold"/>
+        <result property="vipBenefitDescription" column="vip_benefit_description"/>
+
         <!-- 온보딩 -->
         <result property="onboardingCompleted" column="onboarding_completed"/>
         <result property="onboardingSkipped" column="onboarding_skipped"/>
@@ -113,6 +118,9 @@
             no_show_penalty_enabled = #{noShowPenaltyEnabled},
             timezone = #{timezone},
             language = #{language},
+            regular_threshold = #{regularThreshold},
+            vip_threshold = #{vipThreshold},
+            vip_benefit_description = #{vipBenefitDescription},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>

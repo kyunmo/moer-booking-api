@@ -51,6 +51,9 @@ public class CustomerReservationListResponse {
     @Schema(description = "종료 시간", example = "15:00")
     private LocalTime endTime;
 
+    @Schema(description = "담당 스태프 ID")
+    private Long staffId;
+
     @Schema(description = "담당 스태프 이름", example = "김디자이너")
     private String staffName;
 
@@ -84,6 +87,7 @@ public class CustomerReservationListResponse {
                 .reservationDate(reservation.getReservationDate())
                 .startTime(reservation.getStartTime())
                 .endTime(reservation.getEndTime())
+                .staffId(reservation.getStaffId())
                 .staffName(staffName)
                 .services(reservation.getServices())
                 .totalPrice(reservation.getTotalPrice())

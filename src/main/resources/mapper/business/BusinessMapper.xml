@@ -16,6 +16,8 @@
         <result property="businessType" column="business_type"/>
         <result property="phone" column="phone"/>
         <result property="address" column="address"/>
+        <result property="addressDetail" column="address_detail"/>
+        <result property="zipCode" column="zip_code"/>
         <result property="description" column="description"/>
         <result property="profileImageUrl" column="profile_image_url"/>
         <result property="galleryImages" column="gallery_images"
@@ -51,7 +53,7 @@
     <insert id="save" parameterType="io.moer.booking.domain.business.Business"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO businesses (
-            owner_id, name, slug, business_type, phone, address, description,
+            owner_id, name, slug, business_type, phone, address, address_detail, zip_code, description,
             profile_image_url, gallery_images, latitude, longitude, tags,
             average_rating, review_count,
             business_hours, status,
@@ -59,7 +61,7 @@
             trial_started_at, trial_ends_at,
             current_staff_count, current_month_reservation_count
         ) VALUES (
-                     #{ownerId}, #{name}, #{slug}, #{businessType}, #{phone}, #{address}, #{description},
+                     #{ownerId}, #{name}, #{slug}, #{businessType}, #{phone}, #{address}, #{addressDetail}, #{zipCode}, #{description},
                      #{profileImageUrl},
                      #{galleryImages, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
                      #{latitude}, #{longitude}, #{tags},
@@ -82,6 +84,8 @@
             business_type = #{businessType},
             phone = #{phone},
             address = #{address},
+            address_detail = #{addressDetail},
+            zip_code = #{zipCode},
             description = #{description},
             profile_image_url = #{profileImageUrl},
             gallery_images = #{galleryImages, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,

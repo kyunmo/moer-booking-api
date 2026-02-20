@@ -2,6 +2,7 @@ package io.moer.booking.domain.holiday.repository;
 
 import io.moer.booking.domain.holiday.SpecialHoliday;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,6 +19,9 @@ public interface SpecialHolidayRepository {
     List<SpecialHoliday> findByBusinessId(Long businessId);
     List<SpecialHoliday> findByBusinessIdAndDateRange(Long businessId, LocalDate startDate, LocalDate endDate);
     Optional<SpecialHoliday> findByBusinessIdAndDate(Long businessId, LocalDate date);
+
+    // 연도별 조회
+    List<SpecialHoliday> findByBusinessIdAndYear(@Param("businessId") Long businessId, @Param("year") int year);
 
     // 존재 여부
     boolean existsByBusinessIdAndId(Long businessId, Long id);

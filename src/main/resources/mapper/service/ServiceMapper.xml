@@ -171,4 +171,20 @@
         WHERE business_id = #{businessId} AND category_id = #{categoryId}
     </select>
 
+    <!-- Business 내 동일 이름 서비스 존재 확인 -->
+    <select id="existsByBusinessIdAndName" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM services
+            WHERE business_id = #{businessId} AND LOWER(name) = LOWER(#{name})
+        )
+    </select>
+
+    <!-- Business 내 동일 이름 서비스 존재 확인 (특정 ID 제외 - 수정 시 사용) -->
+    <select id="existsByBusinessIdAndNameAndIdNot" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM services
+            WHERE business_id = #{businessId} AND LOWER(name) = LOWER(#{name}) AND id != #{id}
+        )
+    </select>
+
 </mapper>

@@ -126,4 +126,13 @@ public interface CustomerRepository {
      * 평균 고객 생애 가치 (LTV)
      */
     Integer getAverageCustomerLifetimeValue(@Param("businessId") Long businessId);
+
+    // ========================================
+    // Public 예약 조회 (이름+전화번호)
+    // ========================================
+
+    /**
+     * 이름+전화번호가 일치하는 모든 고객 조회 (businessId 무관)
+     */
+    List<Customer> findAllByNameAndPhone(@Param("name") String name, @Param("phone") String phone);
 }

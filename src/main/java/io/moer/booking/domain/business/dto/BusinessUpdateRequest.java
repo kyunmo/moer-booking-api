@@ -35,6 +35,26 @@ public class BusinessUpdateRequest {
     private Map<String, Object> businessHours;
 
     /**
+     * 위도
+     */
+    private Double latitude;
+
+    /**
+     * 경도
+     */
+    private Double longitude;
+
+    /**
+     * 상세주소
+     */
+    private String addressDetail;
+
+    /**
+     * 우편번호
+     */
+    private String zipCode;
+
+    /**
      * 일일 매출 목표
      */
     private Integer dailyRevenueGoal;

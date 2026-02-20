@@ -16,10 +16,7 @@ import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.holiday.repository.SpecialHolidayRepository;
 import io.moer.booking.domain.reservation.Reservation;
 import io.moer.booking.domain.reservation.ReservationStatus;
-import io.moer.booking.domain.reservation.dto.ReservationCreateRequest;
-import io.moer.booking.domain.reservation.dto.ReservationResponse;
-import io.moer.booking.domain.reservation.dto.ReservationSearchCondition;
-import io.moer.booking.domain.reservation.dto.ReservationUpdateRequest;
+import io.moer.booking.domain.reservation.dto.*;
 import io.moer.booking.domain.reservation.repository.ReservationRepository;
 import io.moer.booking.domain.service.Service;
 import io.moer.booking.domain.service.repository.ServiceRepository;
@@ -758,6 +755,179 @@ public class ReservationService {
         reservationRepository.delete(reservationId);
 
         log.info("Reservation deleted: id={}, businessId={}", reservationId, businessId);
+    }
+
+    // ========================================
+    // 가용성 확인
+    // ========================================
+
+    /**
+     * 직원 가용 시간 확인
+     * FE에서 예약 생성/수정 전 호출하여 시간 충돌 여부 사전 확인
+     */
+    public AvailabilityResponse checkAvailability(Long businessId, Long staffId, LocalDate date,
+                                                   LocalTime startTime, LocalTime endTime,
+                                                   Long excludeReservationId) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        if (staffId == null) {
+            return AvailabilityResponse.builder()
+                    .available(true)
+                    .conflicts(List.of())
+                    .build();
+        }
+
+        List<Reservation> conflicting = reservationRepository.findConflictingReservations(
+                staffId, date, startTime, endTime);
+
+        // 수정 시 현재 예약 제외
+        if (excludeReservationId != null) {
+            conflicting = conflicting.stream()
+                    .filter(r -> !r.getId().equals(excludeReservationId))
+                    .collect(Collectors.toList());
+        }
+
+        if (conflicting.isEmpty()) {
+            return AvailabilityResponse.builder()
+                    .available(true)
+                    .conflicts(List.of())
+                    .build();
+        }
+
+        List<AvailabilityResponse.ConflictInfo> conflicts = conflicting.stream()
+                .map(r -> AvailabilityResponse.ConflictInfo.builder()
+                        .reservationId(r.getId())
+                        .customerName(getCustomerName(r.getCustomerId()))
+                        .startTime(r.getStartTime())
+                        .endTime(r.getEndTime())
+                        .serviceName(r.getServiceNames() != null ?
+                                String.join(", ", r.getServiceNames()) : null)
+                        .build())
+                .collect(Collectors.toList());
+
+        return AvailabilityResponse.builder()
+                .available(false)
+                .conflicts(conflicts)
+                .build();
+    }
+
+    // ========================================
+    // 일괄 상태 변경
+    // ========================================
+
+    /**
+     * 다중 예약 일괄 상태 변경
+     */
+    @Transactional
+    public BulkStatusChangeResponse bulkUpdateStatus(Long businessId, BulkStatusChangeRequest request) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        List<Long> successIds = new ArrayList<>();
+        List<BulkStatusChangeResponse.FailedItem> failedItems = new ArrayList<>();
+
+        for (Long reservationId : request.getReservationIds()) {
+            try {
+                // 매장 소속 확인
+                if (!reservationRepository.existsByBusinessIdAndId(businessId, reservationId)) {
+                    failedItems.add(BulkStatusChangeResponse.FailedItem.builder()
+                            .reservationId(reservationId)
+                            .reason("예약을 찾을 수 없습니다")
+                            .build());
+                    continue;
+                }
+
+                Reservation reservation = reservationRepository.findById(reservationId).orElse(null);
+                if (reservation == null) {
+                    failedItems.add(BulkStatusChangeResponse.FailedItem.builder()
+                            .reservationId(reservationId)
+                            .reason("예약을 찾을 수 없습니다")
+                            .build());
+                    continue;
+                }
+
+                // 상태 전이 유효성 검증
+                String validationError = validateStatusTransition(reservation, request.getStatus());
+                if (validationError != null) {
+                    failedItems.add(BulkStatusChangeResponse.FailedItem.builder()
+                            .reservationId(reservationId)
+                            .reason(validationError)
+                            .build());
+                    continue;
+                }
+
+                // 상태별 처리
+                switch (request.getStatus()) {
+                    case CONFIRMED -> {
+                        reservationRepository.updateStatus(reservationId, ReservationStatus.CONFIRMED);
+                    }
+                    case COMPLETED -> {
+                        reservationRepository.updateStatus(reservationId, ReservationStatus.COMPLETED);
+                        customerService.updateVisitStats(
+                                reservation.getCustomerId(),
+                                reservation.getTotalPrice(),
+                                reservation.getReservationDate()
+                        );
+                        customerHistoryService.createHistoryFromReservation(
+                                businessId, reservation.getCustomerId(), reservationId,
+                                reservation.getStaffId(), reservation.getReservationDate(),
+                                reservation.getServiceIds(), reservation.getServiceNames(),
+                                reservation.getTotalPrice()
+                        );
+                    }
+                    case CANCELLED -> {
+                        Reservation cancelledReservation = Reservation.builder()
+                                .id(reservationId)
+                                .status(ReservationStatus.CANCELLED)
+                                .cancelledAt(LocalDateTime.now())
+                                .cancelReason("일괄 취소")
+                                .build();
+                        reservationRepository.updateCancellation(cancelledReservation);
+                        usageLimitService.decrementReservationCount(businessId);
+                    }
+                    default -> {
+                        failedItems.add(BulkStatusChangeResponse.FailedItem.builder()
+                                .reservationId(reservationId)
+                                .reason("일괄 변경이 지원되지 않는 상태입니다: " + request.getStatus())
+                                .build());
+                        continue;
+                    }
+                }
+
+                successIds.add(reservationId);
+
+            } catch (Exception e) {
+                log.warn("Bulk status change failed for reservation {}: {}", reservationId, e.getMessage());
+                failedItems.add(BulkStatusChangeResponse.FailedItem.builder()
+                        .reservationId(reservationId)
+                        .reason(e.getMessage())
+                        .build());
+            }
+        }
+
+        log.info("Bulk status change completed: businessId={}, status={}, success={}, failed={}",
+                businessId, request.getStatus(), successIds.size(), failedItems.size());
+
+        return BulkStatusChangeResponse.builder()
+                .success(successIds)
+                .failed(failedItems)
+                .build();
+    }
+
+    /**
+     * 상태 전이 유효성 검증 (일괄 변경용)
+     * 유효하면 null 반환, 유효하지 않으면 에러 메시지 반환
+     */
+    private String validateStatusTransition(Reservation reservation, ReservationStatus newStatus) {
+        return switch (newStatus) {
+            case CONFIRMED -> reservation.canConfirm() ? null : "대기 상태의 예약만 확정할 수 있습니다 (현재: " + reservation.getStatus() + ")";
+            case COMPLETED -> reservation.canComplete() ? null : "확정된 예약만 완료할 수 있습니다 (현재: " + reservation.getStatus() + ")";
+            case CANCELLED -> reservation.canCancel() ? null : "이미 취소되거나 완료된 예약입니다 (현재: " + reservation.getStatus() + ")";
+            default -> "일괄 변경이 지원되지 않는 상태입니다: " + newStatus;
+        };
     }
 
     // ========================================

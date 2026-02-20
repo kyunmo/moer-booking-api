@@ -53,6 +53,14 @@
           AND date = #{date}
     </select>
 
+    <!-- Business의 특정 연도 휴무일 조회 -->
+    <select id="findByBusinessIdAndYear" resultMap="SpecialHolidayResultMap">
+        SELECT * FROM special_holidays
+        WHERE business_id = #{businessId}
+          AND EXTRACT(YEAR FROM date) = #{year}
+        ORDER BY date ASC
+    </select>
+
     <!-- 존재 여부 확인 (businessId + id) -->
     <select id="existsByBusinessIdAndId" resultType="boolean">
         SELECT EXISTS(

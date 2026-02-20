@@ -28,6 +28,8 @@ public class BusinessResponse {
     private String slug;
     private String phone;
     private String address;
+    private String addressDetail;
+    private String zipCode;
     private String description;
     private Map<String, Object> businessHours;
     private BusinessStatus status;
@@ -58,6 +60,8 @@ public class BusinessResponse {
                 .slug(business.getSlug())
                 .phone(business.getPhone())
                 .address(business.getAddress())
+                .addressDetail(business.getAddressDetail())
+                .zipCode(business.getZipCode())
                 .description(business.getDescription())
                 .businessHours(business.getBusinessHours())
                 .status(business.getStatus())
@@ -83,6 +87,8 @@ public class BusinessResponse {
                 .slug(business.getSlug())
                 .phone(business.getPhone())
                 .address(business.getAddress())
+                .addressDetail(business.getAddressDetail())
+                .zipCode(business.getZipCode())
                 .description(business.getDescription())
                 .businessHours(business.getBusinessHours())
                 .status(business.getStatus())

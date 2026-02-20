@@ -43,6 +43,9 @@ public class SecurityConfig {
     private final PasswordEncoder passwordEncoder;
     private final ClientRegistrationRepository clientRegistrationRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:8080,http://localhost:5173}")
+    private String allowedOrigins;
+
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(tokenProvider, userDetailsService);
@@ -64,7 +67,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:8080", "http://localhost:5173"));
+        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -108,7 +111,8 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // Customer 전용 (Phase 3 Addendum: 고객 인증)
-                        .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+                        // OWNER 계정이 고객 사이트에서 OAuth 로그인 시에도 접근 가능하도록 authenticated()로 변경
+                        .requestMatchers("/api/customer/**").authenticated()
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()

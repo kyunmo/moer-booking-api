@@ -30,4 +30,10 @@ public interface ServiceRepository {
     boolean existsByBusinessIdAndId(@Param("businessId") Long businessId, @Param("id") Long id);
     long countByBusinessId(Long businessId);
     long countByBusinessIdAndCategoryId(@Param("businessId") Long businessId, @Param("categoryId") Long categoryId);
+
+    boolean existsByBusinessIdAndName(@Param("businessId") Long businessId, @Param("name") String name);
+
+    boolean existsByBusinessIdAndNameAndIdNot(@Param("businessId") Long businessId,
+                                              @Param("name") String name,
+                                              @Param("id") Long id);
 }

@@ -132,6 +132,8 @@ CREATE TABLE businesses (
     business_type VARCHAR(50) NOT NULL,
     phone VARCHAR(20),
     address TEXT,
+    address_detail VARCHAR(200),
+    zip_code VARCHAR(10),
     description TEXT,
     profile_image_url TEXT,
     gallery_images JSONB,
@@ -166,6 +168,8 @@ COMMENT ON COLUMN businesses.slug IS '매장 슬러그 (고객용 URL: /booking/
 COMMENT ON COLUMN businesses.business_type IS '업종 (BEAUTY_SHOP, PILATES, YOGA, CAFE, STUDY_CAFE, WORKSHOP, ACADEMY, PET_SALON, OTHER)';
 COMMENT ON COLUMN businesses.phone IS '매장 전화번호';
 COMMENT ON COLUMN businesses.address IS '매장 주소';
+COMMENT ON COLUMN businesses.address_detail IS '상세주소 (예: 2층 201호)';
+COMMENT ON COLUMN businesses.zip_code IS '우편번호 (예: 06234)';
 COMMENT ON COLUMN businesses.description IS '매장 소개';
 COMMENT ON COLUMN businesses.profile_image_url IS '매장 프로필 이미지 URL';
 COMMENT ON COLUMN businesses.gallery_images IS '갤러리 이미지 URL 목록 (JSONB)';
@@ -221,6 +225,9 @@ CREATE TABLE business_settings (
     no_show_penalty_enabled CHAR(1) DEFAULT 'N',
     timezone VARCHAR(50) DEFAULT 'Asia/Seoul',
     language VARCHAR(10) DEFAULT 'ko',
+    regular_threshold INTEGER DEFAULT 3,
+    vip_threshold INTEGER DEFAULT 10,
+    vip_benefit_description TEXT,
     onboarding_completed CHAR(1) DEFAULT 'N',
     onboarding_skipped CHAR(1) DEFAULT 'N',
     onboarding_step_service CHAR(1) DEFAULT 'N',

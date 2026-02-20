@@ -136,6 +136,8 @@ app:
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth2-redirect}
     customer-redirect-uri: ${OAUTH2_CUSTOMER_REDIRECT_URI:http://localhost:5173/oauth2-redirect}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080,http://localhost:5173}
   storage:
     upload-dir: ${UPLOAD_DIR:C:/Project/uploads}
     allowed-extensions: jpg,jpeg,png,webp

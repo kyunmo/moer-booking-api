@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 
 /**
  * 고객용 예약 Public API
@@ -26,6 +27,22 @@ import java.time.YearMonth;
 public class PublicBookingController {
 
     private final PublicBookingService publicBookingService;
+
+    /**
+     * 매장 휴무일 목록 조회
+     */
+    @GetMapping("/businesses/{slug}/holidays")
+    @Operation(
+            summary = "매장 휴무일 조회",
+            description = "매장의 휴무일 목록을 조회합니다. year 파라미터로 연도 필터링이 가능합니다."
+    )
+    public ApiResponse<List<PublicHolidayResponse>> getHolidays(
+            @Parameter(description = "매장 슬러그", required = true) @PathVariable String slug,
+            @Parameter(description = "조회 연도 (선택, 미지정 시 전체)") @RequestParam(required = false) Integer year) {
+
+        List<PublicHolidayResponse> response = publicBookingService.getHolidays(slug, year);
+        return ApiResponse.success(response);
+    }
 
     /**
      * 예약 가능 날짜 조회
@@ -79,6 +96,22 @@ public class PublicBookingController {
         PublicReservationResponse response = publicBookingService.createReservation(slug, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response));
+    }
+
+    /**
+     * 이름+전화번호 기반 예약 조회
+     */
+    @GetMapping("/reservations/lookup")
+    @Operation(
+            summary = "이름+전화번호 기반 예약 조회",
+            description = "이름과 전화번호로 해당 고객의 모든 예약 목록을 조회합니다. 완료/취소된 예약도 포함됩니다."
+    )
+    public ApiResponse<List<PublicReservationLookupResponse>> lookupReservations(
+            @Parameter(description = "고객 이름", required = true) @RequestParam String name,
+            @Parameter(description = "고객 전화번호", required = true) @RequestParam String phone) {
+
+        List<PublicReservationLookupResponse> response = publicBookingService.lookupReservations(name, phone);
+        return ApiResponse.success(response);
     }
 
     /**

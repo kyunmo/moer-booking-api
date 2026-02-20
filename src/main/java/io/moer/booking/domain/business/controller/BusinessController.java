@@ -93,6 +93,32 @@ public class BusinessController {
     }
 
     /**
+     * 고객 등급 임계값 조회
+     * GET /api/businesses/{id}/settings/customer-tiers
+     */
+    @GetMapping("/{id}/settings/customer-tiers")
+    public ApiResponse<CustomerTierSettingsResponse> getCustomerTierSettings(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        CustomerTierSettingsResponse response = businessService.getCustomerTierSettings(id, currentUser.getUser());
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 고객 등급 임계값 설정
+     * PUT /api/businesses/{id}/settings/customer-tiers
+     */
+    @PutMapping("/{id}/settings/customer-tiers")
+    public ApiResponse<CustomerTierSettingsResponse> updateCustomerTierSettings(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id,
+            @Valid @RequestBody CustomerTierSettingsRequest request) {
+        CustomerTierSettingsResponse response = businessService.updateCustomerTierSettings(
+                id, request, currentUser.getUser());
+        return ApiResponse.success(response);
+    }
+
+    /**
      * 매장 삭제
      */
     @DeleteMapping("/{id}")

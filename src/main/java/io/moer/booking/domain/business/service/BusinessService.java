@@ -11,11 +11,7 @@ import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
-import io.moer.booking.domain.business.dto.BusinessCreateRequest;
-import io.moer.booking.domain.business.dto.BusinessResponse;
-import io.moer.booking.domain.business.dto.BusinessSearchCondition;
-import io.moer.booking.domain.business.dto.BusinessSettingsUpdateRequest;
-import io.moer.booking.domain.business.dto.BusinessUpdateRequest;
+import io.moer.booking.domain.business.dto.*;;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
 import io.moer.booking.domain.user.User;
@@ -193,13 +189,24 @@ public class BusinessService {
                 .name(request.getName() != null ? request.getName() : business.getName())
                 .phone(request.getPhone() != null ? request.getPhone() : business.getPhone())
                 .address(request.getAddress() != null ? request.getAddress() : business.getAddress())
+                .addressDetail(request.getAddressDetail() != null ? request.getAddressDetail() : business.getAddressDetail())
+                .zipCode(request.getZipCode() != null ? request.getZipCode() : business.getZipCode())
                 .description(request.getDescription() != null ? request.getDescription() : business.getDescription())
                 .businessHours(request.getBusinessHours() != null ? request.getBusinessHours() : business.getBusinessHours())
+                // 기존 값 보존 (PATCH에서 누락 방지)
+                .profileImageUrl(business.getProfileImageUrl())
+                .galleryImages(business.getGalleryImages())
+                .latitude(request.getLatitude() != null ? request.getLatitude() : business.getLatitude())
+                .longitude(request.getLongitude() != null ? request.getLongitude() : business.getLongitude())
+                .tags(business.getTags())
+                .averageRating(business.getAverageRating())
+                .reviewCount(business.getReviewCount())
                 .status(business.getStatus())
                 .dailyRevenueGoal(request.getDailyRevenueGoal() != null ? request.getDailyRevenueGoal() : business.getDailyRevenueGoal())
                 .monthlyRevenueGoal(request.getMonthlyRevenueGoal() != null ? request.getMonthlyRevenueGoal() : business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(request.getMonthlyNewCustomerGoal() != null ? request.getMonthlyNewCustomerGoal() : business.getMonthlyNewCustomerGoal())
                 .subscriptionPlan(business.getSubscriptionPlan())
+                .billingCycle(business.getBillingCycle())
                 .subscriptionStatus(business.getSubscriptionStatus())
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
@@ -280,6 +287,9 @@ public class BusinessService {
                 .noShowPenaltyEnabled(request.getNoShowPenaltyEnabled() != null ? request.getNoShowPenaltyEnabled() : existing.getNoShowPenaltyEnabled())
                 .timezone(request.getTimezone() != null ? request.getTimezone() : existing.getTimezone())
                 .language(request.getLanguage() != null ? request.getLanguage() : existing.getLanguage())
+                .regularThreshold(existing.getRegularThreshold())
+                .vipThreshold(existing.getVipThreshold())
+                .vipBenefitDescription(existing.getVipBenefitDescription())
                 .createdAt(existing.getCreatedAt())
                 .build();
 
@@ -422,6 +432,111 @@ public class BusinessService {
         }
         // 극히 드문 충돌 시 더 긴 UUID 사용
         return "biz-" + UUID.randomUUID().toString().substring(0, 12);
+    }
+
+    // ========================================
+    // 고객 등급 설정
+    // ========================================
+
+    /**
+     * 고객 등급 임계값 조회
+     */
+    public CustomerTierSettingsResponse getCustomerTierSettings(Long businessId, User currentUser) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+        if (!currentUser.canAccessBusiness(businessId)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
+        BusinessSettings settings = businessSettingsRepository.findByBusinessId(businessId)
+                .orElse(null);
+
+        if (settings == null) {
+            return CustomerTierSettingsResponse.defaults();
+        }
+
+        return CustomerTierSettingsResponse.builder()
+                .regularThreshold(settings.getRegularThresholdValue())
+                .vipThreshold(settings.getVipThresholdValue())
+                .vipBenefitDescription(settings.getVipBenefitDescription() != null ?
+                        settings.getVipBenefitDescription() : "")
+                .build();
+    }
+
+    /**
+     * 고객 등급 임계값 설정
+     */
+    @Transactional
+    public CustomerTierSettingsResponse updateCustomerTierSettings(Long businessId,
+                                                                    CustomerTierSettingsRequest request,
+                                                                    User currentUser) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+        if (!currentUser.canAccessBusiness(businessId)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
+        // VIP 임계값은 단골 임계값보다 커야 함
+        int regularThreshold = request.getRegularThreshold() != null ? request.getRegularThreshold() : 3;
+        int vipThreshold = request.getVipThreshold() != null ? request.getVipThreshold() : 10;
+
+        if (vipThreshold <= regularThreshold) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE,
+                    "VIP 임계값은 단골 임계값보다 커야 합니다");
+        }
+
+        BusinessSettings existing = businessSettingsRepository.findByBusinessId(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Settings를 찾을 수 없습니다"));
+
+        BusinessSettings updated = BusinessSettings.builder()
+                .id(existing.getId())
+                .businessId(businessId)
+                .bookingInterval(existing.getBookingInterval())
+                .autoConfirm(existing.getAutoConfirm())
+                .allowOnlineBooking(existing.getAllowOnlineBooking())
+                .maxAdvanceBookingDays(existing.getMaxAdvanceBookingDays())
+                .minAdvanceBookingHours(existing.getMinAdvanceBookingHours())
+                .sendConfirmationSms(existing.getSendConfirmationSms())
+                .sendReminderSms(existing.getSendReminderSms())
+                .reminderHoursBefore(existing.getReminderHoursBefore())
+                .sendCancelSms(existing.getSendCancelSms())
+                .kakaoChannelId(existing.getKakaoChannelId())
+                .kakaoApiKey(existing.getKakaoApiKey())
+                .kakaoEnabled(existing.getKakaoEnabled())
+                .paymentMethods(existing.getPaymentMethods())
+                .requireDeposit(existing.getRequireDeposit())
+                .depositAmount(existing.getDepositAmount())
+                .allowCancellation(existing.getAllowCancellation())
+                .cancelDeadlineHours(existing.getCancelDeadlineHours())
+                .noShowPenaltyEnabled(existing.getNoShowPenaltyEnabled())
+                .timezone(existing.getTimezone())
+                .language(existing.getLanguage())
+                .regularThreshold(regularThreshold)
+                .vipThreshold(vipThreshold)
+                .vipBenefitDescription(request.getVipBenefitDescription() != null ?
+                        request.getVipBenefitDescription() : existing.getVipBenefitDescription())
+                .onboardingCompleted(existing.getOnboardingCompleted())
+                .onboardingSkipped(existing.getOnboardingSkipped())
+                .onboardingStepService(existing.getOnboardingStepService())
+                .onboardingStepStaff(existing.getOnboardingStepStaff())
+                .onboardingStepReservation(existing.getOnboardingStepReservation())
+                .createdAt(existing.getCreatedAt())
+                .build();
+
+        businessSettingsRepository.update(updated);
+
+        log.info("Customer tier settings updated: businessId={}, regular={}, vip={}",
+                businessId, regularThreshold, vipThreshold);
+
+        return CustomerTierSettingsResponse.builder()
+                .regularThreshold(regularThreshold)
+                .vipThreshold(vipThreshold)
+                .vipBenefitDescription(request.getVipBenefitDescription() != null ?
+                        request.getVipBenefitDescription() : existing.getVipBenefitDescription())
+                .build();
     }
 
     private BusinessResponse getBusinessWithSettings(Long businessId) {

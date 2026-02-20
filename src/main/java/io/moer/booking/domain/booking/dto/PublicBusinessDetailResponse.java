@@ -33,6 +33,8 @@ public class PublicBusinessDetailResponse {
     private BusinessType businessType;
     private String description;
     private String address;
+    private String addressDetail;
+    private String zipCode;
     private String phone;
     private String profileImageUrl;
     private List<String> galleryImages;
@@ -181,6 +183,8 @@ public class PublicBusinessDetailResponse {
                 .businessType(business.getBusinessType())
                 .description(business.getDescription())
                 .address(business.getAddress())
+                .addressDetail(business.getAddressDetail())
+                .zipCode(business.getZipCode())
                 .phone(business.getPhone())
                 .profileImageUrl(business.getProfileImageUrl())
                 .galleryImages(business.getGalleryImages())

@@ -407,4 +407,13 @@ public interface ReservationRepository {
     Long findFavoriteStaffIdByCustomerId(
             @Param("businessId") Long businessId,
             @Param("customerId") Long customerId);
+
+    // ========================================
+    // Public 예약 조회 (이름+전화번호)
+    // ========================================
+
+    /**
+     * 여러 customerId에 해당하는 예약 목록 조회 (최근순)
+     */
+    List<Reservation> findByCustomerIds(@Param("customerIds") List<Long> customerIds);
 }

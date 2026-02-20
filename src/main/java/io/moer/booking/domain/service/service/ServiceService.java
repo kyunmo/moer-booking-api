@@ -55,6 +55,9 @@ public class ServiceService {
         // List<Long> → String 변환
         String staffIdsString = Service.staffIdsToString(request.getStaffIds());
 
+        // 서비스 이름 중복 체크
+        validateServiceNameUnique(businessId, request.getName(), null);
+
         Service service = Service.builder()
                 .businessId(businessId)
                 .categoryId(request.getCategoryId())
@@ -168,11 +171,17 @@ public class ServiceService {
                 ? Service.staffIdsToString(request.getStaffIds())
                 : service.getStaffIds();
 
+        // 이름 변경 시 중복 체크
+        String newName = request.getName() != null ? request.getName() : service.getName();
+        if (request.getName() != null && !request.getName().equalsIgnoreCase(service.getName())) {
+            validateServiceNameUnique(businessId, request.getName(), serviceId);
+        }
+
         Service updatedService = Service.builder()
                 .id(service.getId())
                 .businessId(service.getBusinessId())
                 .categoryId(newCategoryId)
-                .name(request.getName() != null ? request.getName() : service.getName())
+                .name(newName)
                 .description(request.getDescription() != null ? request.getDescription() : service.getDescription())
                 .duration(request.getDuration() != null ? request.getDuration() : service.getDuration())
                 .price(request.getPrice() != null ? request.getPrice() : service.getPrice())
@@ -243,11 +252,42 @@ public class ServiceService {
     }
 
     /**
+     * 서비스 이름 중복 확인 API
+     */
+    public boolean checkServiceNameDuplicate(Long businessId, String name, Long excludeId) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        if (excludeId != null) {
+            return serviceRepository.existsByBusinessIdAndNameAndIdNot(businessId, name, excludeId);
+        }
+        return serviceRepository.existsByBusinessIdAndName(businessId, name);
+    }
+
+    /**
      * categoryId가 해당 매장에 존재하는지 검증
      */
     private void validateCategoryExists(Long businessId, Long categoryId) {
         if (!serviceCategoryRepository.existsByBusinessIdAndId(businessId, categoryId)) {
             throw new EntityNotFoundException(ErrorCode.SERVICE_CATEGORY_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 서비스 이름 중복 검증
+     */
+    private void validateServiceNameUnique(Long businessId, String name, Long excludeId) {
+        boolean exists;
+        if (excludeId != null) {
+            exists = serviceRepository.existsByBusinessIdAndNameAndIdNot(businessId, name, excludeId);
+        } else {
+            exists = serviceRepository.existsByBusinessIdAndName(businessId, name);
+        }
+
+        if (exists) {
+            throw new BusinessException(ErrorCode.SERVICE_DUPLICATE_NAME,
+                    "동일한 이름의 서비스가 이미 존재합니다: " + name);
         }
     }
 }

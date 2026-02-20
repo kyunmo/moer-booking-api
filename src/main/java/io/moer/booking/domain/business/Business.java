@@ -36,6 +36,17 @@ public class Business {
 
     private String phone;
     private String address;
+
+    /**
+     * 상세주소 (예: 2층 201호)
+     */
+    private String addressDetail;
+
+    /**
+     * 우편번호 (예: 06234)
+     */
+    private String zipCode;
+
     private String description;
 
     /**

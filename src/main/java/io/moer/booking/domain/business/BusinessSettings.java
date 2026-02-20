@@ -156,6 +156,27 @@ public class BusinessSettings {
     private String language;
 
     // ========================================
+    // 고객 등급 설정
+    // ========================================
+
+    /**
+     * 단골 고객 임계값 (방문 횟수)
+     * 기본값: 3
+     */
+    private Integer regularThreshold;
+
+    /**
+     * VIP 고객 임계값 (방문 횟수)
+     * 기본값: 10
+     */
+    private Integer vipThreshold;
+
+    /**
+     * VIP 혜택 설명
+     */
+    private String vipBenefitDescription;
+
+    // ========================================
     // 온보딩
     // ========================================
 
@@ -194,5 +215,13 @@ public class BusinessSettings {
 
     public boolean hasNoShowPenalty() {
         return "Y".equals(this.noShowPenaltyEnabled);
+    }
+
+    public int getRegularThresholdValue() {
+        return regularThreshold != null ? regularThreshold : 3;
+    }
+
+    public int getVipThresholdValue() {
+        return vipThreshold != null ? vipThreshold : 10;
     }
 }

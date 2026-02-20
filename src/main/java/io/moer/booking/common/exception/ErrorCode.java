@@ -58,6 +58,7 @@ public enum ErrorCode {
     SERVICE_CATEGORY_DUPLICATE_NAME(HttpStatus.CONFLICT, "SV004", "이미 존재하는 카테고리명입니다"),
     SERVICE_CATEGORY_HAS_SERVICES(HttpStatus.BAD_REQUEST, "SV005", "해당 카테고리에 서비스가 존재하여 삭제할 수 없습니다"),
     SERVICE_CATEGORY_SORT_ORDER_INVALID(HttpStatus.BAD_REQUEST, "SV006", "정렬 순서가 올바르지 않습니다"),
+    SERVICE_DUPLICATE_NAME(HttpStatus.CONFLICT, "SV007", "동일한 이름의 서비스가 이미 존재합니다"),
 
     // Staff Position 관련 에러 (SP001~SP004)
     STAFF_POSITION_NOT_FOUND(HttpStatus.NOT_FOUND, "SP001", "직급을 찾을 수 없습니다"),

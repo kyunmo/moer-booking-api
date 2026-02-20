@@ -4,6 +4,7 @@ import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.domain.booking.dto.*;
+import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.repository.BusinessRepository;
@@ -53,6 +54,32 @@ public class PublicBookingService {
     private final ServiceRepository serviceRepository;
     private final CustomerRepository customerRepository;
     private final SpecialHolidayRepository specialHolidayRepository;
+
+    // ========================================
+    // 매장 휴무일 조회
+    // ========================================
+
+    /**
+     * 매장 휴무일 목록 조회
+     *
+     * @param slug 매장 슬러그
+     * @param year 조회 연도 (null이면 전체)
+     */
+    public List<PublicHolidayResponse> getHolidays(String slug, Integer year) {
+        Business business = findBusinessBySlug(slug);
+        Long businessId = business.getId();
+
+        List<SpecialHoliday> holidays;
+        if (year != null) {
+            holidays = specialHolidayRepository.findByBusinessIdAndYear(businessId, year);
+        } else {
+            holidays = specialHolidayRepository.findByBusinessId(businessId);
+        }
+
+        return holidays.stream()
+                .map(PublicHolidayResponse::from)
+                .collect(Collectors.toList());
+    }
 
     // ========================================
     // 예약 가능 날짜 조회
@@ -372,6 +399,76 @@ public class PublicBookingService {
                 .endTime(reservationResponse.getEndTime())
                 .message(message)
                 .build();
+    }
+
+    // ========================================
+    // 이름+전화번호 기반 예약 조회
+    // ========================================
+
+    /**
+     * 이름+전화번호로 해당 고객의 모든 예약 목록 조회
+     * 모든 매장의 예약을 반환하며, 완료/취소된 예약도 포함합니다.
+     */
+    public List<PublicReservationLookupResponse> lookupReservations(String name, String phone) {
+        log.info("Looking up reservations: name={}, phone={}", name, phone);
+
+        // 1. 이름+전화번호가 일치하는 모든 고객 조회
+        List<Customer> customers = customerRepository.findAllByNameAndPhone(name, phone);
+        if (customers.isEmpty()) {
+            return List.of();
+        }
+
+        // 2. 고객 ID 목록 추출
+        List<Long> customerIds = customers.stream()
+                .map(Customer::getId)
+                .toList();
+
+        // 3. 해당 고객들의 모든 예약 조회 (최근순)
+        List<Reservation> reservations = reservationRepository.findByCustomerIds(customerIds);
+        if (reservations.isEmpty()) {
+            return List.of();
+        }
+
+        // 4. 필요한 부가 정보 일괄 조회 (매장명, 스태프명)
+        Map<Long, String> businessNameCache = new HashMap<>();
+        Map<Long, String> staffNameCache = new HashMap<>();
+
+        // 5. 응답 DTO 변환
+        return reservations.stream()
+                .map(reservation -> {
+                    // 매장명 조회 (캐싱)
+                    String businessName = businessNameCache.computeIfAbsent(
+                            reservation.getBusinessId(),
+                            bizId -> businessRepository.findById(bizId)
+                                    .map(Business::getName)
+                                    .orElse(null)
+                    );
+
+                    // 스태프명 조회 (캐싱)
+                    String staffName = null;
+                    if (reservation.getStaffId() != null) {
+                        staffName = staffNameCache.computeIfAbsent(
+                                reservation.getStaffId(),
+                                sId -> staffRepository.findById(sId)
+                                        .map(Staff::getName)
+                                        .orElse(null)
+                        );
+                    }
+
+                    return PublicReservationLookupResponse.builder()
+                            .reservationNumber(reservation.getReservationNumber())
+                            .status(reservation.getStatus())
+                            .businessName(businessName)
+                            .reservationDate(reservation.getReservationDate())
+                            .startTime(reservation.getStartTime())
+                            .endTime(reservation.getEndTime())
+                            .staffName(staffName)
+                            .services(reservation.getServiceNames())
+                            .totalPrice(reservation.getTotalPrice())
+                            .createdAt(reservation.getCreatedAt())
+                            .build();
+                })
+                .toList();
     }
 
     // ========================================

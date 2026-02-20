@@ -68,6 +68,19 @@ public class ServiceController {
     }
 
     /**
+     * 서비스 이름 중복 확인
+     * GET /api/businesses/{businessId}/services/check-name?name=커트&excludeId=5
+     */
+    @GetMapping("/check-name")
+    public ApiResponse<java.util.Map<String, Boolean>> checkServiceName(
+            @PathVariable Long businessId,
+            @RequestParam String name,
+            @RequestParam(required = false) Long excludeId) {
+        boolean duplicate = serviceService.checkServiceNameDuplicate(businessId, name, excludeId);
+        return ApiResponse.success(java.util.Map.of("duplicate", duplicate));
+    }
+
+    /**
      * Service 검색 (조건별)
      */
     @GetMapping("/search")
