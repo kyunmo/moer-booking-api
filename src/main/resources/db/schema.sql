@@ -227,6 +227,7 @@ CREATE TABLE business_settings (
     language VARCHAR(10) DEFAULT 'ko',
     regular_threshold INTEGER DEFAULT 3,
     vip_threshold INTEGER DEFAULT 10,
+    vip_spend_threshold DECIMAL(10,2) DEFAULT 500000,
     vip_benefit_description TEXT,
     onboarding_completed CHAR(1) DEFAULT 'N',
     onboarding_skipped CHAR(1) DEFAULT 'N',
@@ -954,4 +955,32 @@ UPDATE businesses SET billing_cycle = 'MONTHLY' WHERE subscription_plan = 'BASIC
 
 -- FREE → billing_cycle 기본값
 UPDATE businesses SET billing_cycle = 'MONTHLY' WHERE billing_cycle IS NULL;
+
+-- =============================================================================
+-- 문의(Inquiry) 테이블
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS inquiries (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    type VARCHAR(30) NOT NULL DEFAULT 'GENERAL',
+    content TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    admin_note TEXT,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE inquiries IS '문의하기';
+COMMENT ON COLUMN inquiries.type IS '문의 유형 (GENERAL, FEATURE_REQUEST, BUG_REPORT, PARTNERSHIP)';
+COMMENT ON COLUMN inquiries.status IS '처리 상태 (PENDING, IN_PROGRESS, RESOLVED, CLOSED)';
+COMMENT ON COLUMN inquiries.admin_note IS '관리자 메모';
+COMMENT ON COLUMN inquiries.ip_address IS '문의자 IP (스팸 방지용)';
+
+CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status);
+CREATE INDEX IF NOT EXISTS idx_inquiries_type ON inquiries(type);
+CREATE INDEX IF NOT EXISTS idx_inquiries_created_at ON inquiries(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inquiries_ip_address ON inquiries(ip_address);
 

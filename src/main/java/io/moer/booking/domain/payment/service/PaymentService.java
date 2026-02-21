@@ -193,7 +193,15 @@ public class PaymentService {
     }
 
     /**
-     * 환불 처리
+     * 환불 처리 (일할 계산 적용)
+     *
+     * 환불 금액 계산:
+     * - 잔여일수 = 청구 종료일 - 오늘
+     * - 총 일수 = 청구 종료일 - 청구 시작일
+     * - 환불 금액 = finalAmount × (잔여일수 / 총 일수)
+     *
+     * 참고: finalAmount는 실제 결제 금액 (할인 적용 후)
+     * 프로덕션 PG 연동 시 VAT 포함 금액이 finalAmount로 저장되면 자동 반영됨
      */
     @Transactional
     public PaymentResponse refundPayment(Long paymentId, String reason) {
@@ -211,14 +219,17 @@ public class PaymentService {
             );
         }
 
-        // 3. PG 환불 호출 (Fake)
+        // 3. 일할 계산으로 환불 금액 산정
+        int refundAmount = calculateProRataRefund(payment);
+
+        // 4. PG 환불 호출 (Fake)
         Map<String, Object> refundResponse = fakePGService.requestRefund(
                 payment.getPgTransactionId(),
-                payment.getFinalAmount(),
+                refundAmount,
                 reason
         );
 
-        // 4. Payment 업데이트
+        // 5. Payment 업데이트
         Payment updatedPayment = Payment.builder()
                 .id(payment.getId())
                 .businessId(payment.getBusinessId())
@@ -240,17 +251,57 @@ public class PaymentService {
                 .paidAt(payment.getPaidAt())
                 .failedReason(payment.getFailedReason())
                 .refundedAt(LocalDateTime.now())
-                .refundAmount(payment.getFinalAmount())
+                .refundAmount(refundAmount)
                 .build();
 
         paymentRepository.update(updatedPayment);
 
-        // 5. 쿠폰 사용 취소
+        // 6. 쿠폰 사용 취소
         couponService.cancelCouponUsage(paymentId);
 
-        log.info("환불 완료: paymentId={}, amount={}원", paymentId, payment.getFinalAmount());
+        log.info("환불 완료: paymentId={}, 결제금액={}원, 환불금액={}원 (일할계산)",
+                paymentId, payment.getFinalAmount(), refundAmount);
 
         return PaymentResponse.from(updatedPayment);
+    }
+
+    /**
+     * 일할 계산 환불 금액 산정
+     *
+     * 계산 공식: finalAmount × (잔여일수 / 총일수)
+     * - 결제 당일 환불 → 전액 환불
+     * - 청구 기간 만료 후 → 환불 0원
+     *
+     * 예시 (월간 19,800원 기준, 30일 청구):
+     * - 10일 사용 → 19,800 × 20/30 = 13,200원 환불
+     * - 20일 사용 → 19,800 × 10/30 = 6,600원 환불
+     * - 25일 사용 → 19,800 × 5/30 = 3,300원 환불
+     */
+    private int calculateProRataRefund(Payment payment) {
+        LocalDate today = LocalDate.now();
+        LocalDate start = payment.getBillingPeriodStart();
+        LocalDate end = payment.getBillingPeriodEnd();
+
+        // 결제 당일 환불 → 전액
+        if (!today.isAfter(start)) {
+            return payment.getFinalAmount();
+        }
+
+        // 청구 기간 만료 후 → 환불 불가
+        if (!today.isBefore(end)) {
+            return 0;
+        }
+
+        // 일할 계산
+        long totalDays = java.time.temporal.ChronoUnit.DAYS.between(start, end);
+        long remainingDays = java.time.temporal.ChronoUnit.DAYS.between(today, end);
+
+        if (totalDays <= 0) {
+            return payment.getFinalAmount();
+        }
+
+        // 반올림 처리 (원 단위)
+        return (int) Math.round((double) payment.getFinalAmount() * remainingDays / totalDays);
     }
 
     /**

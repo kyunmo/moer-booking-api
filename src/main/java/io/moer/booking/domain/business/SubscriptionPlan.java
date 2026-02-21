@@ -23,11 +23,11 @@ public enum SubscriptionPlan {
      * - 직원: 5명
      * - 월간 예약: 무제한
      * - 서비스: 무제한
-     * - 월간: 20,000원/월
-     * - 연간: 200,000원/년
+     * - 월간: 18,000원/월 (VAT 포함 19,800원)
+     * - 연간: 180,000원/년 (VAT 포함 198,000원, 월 10개월분)
      * - 광고 표시: X
      */
-    BASIC("유료", 20000, 200000, 5, -1, -1);
+    BASIC("유료", 18000, 180000, 5, -1, -1);
 
     private final String description;
     private final int monthlyPrice;           // 월 가격 (원)

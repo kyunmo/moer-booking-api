@@ -459,6 +459,7 @@ public class BusinessService {
         return CustomerTierSettingsResponse.builder()
                 .regularThreshold(settings.getRegularThresholdValue())
                 .vipThreshold(settings.getVipThresholdValue())
+                .vipSpendThreshold(settings.getVipSpendThresholdValue())
                 .vipBenefitDescription(settings.getVipBenefitDescription() != null ?
                         settings.getVipBenefitDescription() : "")
                 .build();
@@ -516,6 +517,8 @@ public class BusinessService {
                 .language(existing.getLanguage())
                 .regularThreshold(regularThreshold)
                 .vipThreshold(vipThreshold)
+                .vipSpendThreshold(request.getVipSpendThreshold() != null ?
+                        request.getVipSpendThreshold() : existing.getVipSpendThresholdValue())
                 .vipBenefitDescription(request.getVipBenefitDescription() != null ?
                         request.getVipBenefitDescription() : existing.getVipBenefitDescription())
                 .onboardingCompleted(existing.getOnboardingCompleted())
@@ -534,6 +537,8 @@ public class BusinessService {
         return CustomerTierSettingsResponse.builder()
                 .regularThreshold(regularThreshold)
                 .vipThreshold(vipThreshold)
+                .vipSpendThreshold(request.getVipSpendThreshold() != null ?
+                        request.getVipSpendThreshold() : existing.getVipSpendThresholdValue())
                 .vipBenefitDescription(request.getVipBenefitDescription() != null ?
                         request.getVipBenefitDescription() : existing.getVipBenefitDescription())
                 .build();

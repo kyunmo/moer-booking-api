@@ -19,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <h3>에러 코드 매핑:</h3>
  * <ul>
  *   <li>TR001 (TRIAL_EXPIRED): 체험판 만료 후 유료 기능 접근 시</li>
- *   <li>TR002 (TRIAL_FEATURE_RESTRICTED): 체험 중이지만 유료 전용 기능 접근 시</li>
- *   <li>TR003 (UPGRADE_REQUIRED): FREE 플랜에서 유료 전용 기능 접근 시</li>
+ *   <li>TR002 (TRIAL_FEATURE_RESTRICTED): 무료 버전에서 유료 전용 기능 접근 시</li>
+ *   <li>TR003 (UPGRADE_REQUIRED): 구독 만료/취소/정지 상태에서 접근 시</li>
  * </ul>
  */
 @Slf4j
@@ -63,10 +63,17 @@ public class SubscriptionCheckService {
     /**
      * 유료 전용 기능 접근 체크 (프리미엄 기능)
      *
-     * <p>BASIC 이상 유료 플랜이 아니면 에러를 throw한다.
-     * 체험 기간 중에도 유료 전용 기능은 접근 불가.</p>
+     * <p>접근 허용 조건:</p>
+     * <ul>
+     *   <li>TRIAL (활성 체험 기간) → 허용</li>
+     *   <li>PAID + ACTIVE (유료 구독 활성) → 허용</li>
+     * </ul>
      *
-     * <p>프론트엔드에서 TR001/TR002/TR003 에러 코드로 분기 처리한다.</p>
+     * <p>접근 차단 조건:</p>
+     * <ul>
+     *   <li>FREE (EXPIRED) → TR002 차단</li>
+     *   <li>구독 만료/취소/정지 → TR003 차단</li>
+     * </ul>
      *
      * @param businessId 매장 ID
      * @throws BusinessException TR001, TR002, TR003
@@ -80,22 +87,21 @@ public class SubscriptionCheckService {
             return;
         }
 
-        // 2. 체험판 만료 (EXPIRED + 유료 결제 이력 없음)
+        // 2. 체험 기간 중 → 모든 기능 허용
+        if (status == SubscriptionStatus.TRIAL) {
+            return;
+        }
+
+        // 3. 체험판 만료 (EXPIRED + 유료 결제 이력 없음)
         if (status == SubscriptionStatus.EXPIRED && business.getSubscriptionStartedAt() == null) {
             throw new BusinessException(ErrorCode.TRIAL_EXPIRED,
                     "체험 기간이 종료되었습니다. 유료 플랜으로 업그레이드해 주세요.");
         }
 
-        // 3. 체험 기간 중 유료 전용 기능 접근
-        if (status == SubscriptionStatus.TRIAL) {
-            throw new BusinessException(ErrorCode.TRIAL_FEATURE_RESTRICTED,
-                    "체험판에서는 사용할 수 없는 기능입니다. 유료 플랜으로 업그레이드해 주세요.");
-        }
-
-        // 4. FREE 플랜 (ACTIVE 상태지만 무료) — 현실적으로 FREE+ACTIVE는 드물지만 방어
+        // 4. FREE 플랜 (무료 전환 후)
         if (business.isFreePlan()) {
-            throw new BusinessException(ErrorCode.UPGRADE_REQUIRED,
-                    "유료 플랜 전용 기능입니다. 플랜을 업그레이드해 주세요.");
+            throw new BusinessException(ErrorCode.TRIAL_FEATURE_RESTRICTED,
+                    "무료 버전에서는 사용할 수 없는 기능입니다. 유료 플랜으로 업그레이드해주세요.");
         }
 
         // 5. 그 외 (구독 만료/취소/정지 등)

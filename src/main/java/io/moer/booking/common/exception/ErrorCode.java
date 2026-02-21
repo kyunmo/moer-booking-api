@@ -77,7 +77,7 @@ public enum ErrorCode {
 
     // Trial 관련 에러 (TR001~TR003)
     TRIAL_EXPIRED(HttpStatus.FORBIDDEN, "TR001", "체험판 기간이 만료되었습니다"),
-    TRIAL_FEATURE_RESTRICTED(HttpStatus.FORBIDDEN, "TR002", "체험판에서는 사용할 수 없는 기능입니다"),
+    TRIAL_FEATURE_RESTRICTED(HttpStatus.FORBIDDEN, "TR002", "무료 버전에서는 사용할 수 없는 기능입니다. 유료 플랜으로 업그레이드해주세요."),
     UPGRADE_REQUIRED(HttpStatus.PAYMENT_REQUIRED, "TR003", "프리미엄 업그레이드가 필요합니다"),
 
     // Password Reset 관련 에러 (PR001~PR003)
@@ -215,7 +215,10 @@ public enum ErrorCode {
     STATISTICS_DATE_RANGE_EXCEEDED(HttpStatus.BAD_REQUEST, "ST002", "조회 가능 기간은 최대 1년입니다"),
     STATISTICS_INVALID_GROUP_BY(HttpStatus.BAD_REQUEST, "ST003", "유효하지 않은 집계 단위입니다 (daily/weekly/monthly)"),
     STATISTICS_STAFF_NOT_FOUND(HttpStatus.NOT_FOUND, "ST004", "통계 조회 대상 직원을 찾을 수 없습니다"),
-    STATISTICS_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "ST005", "통계 조회 대상 카테고리를 찾을 수 없습니다");
+    STATISTICS_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "ST005", "통계 조회 대상 카테고리를 찾을 수 없습니다"),
+
+    // ============ 문의하기 (IQ001) ============
+    INQUIRY_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "IQ001", "너무 많은 문의를 보내셨습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus status;
     private final String code;

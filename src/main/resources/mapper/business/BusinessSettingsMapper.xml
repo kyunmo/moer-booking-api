@@ -46,6 +46,7 @@
         <!-- 고객 등급 설정 -->
         <result property="regularThreshold" column="regular_threshold"/>
         <result property="vipThreshold" column="vip_threshold"/>
+        <result property="vipSpendThreshold" column="vip_spend_threshold"/>
         <result property="vipBenefitDescription" column="vip_benefit_description"/>
 
         <!-- 온보딩 -->
@@ -120,6 +121,7 @@
             language = #{language},
             regular_threshold = #{regularThreshold},
             vip_threshold = #{vipThreshold},
+            vip_spend_threshold = #{vipSpendThreshold},
             vip_benefit_description = #{vipBenefitDescription},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}

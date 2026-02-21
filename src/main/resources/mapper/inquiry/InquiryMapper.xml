@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.inquiry.repository.InquiryRepository">
+
+    <!-- ========================================
+         Result Map
+         ======================================== -->
+    <resultMap id="InquiryResultMap" type="io.moer.booking.domain.inquiry.Inquiry">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="email" column="email"/>
+        <result property="phone" column="phone"/>
+        <result property="type" column="type"/>
+        <result property="content" column="content"/>
+        <result property="status" column="status"/>
+        <result property="adminNote" column="admin_note"/>
+        <result property="ipAddress" column="ip_address"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
+    <insert id="save" parameterType="io.moer.booking.domain.inquiry.Inquiry"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO inquiries (
+            name, email, phone, type, content, status, ip_address
+        ) VALUES (
+            #{name}, #{email}, #{phone}, #{type}, #{content}, #{status}, #{ipAddress}
+        )
+    </insert>
+
+    <!-- ========================================
+         Rate Limiting 조회
+         ======================================== -->
+    <select id="countByIpAddressAndCreatedAtAfter" resultType="int">
+        SELECT COUNT(*)
+        FROM inquiries
+        WHERE ip_address = #{ipAddress}
+          AND created_at > #{after}
+    </select>
+
+</mapper>

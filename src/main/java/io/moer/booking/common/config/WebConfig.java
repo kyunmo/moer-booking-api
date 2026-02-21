@@ -14,10 +14,13 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.storage.upload-dir}")
     private String uploadDir;
 
+    @Value("${app.cors.allowed-origins:http://localhost:8080,http://localhost:5173}")
+    private String allowedOrigins;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173") // Vite 개발 서버
+                .allowedOrigins(allowedOrigins.split(","))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true);

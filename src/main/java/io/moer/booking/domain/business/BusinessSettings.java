@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -172,6 +173,12 @@ public class BusinessSettings {
     private Integer vipThreshold;
 
     /**
+     * VIP 고객 임계값 (누적 결제 금액)
+     * 기본값: 500,000원
+     */
+    private BigDecimal vipSpendThreshold;
+
+    /**
      * VIP 혜택 설명
      */
     private String vipBenefitDescription;
@@ -223,5 +230,9 @@ public class BusinessSettings {
 
     public int getVipThresholdValue() {
         return vipThreshold != null ? vipThreshold : 10;
+    }
+
+    public BigDecimal getVipSpendThresholdValue() {
+        return vipSpendThreshold != null ? vipSpendThreshold : new BigDecimal("500000");
     }
 }
