@@ -4,6 +4,7 @@ import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.domain.staff.dto.PortfolioResponse;
 import io.moer.booking.domain.staff.dto.StaffCreateRequest;
 import io.moer.booking.domain.staff.dto.StaffResponse;
+import io.moer.booking.domain.staff.dto.StaffScheduleViewResponse;
 import io.moer.booking.domain.staff.dto.StaffSearchCondition;
 import io.moer.booking.domain.staff.dto.StaffUpdateRequest;
 import io.moer.booking.domain.staff.service.PortfolioService;
@@ -12,10 +13,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -48,6 +51,21 @@ public class StaffController {
             @PathVariable Long businessId,
             @PathVariable Long staffId) {
         StaffResponse response = staffService.getStaff(businessId, staffId);
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * Staff 주간 스케줄 조회
+     */
+    @GetMapping("/{staffId}/schedule")
+    @Operation(summary = "직원 주간 스케줄 조회", description = "직원의 근무 스케줄 + 예약 목록을 날짜 범위로 조회합니다")
+    public ApiResponse<StaffScheduleViewResponse> getStaffSchedule(
+            @PathVariable Long businessId,
+            @PathVariable Long staffId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "week") String view) {
+        StaffScheduleViewResponse response = staffService.getStaffSchedule(businessId, staffId, startDate, endDate);
         return ApiResponse.success(response);
     }
 

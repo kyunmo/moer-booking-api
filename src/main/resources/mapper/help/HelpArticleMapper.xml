@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.help.repository.HelpArticleRepository">
+
+    <!-- ========================================
+         Result Map
+         ======================================== -->
+    <resultMap id="HelpArticleResultMap" type="io.moer.booking.domain.help.HelpArticle">
+        <id property="id" column="id"/>
+        <result property="category" column="category"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="relatedFeature" column="related_feature"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="lang" column="lang"/>
+        <result property="isPublished" column="is_published"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
+    <insert id="save" parameterType="io.moer.booking.domain.help.HelpArticle"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO help_articles (
+            category, title, content, related_feature, sort_order, lang, is_published
+        ) VALUES (
+            #{category}, #{title}, #{content}, #{relatedFeature},
+            #{sortOrder}, #{lang}, #{isPublished}
+        )
+    </insert>
+
+    <!-- ========================================
+         단건 조회
+         ======================================== -->
+    <select id="findById" resultMap="HelpArticleResultMap">
+        SELECT * FROM help_articles WHERE id = #{id}
+    </select>
+
+    <!-- ========================================
+         조건 검색 (동적 쿼리)
+         ======================================== -->
+    <select id="findByCondition" resultMap="HelpArticleResultMap">
+        SELECT * FROM help_articles
+        <where>
+            <if test="category != null and category != ''">
+                AND LOWER(category) = LOWER(#{category})
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (title ILIKE CONCAT('%', #{keyword}, '%')
+                     OR content ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="lang != null and lang != ''">
+                AND lang = #{lang}
+            </if>
+            <if test="publishedOnly">
+                AND is_published = true
+            </if>
+        </where>
+        ORDER BY sort_order ASC, created_at DESC
+    </select>
+
+    <!-- ========================================
+         조건별 개수
+         ======================================== -->
+    <select id="countByCondition" resultType="int">
+        SELECT COUNT(*) FROM help_articles
+        <where>
+            <if test="category != null and category != ''">
+                AND LOWER(category) = LOWER(#{category})
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (title ILIKE CONCAT('%', #{keyword}, '%')
+                     OR content ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="lang != null and lang != ''">
+                AND lang = #{lang}
+            </if>
+            <if test="publishedOnly">
+                AND is_published = true
+            </if>
+        </where>
+    </select>
+
+    <!-- ========================================
+         카테고리 목록 (중복 제거)
+         ======================================== -->
+    <select id="findCategories" resultType="string">
+        SELECT DISTINCT category FROM help_articles
+        WHERE is_published = true
+        ORDER BY category ASC
+    </select>
+
+    <!-- ========================================
+         수정 (UPDATE)
+         ======================================== -->
+    <update id="update" parameterType="io.moer.booking.domain.help.HelpArticle">
+        UPDATE help_articles
+        SET category = #{category},
+            title = #{title},
+            content = #{content},
+            related_feature = #{relatedFeature},
+            sort_order = #{sortOrder},
+            lang = #{lang},
+            is_published = #{isPublished},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========================================
+         삭제 (DELETE)
+         ======================================== -->
+    <delete id="deleteById">
+        DELETE FROM help_articles WHERE id = #{id}
+    </delete>
+
+</mapper>

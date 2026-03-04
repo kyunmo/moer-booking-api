@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.service.repository.ServiceImageRepository">
+
+    <!-- ========================================
+         Result Map
+         ======================================== -->
+    <resultMap id="ServiceImageResultMap" type="io.moer.booking.domain.service.ServiceImage">
+        <id property="id" column="id"/>
+        <result property="serviceId" column="service_id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="thumbnailUrl" column="thumbnail_url"/>
+        <result property="originalFilename" column="original_filename"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="caption" column="caption"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- ========================================
+         생성 (INSERT)
+         ======================================== -->
+    <insert id="save" parameterType="io.moer.booking.domain.service.ServiceImage"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO service_images (service_id, business_id, image_url, thumbnail_url, original_filename, file_size, sort_order, caption)
+        VALUES (#{serviceId}, #{businessId}, #{imageUrl}, #{thumbnailUrl}, #{originalFilename}, #{fileSize}, #{sortOrder}, #{caption})
+    </insert>
+
+    <!-- ========================================
+         조회
+         ======================================== -->
+
+    <!-- ID로 조회 -->
+    <select id="findById" resultMap="ServiceImageResultMap">
+        SELECT * FROM service_images WHERE id = #{id}
+    </select>
+
+    <!-- 서비스 ID로 이미지 목록 조회 -->
+    <select id="findByServiceId" resultMap="ServiceImageResultMap">
+        SELECT * FROM service_images
+        WHERE service_id = #{serviceId}
+        ORDER BY sort_order ASC, created_at ASC
+    </select>
+
+    <!-- 서비스 ID로 이미지 수 조회 -->
+    <select id="countByServiceId" resultType="int">
+        SELECT COUNT(*) FROM service_images WHERE service_id = #{serviceId}
+    </select>
+
+    <!-- ========================================
+         수정 (UPDATE)
+         ======================================== -->
+
+    <!-- 정렬 순서 변경 -->
+    <update id="updateSortOrder">
+        UPDATE service_images
+        SET sort_order = #{sortOrder}
+        WHERE id = #{id}
+    </update>
+
+    <!-- ========================================
+         삭제
+         ======================================== -->
+
+    <!-- ID로 삭제 -->
+    <delete id="deleteById">
+        DELETE FROM service_images WHERE id = #{id}
+    </delete>
+
+    <!-- 서비스 ID로 전체 이미지 삭제 -->
+    <delete id="deleteByServiceId">
+        DELETE FROM service_images WHERE service_id = #{serviceId}
+    </delete>
+
+</mapper>

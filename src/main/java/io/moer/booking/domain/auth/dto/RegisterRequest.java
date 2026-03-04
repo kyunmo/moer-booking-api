@@ -40,25 +40,10 @@ public class RegisterRequest {
     @NotNull(message = "업종은 필수입니다")
     private BusinessType businessType;
 
-    // === 구독 정보 (선택) ===
+    // === 구독 정보 (하위 호환용, 값이 와도 무시됨) ===
     /**
-     * 선택한 구독 플랜 (기본값: BASIC)
-     * 프론트엔드에서 선택하지 않으면 BASIC 플랜으로 가입
+     * 선택한 구독 플랜 (deprecated: 회원가입 시 항상 FREE 플랜 + 30일 무료 체험 적용)
+     * 프론트엔드에서 값을 보내더라도 무시됩니다.
      */
-    private String selectedPlan; // "FREE", "BASIC"
-
-    /**
-     * 선택한 플랜을 Enum으로 변환
-     * 기본값: BASIC
-     */
-    public io.moer.booking.domain.business.SubscriptionPlan getSubscriptionPlan() {
-        if (selectedPlan == null || selectedPlan.isEmpty()) {
-            return io.moer.booking.domain.business.SubscriptionPlan.BASIC;
-        }
-        try {
-            return io.moer.booking.domain.business.SubscriptionPlan.valueOf(selectedPlan.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return io.moer.booking.domain.business.SubscriptionPlan.BASIC;
-        }
-    }
+    private String selectedPlan;
 }

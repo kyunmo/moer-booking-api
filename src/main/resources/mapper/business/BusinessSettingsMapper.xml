@@ -28,6 +28,10 @@
         <result property="kakaoChannelId" column="kakao_channel_id"/>
         <result property="kakaoApiKey" column="kakao_api_key"/>
         <result property="kakaoEnabled" column="kakao_enabled"/>
+        <result property="kakaoSenderId" column="kakao_sender_id"/>
+        <result property="kakaoAlimtalkTriggers" column="kakao_alimtalk_triggers"
+                typeHandler="io.moer.booking.common.mybatis.JsonTypeHandler"/>
+        <result property="kakaoVerifiedAt" column="kakao_verified_at"/>
 
         <!-- 결제 설정 -->
         <result property="paymentMethods" column="payment_methods"/>
@@ -111,6 +115,9 @@
             kakao_channel_id = #{kakaoChannelId},
             kakao_api_key = #{kakaoApiKey},
             kakao_enabled = #{kakaoEnabled},
+            kakao_sender_id = #{kakaoSenderId},
+            kakao_alimtalk_triggers = #{kakaoAlimtalkTriggers, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            kakao_verified_at = #{kakaoVerifiedAt},
             payment_methods = #{paymentMethods},
             require_deposit = #{requireDeposit},
             deposit_amount = #{depositAmount},
@@ -125,6 +132,20 @@
             vip_benefit_description = #{vipBenefitDescription},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
+    </update>
+
+    <!-- ========================================
+         카카오 알림톡 설정 수정
+         ======================================== -->
+    <update id="updateKakaoAlimtalkSettings">
+        UPDATE business_settings
+        SET kakao_enabled = #{kakaoEnabled},
+            kakao_channel_id = #{kakaoChannelId},
+            kakao_sender_id = #{kakaoSenderId},
+            kakao_alimtalk_triggers = #{kakaoAlimtalkTriggers, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            kakao_verified_at = #{kakaoVerifiedAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE business_id = #{businessId}
     </update>
 
     <!-- ========================================

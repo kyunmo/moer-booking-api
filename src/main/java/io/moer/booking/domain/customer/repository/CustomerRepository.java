@@ -135,4 +135,67 @@ public interface CustomerRepository {
      * 이름+전화번호가 일치하는 모든 고객 조회 (businessId 무관)
      */
     List<Customer> findAllByNameAndPhone(@Param("name") String name, @Param("phone") String phone);
+
+    // ========================================
+    // 고객 세그멘테이션
+    // ========================================
+
+    /**
+     * 세그멘테이션 - 미방문 고객 (N개월+ 미방문)
+     */
+    List<Customer> findInactiveCustomers(@Param("businessId") Long businessId, @Param("monthsAgo") int monthsAgo);
+
+    /**
+     * 세그멘테이션 - 생일 근접 고객 (N일 이내)
+     */
+    List<Customer> findBirthdayCustomers(@Param("businessId") Long businessId, @Param("withinDays") int withinDays);
+
+    /**
+     * 세그멘테이션 - 단골 고객 (월 2회+ 방문 = visitCount >= 2)
+     */
+    List<Customer> findFrequentCustomers(@Param("businessId") Long businessId);
+
+    // ========================================
+    // 고객 CRM - 태그 관리
+    // ========================================
+
+    /**
+     * 고객 태그 업데이트
+     */
+    void updateTags(@Param("id") Long id, @Param("businessId") Long businessId, @Param("tags") String tags);
+
+    /**
+     * 매장의 모든 고유 태그 조회
+     */
+    List<String> findAllTagsByBusinessId(@Param("businessId") Long businessId);
+
+    // ========================================
+    // 고객 CRM - 중복 감지 및 병합
+    // ========================================
+
+    /**
+     * 전화번호 기반 중복 고객 조회
+     */
+    List<Customer> findDuplicatesByPhone(@Param("businessId") Long businessId);
+
+    /**
+     * 고객 병합 시 예약의 customer_id 일괄 변경
+     */
+    int updateReservationCustomerId(
+            @Param("fromCustomerId") Long fromCustomerId,
+            @Param("toCustomerId") Long toCustomerId);
+
+    // ========================================
+    // 고객 CSV 내보내기
+    // ========================================
+
+    /**
+     * 내보내기용 고객 조회 (필터 조건 포함)
+     */
+    List<Customer> findForExport(
+            @Param("businessId") Long businessId,
+            @Param("segment") String segment,
+            @Param("tags") List<String> tags,
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate);
 }

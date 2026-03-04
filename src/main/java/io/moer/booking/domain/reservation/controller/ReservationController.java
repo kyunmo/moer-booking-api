@@ -174,6 +174,19 @@ public class ReservationController {
         return ApiResponse.success(response);
     }
 
+    /**
+     * 예약 일정 변경 (Reschedule)
+     * PATCH /api/businesses/{businessId}/reservations/{reservationId}/reschedule
+     */
+    @PatchMapping("/{reservationId}/reschedule")
+    public ApiResponse<RescheduleResponse> reschedule(
+            @PathVariable Long businessId,
+            @PathVariable Long reservationId,
+            @Valid @RequestBody RescheduleRequest request) {
+        RescheduleResponse response = reservationService.reschedule(businessId, reservationId, request);
+        return ApiResponse.success(response);
+    }
+
     // ========================================
     // 상태 변경
     // ========================================

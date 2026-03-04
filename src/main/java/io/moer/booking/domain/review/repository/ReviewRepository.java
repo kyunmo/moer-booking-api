@@ -38,6 +38,13 @@ public interface ReviewRepository {
                       @Param("status") String status,
                       @Param("deleteReason") String deleteReason);
 
+    /**
+     * 리뷰 내용 수정 (rating, content, updatedAt)
+     */
+    void updateContent(@Param("id") Long id,
+                       @Param("rating") Integer rating,
+                       @Param("content") String content);
+
     // ========================================
     // 조회 - 단건
     // ========================================
@@ -70,6 +77,22 @@ public interface ReviewRepository {
      * Admin용 리뷰 총 개수 (동적 필터)
      */
     int countByBusinessId(ReviewSearchCondition condition);
+
+    // ========================================
+    // 조회 - 목록 (Customer 내 리뷰)
+    // ========================================
+
+    /**
+     * 로그인 고객의 리뷰 목록 (userId 기반, business 정보 포함)
+     */
+    List<Map<String, Object>> findByCustomerUserId(@Param("userId") Long userId,
+                                                    @Param("offset") int offset,
+                                                    @Param("limit") int limit);
+
+    /**
+     * 로그인 고객의 리뷰 총 개수
+     */
+    int countByCustomerUserId(@Param("userId") Long userId);
 
     // ========================================
     // 조회 - 목록 (Public)
@@ -120,4 +143,18 @@ public interface ReviewRepository {
      * 별점 분포 (rating, count)
      */
     List<Map<String, Object>> getRatingDistribution(Long businessId);
+
+    // ========================================
+    // Platform 통계 (Public)
+    // ========================================
+
+    /**
+     * 전체 활성 리뷰 수
+     */
+    long countAllActiveReviews();
+
+    /**
+     * 전체 평균 평점 (ACTIVE 상태만)
+     */
+    Double getOverallAverageRating();
 }

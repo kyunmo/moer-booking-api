@@ -19,6 +19,12 @@ public class ReviewResponse {
     @Schema(description = "리뷰 ID")
     private Long id;
 
+    @Schema(description = "매장 이름", example = "모어 헤어살롱")
+    private String businessName;
+
+    @Schema(description = "매장 슬러그", example = "moer-hair")
+    private String businessSlug;
+
     @Schema(description = "고객명 (마스킹)", example = "박*연")
     private String customerName;
 
@@ -47,6 +53,14 @@ public class ReviewResponse {
      * Entity -> Response 변환 (Public, 마스킹 적용)
      */
     public static ReviewResponse from(Review review, String serviceName, String staffName) {
+        return from(review, serviceName, staffName, null, null);
+    }
+
+    /**
+     * Entity -> Response 변환 (businessName, businessSlug 포함)
+     */
+    public static ReviewResponse from(Review review, String serviceName, String staffName,
+                                       String businessName, String businessSlug) {
         ReplyInfo replyInfo = null;
         if (review.getReplyContent() != null && !review.getReplyContent().isBlank()) {
             replyInfo = new ReplyInfo(review.getReplyContent(), review.getReplyCreatedAt());
@@ -54,6 +68,8 @@ public class ReviewResponse {
 
         return ReviewResponse.builder()
                 .id(review.getId())
+                .businessName(businessName)
+                .businessSlug(businessSlug)
                 .customerName(maskName(review.getCustomerName()))
                 .rating(review.getRating())
                 .content(review.getContent())

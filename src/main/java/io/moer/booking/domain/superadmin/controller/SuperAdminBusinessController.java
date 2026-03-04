@@ -8,6 +8,7 @@ import io.moer.booking.common.security.CustomUserDetails;
 import io.moer.booking.domain.business.dto.BusinessResponse;
 import io.moer.booking.domain.business.dto.BusinessSearchCondition;
 import io.moer.booking.domain.superadmin.dto.BulkStatusUpdateRequest;
+import io.moer.booking.domain.superadmin.dto.SuperAdminBusinessDetailResponse;
 import io.moer.booking.domain.superadmin.service.SuperAdminBusinessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,24 @@ public class SuperAdminBusinessController {
 
         PageResponse<BusinessResponse> response =
                 superAdminBusinessService.getAllBusinesses(condition, page, size);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 매장 상세 조회 (구독 정보 + 최근 결제 내역 포함)
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<SuperAdminBusinessDetailResponse>> getBusinessDetail(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+
+        if (!currentUser.isSuperAdmin()) {
+            throw new BusinessException(ErrorCode.SUPER_ADMIN_REQUIRED);
+        }
+
+        SuperAdminBusinessDetailResponse response =
+                superAdminBusinessService.getBusinessDetail(id);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

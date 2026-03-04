@@ -229,6 +229,9 @@ CREATE TABLE business_settings (
     vip_threshold INTEGER DEFAULT 10,
     vip_spend_threshold DECIMAL(10,2) DEFAULT 500000,
     vip_benefit_description TEXT,
+    kakao_sender_id VARCHAR(20),
+    kakao_alimtalk_triggers JSONB DEFAULT '{"onReservationCreated":true,"onReservationConfirmed":true,"onReservationCancelled":true,"onReservationReminder":true,"reminderHoursBefore":24}',
+    kakao_verified_at TIMESTAMP,
     onboarding_completed CHAR(1) DEFAULT 'N',
     onboarding_skipped CHAR(1) DEFAULT 'N',
     onboarding_step_service CHAR(1) DEFAULT 'N',
@@ -247,6 +250,9 @@ COMMENT ON COLUMN business_settings.min_advance_booking_hours IS '최소 사전 
 COMMENT ON COLUMN business_settings.kakao_channel_id IS '카카오 채널 ID';
 COMMENT ON COLUMN business_settings.kakao_api_key IS '카카오 API KEY';
 COMMENT ON COLUMN business_settings.kakao_enabled IS '카카오 알림톡 사용 여부 (Y/N)';
+COMMENT ON COLUMN business_settings.kakao_sender_id IS '카카오 발신 프로필 키';
+COMMENT ON COLUMN business_settings.kakao_alimtalk_triggers IS '카카오 알림톡 트리거 설정 (JSONB)';
+COMMENT ON COLUMN business_settings.kakao_verified_at IS '카카오 채널 인증 일시';
 COMMENT ON COLUMN business_settings.payment_methods IS '결제 수단 (콤마 구분)';
 COMMENT ON COLUMN business_settings.timezone IS '시간대';
 COMMENT ON COLUMN business_settings.language IS '언어';
@@ -712,6 +718,10 @@ CREATE TABLE payments (
     failed_reason TEXT,
     refunded_at TIMESTAMP,
     refund_amount INTEGER,
+    cancel_reason TEXT,
+    cancelled_at TIMESTAMP,
+    is_extension BOOLEAN DEFAULT FALSE,
+    previous_billing_end_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT check_billing_period CHECK (billing_period_start <= billing_period_end),
@@ -729,10 +739,14 @@ COMMENT ON COLUMN payments.amount IS '원래 금액 (할인 전)';
 COMMENT ON COLUMN payments.discount_amount IS '할인 금액';
 COMMENT ON COLUMN payments.final_amount IS '최종 결제 금액';
 COMMENT ON COLUMN payments.payment_method IS '결제 수단 (CARD, BANK_TRANSFER, VIRTUAL_ACCOUNT, MOBILE)';
-COMMENT ON COLUMN payments.payment_status IS '결제 상태 (PENDING, COMPLETED, FAILED, REFUNDED)';
+COMMENT ON COLUMN payments.payment_status IS '결제 상태 (PENDING, COMPLETED, FAILED, REFUNDED, CANCELLED)';
 COMMENT ON COLUMN payments.pg_provider IS 'PG사 (toss, iamport 등)';
 COMMENT ON COLUMN payments.pg_transaction_id IS 'PG사 거래 ID';
 COMMENT ON COLUMN payments.webhook_data IS '웹훅 원본 데이터 (JSONB)';
+COMMENT ON COLUMN payments.cancel_reason IS '결제 취소 사유';
+COMMENT ON COLUMN payments.cancelled_at IS '결제 취소 시각';
+COMMENT ON COLUMN payments.is_extension IS '기간 연장 결제 여부';
+COMMENT ON COLUMN payments.previous_billing_end_date IS '연장 전 기존 종료일';
 
 CREATE INDEX idx_payments_business_id ON payments(business_id);
 CREATE INDEX idx_payments_status ON payments(payment_status);
@@ -983,4 +997,150 @@ CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status);
 CREATE INDEX IF NOT EXISTS idx_inquiries_type ON inquiries(type);
 CREATE INDEX IF NOT EXISTS idx_inquiries_created_at ON inquiries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_inquiries_ip_address ON inquiries(ip_address);
+
+-- =============================================================================
+-- 13. 고객 즐겨찾기 (북마크)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS customer_bookmarks (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    business_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_bookmarks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_bookmarks_business FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+    CONSTRAINT uq_bookmark_user_business UNIQUE (user_id, business_id)
+);
+
+COMMENT ON TABLE customer_bookmarks IS '고객 매장 즐겨찾기';
+COMMENT ON COLUMN customer_bookmarks.user_id IS '고객(사용자) ID';
+COMMENT ON COLUMN customer_bookmarks.business_id IS '매장 ID';
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON customer_bookmarks(user_id);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_business_id ON customer_bookmarks(business_id);
+
+-- =============================================================================
+-- 14. 리뷰 이미지
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS review_images (
+    id BIGSERIAL PRIMARY KEY,
+    review_id BIGINT NOT NULL,
+    image_url TEXT NOT NULL,
+    thumbnail_url TEXT,
+    original_filename VARCHAR(255),
+    file_size INTEGER,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_review_images_review FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE review_images IS '리뷰 이미지';
+COMMENT ON COLUMN review_images.review_id IS '리뷰 ID';
+COMMENT ON COLUMN review_images.image_url IS '이미지 URL';
+COMMENT ON COLUMN review_images.thumbnail_url IS '썸네일 URL';
+COMMENT ON COLUMN review_images.original_filename IS '원본 파일명';
+COMMENT ON COLUMN review_images.file_size IS '파일 크기 (bytes)';
+COMMENT ON COLUMN review_images.sort_order IS '정렬 순서';
+
+CREATE INDEX IF NOT EXISTS idx_review_images_review_id ON review_images(review_id);
+
+-- =============================================================================
+-- 15. 공지 방송
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS broadcasts (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    target_type VARCHAR(20) NOT NULL DEFAULT 'ALL',
+    priority VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+    sent_by BIGINT NOT NULL,
+    sent_at TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    recipient_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_broadcasts_sent_by FOREIGN KEY (sent_by) REFERENCES users(id)
+);
+
+COMMENT ON TABLE broadcasts IS '전체 공지 방송';
+COMMENT ON COLUMN broadcasts.title IS '공지 제목';
+COMMENT ON COLUMN broadcasts.content IS '공지 내용';
+COMMENT ON COLUMN broadcasts.target_type IS '발송 대상 (ALL, PAID, TRIAL, FREE)';
+COMMENT ON COLUMN broadcasts.priority IS '우선순위 (LOW, NORMAL, HIGH, URGENT)';
+COMMENT ON COLUMN broadcasts.sent_by IS '발송자 (슈퍼 관리자) ID';
+COMMENT ON COLUMN broadcasts.status IS '상태 (DRAFT, SENT)';
+COMMENT ON COLUMN broadcasts.recipient_count IS '수신 매장 수';
+
+CREATE INDEX IF NOT EXISTS idx_broadcasts_status ON broadcasts(status);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_target_type ON broadcasts(target_type);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_created_at ON broadcasts(created_at DESC);
+
+-- =============================================================================
+-- 서비스 이미지
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS service_images (
+    id BIGSERIAL PRIMARY KEY,
+    service_id BIGINT NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    business_id BIGINT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    image_url VARCHAR(500) NOT NULL,
+    thumbnail_url VARCHAR(500),
+    original_filename VARCHAR(255),
+    file_size BIGINT DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    caption VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_service_images_service_id ON service_images(service_id);
+
+-- =============================================================================
+-- 고객 메모
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS customer_notes (
+    id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    business_id BIGINT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_private BOOLEAN DEFAULT false,
+    author_id BIGINT,
+    author_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_customer_notes_customer_id ON customer_notes(customer_id);
+
+COMMENT ON TABLE customer_notes IS '고객 메모';
+COMMENT ON COLUMN customer_notes.customer_id IS '고객 ID';
+COMMENT ON COLUMN customer_notes.business_id IS '매장 ID';
+COMMENT ON COLUMN customer_notes.content IS '메모 내용';
+COMMENT ON COLUMN customer_notes.is_private IS '비공개 여부';
+COMMENT ON COLUMN customer_notes.author_id IS '작성자 ID';
+COMMENT ON COLUMN customer_notes.author_name IS '작성자 이름';
+
+-- =============================================================================
+-- 도움말 (인앱 도움말)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS help_articles (
+    id BIGSERIAL PRIMARY KEY,
+    category VARCHAR(50) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    related_feature VARCHAR(100),
+    sort_order INTEGER DEFAULT 0,
+    lang VARCHAR(10) DEFAULT 'ko',
+    is_published BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_help_articles_category ON help_articles(category);
+
+COMMENT ON TABLE help_articles IS '인앱 도움말 콘텐츠';
+COMMENT ON COLUMN help_articles.category IS '카테고리 (reservation, staff, service, payment, statistics)';
+COMMENT ON COLUMN help_articles.title IS '제목';
+COMMENT ON COLUMN help_articles.content IS '본문 (마크다운)';
+COMMENT ON COLUMN help_articles.related_feature IS '관련 기능 식별자';
+COMMENT ON COLUMN help_articles.sort_order IS '정렬 순서';
+COMMENT ON COLUMN help_articles.lang IS '언어 코드 (ko, en)';
+COMMENT ON COLUMN help_articles.is_published IS '공개 여부';
 

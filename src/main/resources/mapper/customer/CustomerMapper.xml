@@ -283,4 +283,108 @@
         WHERE name = #{name}
           AND phone = #{phone}
     </select>
+
+    <!-- ========================================
+         고객 세그멘테이션
+         ======================================== -->
+
+    <!-- 미방문 고객 (3개월+ 미방문) -->
+    <select id="findInactiveCustomers" resultMap="CustomerResultMap">
+        SELECT * FROM customers
+        WHERE business_id = #{businessId}
+          AND last_visit_date IS NOT NULL
+          AND last_visit_date &lt; CURRENT_DATE - (#{monthsAgo} || ' months')::interval
+        ORDER BY last_visit_date ASC
+    </select>
+
+    <!-- 생일 근접 고객 (N일 이내) -->
+    <select id="findBirthdayCustomers" resultMap="CustomerResultMap">
+        SELECT * FROM customers
+        WHERE business_id = #{businessId}
+          AND birth_date IS NOT NULL
+          AND (
+            (EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+             AND EXTRACT(DAY FROM birth_date) BETWEEN EXTRACT(DAY FROM CURRENT_DATE)
+                 AND EXTRACT(DAY FROM CURRENT_DATE) + #{withinDays})
+            OR
+            (EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE + (#{withinDays} || ' days')::interval)
+             AND EXTRACT(DAY FROM birth_date) &lt;= EXTRACT(DAY FROM CURRENT_DATE + (#{withinDays} || ' days')::interval))
+          )
+        ORDER BY birth_date ASC
+    </select>
+
+    <!-- 단골 고객 (월 2회+ = visitCount >= 2) -->
+    <select id="findFrequentCustomers" resultMap="CustomerResultMap">
+        SELECT * FROM customers
+        WHERE business_id = #{businessId}
+          AND visit_count >= 2
+        ORDER BY visit_count DESC
+    </select>
+
+    <!-- ========================================
+         고객 CRM - 태그 관리
+         ======================================== -->
+
+    <update id="updateTags">
+        UPDATE customers SET tags = #{tags}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id} AND business_id = #{businessId}
+    </update>
+
+    <select id="findAllTagsByBusinessId" resultType="string">
+        SELECT DISTINCT unnest(string_to_array(tags, ',')) AS tag
+        FROM customers WHERE business_id = #{businessId} AND tags IS NOT NULL AND tags != ''
+        ORDER BY tag
+    </select>
+
+    <!-- ========================================
+         고객 CRM - 중복 감지
+         ======================================== -->
+
+    <select id="findDuplicatesByPhone" resultMap="CustomerResultMap">
+        SELECT c.* FROM customers c
+        INNER JOIN (
+            SELECT phone, COUNT(*) as cnt FROM customers
+            WHERE business_id = #{businessId} AND phone IS NOT NULL AND phone != ''
+            GROUP BY phone HAVING COUNT(*) > 1
+        ) dup ON c.phone = dup.phone
+        WHERE c.business_id = #{businessId}
+        ORDER BY c.phone, c.created_at
+    </select>
+
+    <!-- 병합 시 예약의 customer_id 변경 -->
+    <update id="updateReservationCustomerId">
+        UPDATE reservations
+        SET customer_id = #{toCustomerId},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE customer_id = #{fromCustomerId}
+    </update>
+
+    <!-- ========================================
+         고객 CSV 내보내기
+         ======================================== -->
+
+    <select id="findForExport" resultMap="CustomerResultMap">
+        SELECT * FROM customers
+        WHERE business_id = #{businessId}
+        <if test="segment != null and segment != ''">
+            <choose>
+                <when test="segment == 'VIP'">AND visit_count >= 10</when>
+                <when test="segment == 'NEW'">AND visit_count = 1</when>
+                <when test="segment == 'REGULAR'">AND visit_count >= 3</when>
+                <when test="segment == 'INACTIVE'">AND last_visit_date &lt; CURRENT_DATE - INTERVAL '3 months'</when>
+            </choose>
+        </if>
+        <if test="tags != null and tags.size() > 0">
+            <foreach item="tag" collection="tags" open="AND (" separator=" OR " close=")">
+                tags LIKE '%' || #{tag} || '%'
+            </foreach>
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND created_at >= #{startDate}::timestamp
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND created_at &lt;= #{endDate}::timestamp + INTERVAL '1 day'
+        </if>
+        ORDER BY created_at DESC
+    </select>
 </mapper>

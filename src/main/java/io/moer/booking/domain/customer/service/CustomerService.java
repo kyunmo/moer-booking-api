@@ -7,7 +7,9 @@ import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
 import io.moer.booking.domain.customer.Customer;
+import io.moer.booking.domain.customer.CustomerNote;
 import io.moer.booking.domain.customer.dto.*;
+import io.moer.booking.domain.customer.repository.CustomerNoteRepository;
 import io.moer.booking.domain.customer.repository.CustomerRepository;
 import io.moer.booking.domain.reservation.Reservation;
 import io.moer.booking.domain.reservation.repository.ReservationRepository;
@@ -34,6 +36,7 @@ import java.util.stream.Collectors;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final CustomerNoteRepository customerNoteRepository;
     private final BusinessRepository businessRepository;
     private final BusinessSettingsRepository businessSettingsRepository;
     private final ReservationRepository reservationRepository;
@@ -229,6 +232,46 @@ public class CustomerService {
         customerRepository.delete(customerId);
 
         log.info("Customer deleted: id={}, businessId={}", customerId, businessId);
+    }
+
+    /**
+     * 고객 세그멘테이션 조회
+     */
+    public CustomerSegmentResponse getCustomerSegment(Long businessId, String segmentType) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        List<Customer> customers;
+        switch (segmentType.toUpperCase()) {
+            case "VIP":
+                customers = customerRepository.findVipCustomers(businessId);
+                break;
+            case "INACTIVE":
+                customers = customerRepository.findInactiveCustomers(businessId, 3);
+                break;
+            case "BIRTHDAY":
+                customers = customerRepository.findBirthdayCustomers(businessId, 7);
+                break;
+            case "NEW":
+                customers = customerRepository.findNewCustomers(businessId);
+                break;
+            case "FREQUENT":
+                customers = customerRepository.findFrequentCustomers(businessId);
+                break;
+            default:
+                throw new BusinessException(ErrorCode.INVALID_SEGMENT_TYPE);
+        }
+
+        List<CustomerSegmentItem> items = customers.stream()
+                .map(CustomerSegmentItem::from)
+                .collect(Collectors.toList());
+
+        return CustomerSegmentResponse.builder()
+                .segmentType(segmentType.toUpperCase())
+                .count(items.size())
+                .customers(items)
+                .build();
     }
 
     /**
@@ -439,6 +482,296 @@ public class CustomerService {
                 .map(s -> (String) s.get("name"))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    // ========================================
+    // 고객 메모 CRUD
+    // ========================================
+
+    /**
+     * 고객 메모 생성
+     */
+    @Transactional
+    public CustomerNoteResponse createNote(Long businessId, Long customerId,
+                                           CustomerNoteRequest request, Long userId, String userName) {
+        validateCustomerBelongsToBusiness(businessId, customerId);
+
+        CustomerNote note = CustomerNote.builder()
+                .customerId(customerId)
+                .businessId(businessId)
+                .content(request.getContent())
+                .isPrivate(request.getIsPrivate() != null ? request.getIsPrivate() : false)
+                .authorId(userId)
+                .authorName(userName)
+                .build();
+
+        customerNoteRepository.save(note);
+
+        log.info("Customer note created: noteId={}, customerId={}, businessId={}", note.getId(), customerId, businessId);
+
+        return CustomerNoteResponse.from(note);
+    }
+
+    /**
+     * 고객 메모 목록 조회
+     */
+    public List<CustomerNoteResponse> getNotes(Long businessId, Long customerId) {
+        validateCustomerBelongsToBusiness(businessId, customerId);
+
+        return customerNoteRepository.findByCustomerIdAndBusinessId(customerId, businessId).stream()
+                .map(CustomerNoteResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 고객 메모 수정
+     */
+    @Transactional
+    public CustomerNoteResponse updateNote(Long businessId, Long customerId, Long noteId,
+                                           CustomerNoteRequest request) {
+        validateCustomerBelongsToBusiness(businessId, customerId);
+
+        CustomerNote note = customerNoteRepository.findById(noteId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOTE_NOT_FOUND));
+
+        CustomerNote updatedNote = CustomerNote.builder()
+                .id(note.getId())
+                .customerId(note.getCustomerId())
+                .businessId(note.getBusinessId())
+                .content(request.getContent())
+                .isPrivate(request.getIsPrivate() != null ? request.getIsPrivate() : note.getIsPrivate())
+                .authorId(note.getAuthorId())
+                .authorName(note.getAuthorName())
+                .createdAt(note.getCreatedAt())
+                .build();
+
+        customerNoteRepository.update(updatedNote);
+
+        log.info("Customer note updated: noteId={}, customerId={}", noteId, customerId);
+
+        return customerNoteRepository.findById(noteId)
+                .map(CustomerNoteResponse::from)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOTE_NOT_FOUND));
+    }
+
+    /**
+     * 고객 메모 삭제
+     */
+    @Transactional
+    public void deleteNote(Long businessId, Long customerId, Long noteId) {
+        validateCustomerBelongsToBusiness(businessId, customerId);
+
+        customerNoteRepository.findById(noteId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOTE_NOT_FOUND));
+
+        customerNoteRepository.deleteById(noteId);
+
+        log.info("Customer note deleted: noteId={}, customerId={}", noteId, customerId);
+    }
+
+    // ========================================
+    // 고객 태그 관리
+    // ========================================
+
+    /**
+     * 고객 태그 수정
+     */
+    @Transactional
+    public CustomerResponse updateTags(Long businessId, Long customerId, CustomerTagRequest request) {
+        validateCustomerBelongsToBusiness(businessId, customerId);
+
+        List<String> tags = request.getTags();
+
+        // 태그 개수 검증 (최대 10개)
+        if (tags.size() > 10) {
+            throw new BusinessException(ErrorCode.CUSTOMER_TAG_LIMIT_EXCEEDED);
+        }
+
+        // 각 태그 길이 검증 (최대 20자)
+        for (String tag : tags) {
+            if (tag.length() > 20) {
+                throw new BusinessException(ErrorCode.CUSTOMER_TAG_LENGTH_EXCEEDED,
+                        "태그 '" + tag + "'이(가) 20자를 초과합니다");
+            }
+        }
+
+        String tagsString = tags.isEmpty() ? null : String.join(",", tags);
+        customerRepository.updateTags(customerId, businessId, tagsString);
+
+        log.info("Customer tags updated: customerId={}, businessId={}, tags={}", customerId, businessId, tagsString);
+
+        return getCustomer(businessId, customerId);
+    }
+
+    /**
+     * 매장의 모든 고유 태그 조회
+     */
+    public CustomerTagResponse getAllTags(Long businessId) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        List<String> tags = customerRepository.findAllTagsByBusinessId(businessId);
+        return CustomerTagResponse.of(tags);
+    }
+
+    // ========================================
+    // 고객 CSV 내보내기
+    // ========================================
+
+    /**
+     * 내보내기용 고객 목록 조회
+     */
+    public List<Customer> getCustomersForExport(Long businessId, String segment,
+                                                 List<String> tags, String startDate, String endDate) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        return customerRepository.findForExport(businessId, segment, tags, startDate, endDate);
+    }
+
+    // ========================================
+    // 고객 중복 감지 및 병합
+    // ========================================
+
+    /**
+     * 전화번호 기반 중복 고객 감지
+     */
+    public List<DuplicateCustomerResponse> findDuplicates(Long businessId) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        List<Customer> duplicates = customerRepository.findDuplicatesByPhone(businessId);
+
+        // 전화번호별로 그룹핑
+        Map<String, List<Customer>> grouped = duplicates.stream()
+                .collect(Collectors.groupingBy(Customer::getPhone));
+
+        return grouped.entrySet().stream()
+                .map(entry -> DuplicateCustomerResponse.builder()
+                        .phone(entry.getKey())
+                        .count(entry.getValue().size())
+                        .customers(entry.getValue().stream()
+                                .map(CustomerResponse::from)
+                                .collect(Collectors.toList()))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 고객 병합
+     */
+    @Transactional
+    public CustomerMergeResponse mergeCustomers(Long businessId, CustomerMergeRequest request) {
+        Long primaryId = request.getPrimaryCustomerId();
+        List<Long> mergeIds = request.getMergeCustomerIds();
+
+        // CRM004: primaryId가 mergeIds에 포함되면 안 됨
+        if (mergeIds.contains(primaryId)) {
+            throw new BusinessException(ErrorCode.CUSTOMER_MERGE_PRIMARY_CONFLICT);
+        }
+
+        // CRM005: 병합 목록이 비어있으면 안 됨
+        if (mergeIds.isEmpty()) {
+            throw new BusinessException(ErrorCode.CUSTOMER_MERGE_EMPTY);
+        }
+
+        // 주 고객 확인
+        Customer primary = customerRepository.findById(primaryId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND,
+                        "주 고객을 찾을 수 없습니다: " + primaryId));
+
+        if (!primary.getBusinessId().equals(businessId)) {
+            throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND,
+                    "해당 매장의 고객이 아닙니다: " + primaryId);
+        }
+
+        int totalMergedReservations = 0;
+        int totalMergedNotes = 0;
+        int additionalVisitCount = 0;
+        int additionalTotalSpent = 0;
+        java.util.Set<String> mergedTags = new java.util.LinkedHashSet<>();
+
+        // 주 고객의 기존 태그 추가
+        if (primary.getTags() != null && !primary.getTags().isEmpty()) {
+            mergedTags.addAll(primary.getTagList());
+        }
+
+        for (Long mergeId : mergeIds) {
+            Customer mergeCustomer = customerRepository.findById(mergeId)
+                    .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND,
+                            "병합 대상 고객을 찾을 수 없습니다: " + mergeId));
+
+            if (!mergeCustomer.getBusinessId().equals(businessId)) {
+                throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND,
+                        "해당 매장의 고객이 아닙니다: " + mergeId);
+            }
+
+            // 1. 예약 이관
+            int movedReservations = customerRepository.updateReservationCustomerId(mergeId, primaryId);
+            totalMergedReservations += movedReservations;
+
+            // 2. 메모 이관
+            int movedNotes = customerNoteRepository.updateCustomerId(mergeId, primaryId);
+            totalMergedNotes += movedNotes;
+
+            // 3. 통계 합산
+            additionalVisitCount += (mergeCustomer.getVisitCount() != null ? mergeCustomer.getVisitCount() : 0);
+            additionalTotalSpent += (mergeCustomer.getTotalSpent() != null ? mergeCustomer.getTotalSpent() : 0);
+
+            // 4. 태그 합치기
+            if (mergeCustomer.getTags() != null && !mergeCustomer.getTags().isEmpty()) {
+                mergedTags.addAll(mergeCustomer.getTagList());
+            }
+
+            // 5. 병합된 고객 삭제
+            customerRepository.delete(mergeId);
+
+            log.info("Customer merged: mergeId={} -> primaryId={}", mergeId, primaryId);
+        }
+
+        // 주 고객 통계 업데이트
+        int newVisitCount = (primary.getVisitCount() != null ? primary.getVisitCount() : 0) + additionalVisitCount;
+        int newTotalSpent = (primary.getTotalSpent() != null ? primary.getTotalSpent() : 0) + additionalTotalSpent;
+        customerRepository.updateVisitStats(primaryId, newVisitCount, newTotalSpent, primary.getLastVisitDate());
+
+        // 태그 업데이트 (최대 10개)
+        List<String> finalTags = new java.util.ArrayList<>(mergedTags);
+        if (finalTags.size() > 10) {
+            finalTags = finalTags.subList(0, 10);
+        }
+        String tagsString = finalTags.isEmpty() ? null : String.join(",", finalTags);
+        customerRepository.updateTags(primaryId, businessId, tagsString);
+
+        // 최종 고객 정보 조회
+        Customer mergedCustomer = customerRepository.findById(primaryId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        log.info("Customer merge completed: primaryId={}, mergedIds={}, reservations={}, notes={}",
+                primaryId, mergeIds, totalMergedReservations, totalMergedNotes);
+
+        return CustomerMergeResponse.builder()
+                .primaryCustomerId(primaryId)
+                .mergedCustomerIds(mergeIds)
+                .mergedReservationCount(totalMergedReservations)
+                .mergedNoteCount(totalMergedNotes)
+                .mergedCustomer(CustomerResponse.from(mergedCustomer))
+                .build();
+    }
+
+    // ========================================
+    // Private 헬퍼
+    // ========================================
+
+    /**
+     * 고객이 해당 매장 소속인지 검증
+     */
+    private void validateCustomerBelongsToBusiness(Long businessId, Long customerId) {
+        if (!customerRepository.existsByBusinessIdAndId(businessId, customerId)) {
+            throw new EntityNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND);
+        }
     }
 
     /**

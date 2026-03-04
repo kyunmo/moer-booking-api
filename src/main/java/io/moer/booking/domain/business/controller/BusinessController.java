@@ -119,6 +119,32 @@ public class BusinessController {
     }
 
     /**
+     * 카카오 알림톡 설정 조회
+     * GET /api/businesses/{id}/settings/kakao-alimtalk
+     */
+    @GetMapping("/{id}/settings/kakao-alimtalk")
+    public ApiResponse<KakaoAlimtalkSettingsResponse> getKakaoAlimtalkSettings(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id) {
+        KakaoAlimtalkSettingsResponse response = businessService.getKakaoAlimtalkSettings(id, currentUser.getUser());
+        return ApiResponse.success(response);
+    }
+
+    /**
+     * 카카오 알림톡 설정 수정
+     * PUT /api/businesses/{id}/settings/kakao-alimtalk
+     */
+    @PutMapping("/{id}/settings/kakao-alimtalk")
+    public ApiResponse<KakaoAlimtalkSettingsResponse> updateKakaoAlimtalkSettings(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id,
+            @Valid @RequestBody KakaoAlimtalkSettingsRequest request) {
+        KakaoAlimtalkSettingsResponse response = businessService.updateKakaoAlimtalkSettings(
+                id, request, currentUser.getUser());
+        return ApiResponse.success(response);
+    }
+
+    /**
      * 매장 삭제
      */
     @DeleteMapping("/{id}")

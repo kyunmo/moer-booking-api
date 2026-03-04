@@ -18,6 +18,7 @@ import io.moer.booking.domain.auth.repository.SnsAccountRepository;
 import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessStatus;
+import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.business.dto.BusinessResponse;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.reservation.Reservation;
@@ -180,13 +181,13 @@ public class AuthService {
         userRepository.save(user);
         log.info("User created: id={}, email={}", user.getId(), user.getEmail());
 
-        // 3. Business 생성 (선택한 플랜 + 30일 무료 체험 자동 설정)
+        // 3. Business 생성 (항상 FREE 플랜 + 30일 무료 체험 자동 설정)
         Business business = Business.builder()
                 .ownerId(user.getId())
                 .name(request.getBusinessName())
                 .businessType(request.getBusinessType())
                 .status(BusinessStatus.ACTIVE)
-                .subscriptionPlan(request.getSubscriptionPlan())
+                .subscriptionPlan(SubscriptionPlan.FREE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .subscriptionStatus(io.moer.booking.domain.business.SubscriptionStatus.TRIAL)
                 .trialStartedAt(now)

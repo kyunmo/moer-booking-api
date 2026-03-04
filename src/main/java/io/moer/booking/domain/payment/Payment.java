@@ -53,6 +53,14 @@ public class Payment {
     private LocalDateTime refundedAt;
     private Integer refundAmount;
 
+    // 취소 정보
+    private String cancelReason;
+    private LocalDateTime cancelledAt;
+
+    // 기간 연장 정보
+    private Boolean isExtension;
+    private LocalDate previousBillingEndDate;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -65,6 +73,10 @@ public class Payment {
         return paymentStatus != null && paymentStatus.canRefund();
     }
 
+    public boolean canCancel() {
+        return paymentStatus != null && paymentStatus.canCancel();
+    }
+
     public boolean isPending() {
         return PaymentStatus.PENDING.equals(this.paymentStatus);
     }
@@ -75,5 +87,9 @@ public class Payment {
 
     public boolean isRefunded() {
         return PaymentStatus.REFUNDED.equals(this.paymentStatus);
+    }
+
+    public boolean isCancelled() {
+        return PaymentStatus.CANCELLED.equals(this.paymentStatus);
     }
 }

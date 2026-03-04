@@ -42,6 +42,7 @@ public enum ErrorCode {
     RESERVATION_PAST_DATE(HttpStatus.BAD_REQUEST, "R005", "과거 날짜는 예약할 수 없습니다"),  // 추가
     RESERVATION_HOLIDAY(HttpStatus.BAD_REQUEST, "R006", "해당 날짜는 휴무일입니다"),  // 추가
     RESERVATION_INVALID_STATUS(HttpStatus.BAD_REQUEST, "R007", "잘못된 예약 상태입니다"),  // 추가
+    RESERVATION_CANCEL_DEADLINE_PASSED(HttpStatus.BAD_REQUEST, "R008", "예약 취소 가능 시간이 지났습니다"),
 
     // Staff 관련 에러 (S001~S002) - 추가
     STAFF_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "직원을 찾을 수 없습니다"),
@@ -218,7 +219,72 @@ public enum ErrorCode {
     STATISTICS_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "ST005", "통계 조회 대상 카테고리를 찾을 수 없습니다"),
 
     // ============ 문의하기 (IQ001) ============
-    INQUIRY_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "IQ001", "너무 많은 문의를 보내셨습니다. 잠시 후 다시 시도해주세요.");
+    INQUIRY_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "IQ001", "너무 많은 문의를 보내셨습니다. 잠시 후 다시 시도해주세요."),
+
+    // ============ Payment Cancel (PM001 ~ PM002) ============
+    PAYMENT_ALREADY_CANCELLED(HttpStatus.BAD_REQUEST, "PM001", "이미 취소된 결제입니다"),
+    PAYMENT_CANNOT_CANCEL(HttpStatus.BAD_REQUEST, "PM002", "취소할 수 없는 결제 상태입니다"),
+
+    // ============ 즐겨찾기 (BM001 ~ BM003) ============
+    BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "BM001", "즐겨찾기를 찾을 수 없습니다"),
+    BOOKMARK_ALREADY_EXISTS(HttpStatus.CONFLICT, "BM002", "이미 즐겨찾기에 추가된 매장입니다"),
+    BOOKMARK_ACCESS_DENIED(HttpStatus.FORBIDDEN, "BM003", "즐겨찾기에 접근 권한이 없습니다"),
+
+    // ============ 리뷰 이미지 (RI001 ~ RI003) ============
+    REVIEW_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "RI001", "리뷰 이미지를 찾을 수 없습니다"),
+    REVIEW_IMAGE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "RI002", "리뷰당 최대 5개의 이미지만 등록할 수 있습니다"),
+    REVIEW_UPDATE_DENIED(HttpStatus.FORBIDDEN, "RI003", "본인의 리뷰만 수정할 수 있습니다"),
+
+    // ============ 고객 세그멘테이션 (SG001 ~ SG002) ============
+    INVALID_SEGMENT_TYPE(HttpStatus.BAD_REQUEST, "SG001", "유효하지 않은 세그먼트 타입입니다"),
+    SEGMENT_QUERY_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "SG002", "세그먼트 조회에 실패했습니다"),
+
+    // ============ 공지 방송 (BC001 ~ BC003) ============
+    BROADCAST_NOT_FOUND(HttpStatus.NOT_FOUND, "BC001", "공지를 찾을 수 없습니다"),
+    BROADCAST_ALREADY_SENT(HttpStatus.BAD_REQUEST, "BC002", "이미 발송된 공지입니다"),
+    INVALID_BROADCAST_TARGET(HttpStatus.BAD_REQUEST, "BC003", "유효하지 않은 발송 대상입니다"),
+
+    // 서비스 이미지 (IMG001~IMG005)
+    SERVICE_IMAGE_UNSUPPORTED_FORMAT(HttpStatus.BAD_REQUEST, "IMG001", "지원하지 않는 파일 형식입니다. (jpg, jpeg, png, webp만 허용)"),
+    SERVICE_IMAGE_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, "IMG002", "파일 크기가 초과되었습니다. (최대 10MB)"),
+    SERVICE_IMAGE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "IMG003", "서비스 이미지는 최대 3장까지 등록 가능합니다"),
+    SERVICE_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "IMG004", "이미지를 찾을 수 없습니다"),
+    SERVICE_IMAGE_ORDER_MISMATCH(HttpStatus.BAD_REQUEST, "IMG005", "이미지 ID 목록이 서비스의 이미지와 일치하지 않습니다"),
+
+    // 알림 발송 (NTF001~NTF003)
+    NOTIFICATION_TARGET_EMPTY(HttpStatus.BAD_REQUEST, "NTF001", "발송 대상이 없습니다"),
+    NOTIFICATION_INVALID_CHANNEL(HttpStatus.BAD_REQUEST, "NTF002", "유효하지 않은 발송 채널입니다"),
+    KAKAO_CHANNEL_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "NTF003", "카카오 채널 ID 인증에 실패했습니다"),
+
+    // 고객 CRM (CRM001~CRM005)
+    CUSTOMER_NOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "CRM001", "메모를 찾을 수 없습니다"),
+    CUSTOMER_TAG_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "CRM002", "태그는 최대 10개까지 등록 가능합니다"),
+    CUSTOMER_TAG_LENGTH_EXCEEDED(HttpStatus.BAD_REQUEST, "CRM003", "태그 이름은 최대 20자까지 입력 가능합니다"),
+    CUSTOMER_MERGE_PRIMARY_CONFLICT(HttpStatus.BAD_REQUEST, "CRM004", "주 고객 ID가 병합 목록에 포함될 수 없습니다"),
+    CUSTOMER_MERGE_EMPTY(HttpStatus.BAD_REQUEST, "CRM005", "병합할 고객이 없습니다"),
+
+    // 플랫폼 통계 (STAT001)
+    PLATFORM_STATS_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "STAT001", "통계 데이터를 일시적으로 사용할 수 없습니다"),
+
+    // 도움말 (PUB001)
+    HELP_ARTICLE_NOT_FOUND(HttpStatus.NOT_FOUND, "PUB001", "도움말 콘텐츠를 찾을 수 없습니다"),
+
+    // 예약 일정 변경 (RS001~RS004)
+    RESCHEDULE_TIME_CONFLICT(HttpStatus.CONFLICT, "RS001", "해당 시간대에 직원이 이미 예약되어 있습니다"),
+    RESCHEDULE_OUTSIDE_HOURS(HttpStatus.BAD_REQUEST, "RS002", "직원의 근무 시간 외의 시간입니다"),
+    RESCHEDULE_HOLIDAY(HttpStatus.BAD_REQUEST, "RS003", "휴무일에는 예약을 등록할 수 없습니다"),
+    RESCHEDULE_INVALID_STATUS(HttpStatus.BAD_REQUEST, "RS004", "취소/완료된 예약은 일정을 변경할 수 없습니다"),
+
+    // 직원 스케줄 조회 (SCH001~SCH002)
+    SCHEDULE_DATE_RANGE_EXCEEDED(HttpStatus.BAD_REQUEST, "SCH001", "조회 기간이 최대 31일을 초과합니다"),
+    SCHEDULE_INVALID_DATE_ORDER(HttpStatus.BAD_REQUEST, "SCH002", "시작일이 종료일보다 늦습니다"),
+
+    // 알림 발송 한도 (NTF004)
+    NOTIFICATION_SEND_LIMIT_EXCEEDED(HttpStatus.FORBIDDEN, "NTF004", "이번 달 알림 발송 한도를 초과했습니다"),
+
+    // CSV 내보내기 (EX001~EX002)
+    EXPORT_PLAN_RESTRICTED(HttpStatus.FORBIDDEN, "EX001", "해당 플랜에서는 CSV 내보내기를 사용할 수 없습니다"),
+    EXPORT_RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "EX002", "내보내기 요청이 너무 많습니다. 잠시 후 다시 시도해주세요");
 
     private final HttpStatus status;
     private final String code;

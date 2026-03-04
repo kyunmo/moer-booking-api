@@ -5,14 +5,21 @@ import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.common.storage.FileStorageService;
 import io.moer.booking.domain.business.repository.BusinessRepository;
+import io.moer.booking.domain.customer.Customer;
+import io.moer.booking.domain.customer.repository.CustomerRepository;
+import io.moer.booking.domain.reservation.Reservation;
+import io.moer.booking.domain.reservation.repository.ReservationRepository;
 import io.moer.booking.domain.staff.Staff;
+import io.moer.booking.domain.staff.StaffSchedule;
 import io.moer.booking.domain.staff.dto.StaffCreateRequest;
 import io.moer.booking.domain.staff.dto.StaffResponse;
+import io.moer.booking.domain.staff.dto.StaffScheduleViewResponse;
 import io.moer.booking.domain.staff.dto.StaffSearchCondition;
 import io.moer.booking.domain.staff.dto.StaffUpdateRequest;
 import io.moer.booking.domain.staff.position.StaffPosition;
 import io.moer.booking.domain.staff.position.repository.StaffPositionRepository;
 import io.moer.booking.domain.staff.repository.StaffRepository;
+import io.moer.booking.domain.staff.repository.StaffScheduleRepository;
 import io.moer.booking.domain.subscription.service.UsageLimitService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +27,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -37,6 +51,9 @@ public class StaffService {
     private final UsageLimitService usageLimitService;
     private final FileStorageService fileStorageService;
     private final StaffPositionRepository staffPositionRepository;
+    private final StaffScheduleRepository staffScheduleRepository;
+    private final ReservationRepository reservationRepository;
+    private final CustomerRepository customerRepository;
     private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
 
     /**
@@ -266,6 +283,122 @@ public class StaffService {
         usageLimitService.decrementStaffCount(businessId);
 
         log.info("Staff deleted: id={}, businessId={}", staffId, businessId);
+    }
+
+    /**
+     * 직원 주간 스케줄 조회
+     */
+    public StaffScheduleViewResponse getStaffSchedule(Long businessId, Long staffId,
+                                                       LocalDate startDate, LocalDate endDate) {
+        // 1. 날짜 검증
+        if (startDate.isAfter(endDate)) {
+            throw new BusinessException(ErrorCode.SCHEDULE_INVALID_DATE_ORDER,
+                    "시작일이 종료일보다 늦습니다");
+        }
+        if (ChronoUnit.DAYS.between(startDate, endDate) > 31) {
+            throw new BusinessException(ErrorCode.SCHEDULE_DATE_RANGE_EXCEEDED,
+                    "조회 기간이 최대 31일을 초과합니다");
+        }
+
+        // 2. 직원 존재 확인
+        Staff staff = staffRepository.findById(staffId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.STAFF_NOT_FOUND));
+
+        if (!staff.getBusinessId().equals(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.STAFF_NOT_FOUND);
+        }
+
+        // 3. 예약 조회
+        List<Reservation> reservations = reservationRepository.findByStaffIdAndDateRange(
+                businessId, staffId, startDate, endDate);
+
+        // 4. 예약 → ScheduleReservation 변환 (고객 정보 포함)
+        List<StaffScheduleViewResponse.ScheduleReservation> scheduleReservations = reservations.stream()
+                .map(r -> {
+                    String customerName = null;
+                    String customerPhone = null;
+                    if (r.getCustomerId() != null) {
+                        Customer customer = customerRepository.findById(r.getCustomerId()).orElse(null);
+                        if (customer != null) {
+                            customerName = customer.getName();
+                            customerPhone = customer.getPhone();
+                        }
+                    }
+
+                    // services JSONB에서 서비스명 추출
+                    String serviceName = r.getServiceNames().isEmpty()
+                            ? null
+                            : String.join(", ", r.getServiceNames());
+
+                    return StaffScheduleViewResponse.ScheduleReservation.builder()
+                            .id(r.getId())
+                            .reservationNumber(r.getReservationNumber())
+                            .customerName(customerName)
+                            .customerPhone(customerPhone)
+                            .serviceName(serviceName)
+                            .startTime(LocalDateTime.of(r.getReservationDate(), r.getStartTime()))
+                            .endTime(LocalDateTime.of(r.getReservationDate(), r.getEndTime()))
+                            .status(r.getStatus().name())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // 5. 근무 스케줄 조회 → 날짜 범위에 매핑
+        List<StaffSchedule> schedules = staffScheduleRepository.findByStaffId(staffId);
+        Map<Integer, StaffSchedule> scheduleByDow = schedules.stream()
+                .collect(Collectors.toMap(StaffSchedule::getDayOfWeek, Function.identity(), (a, b) -> a));
+
+        List<StaffScheduleViewResponse.DaySchedule> workSchedule = new ArrayList<>();
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            // Java DayOfWeek: MONDAY=1 ~ SUNDAY=7 (ISO-8601, StaffSchedule과 동일)
+            int dow = current.getDayOfWeek().getValue();
+            StaffSchedule schedule = scheduleByDow.get(dow);
+
+            StaffScheduleViewResponse.DaySchedule.DayScheduleBuilder dayBuilder =
+                    StaffScheduleViewResponse.DaySchedule.builder()
+                            .date(current)
+                            .dayOfWeek(toDayOfWeekName(current.getDayOfWeek()));
+
+            if (schedule != null && schedule.isWorkingDay()) {
+                dayBuilder.isWorkDay(true)
+                        .workStartTime(schedule.getStartTime())
+                        .workEndTime(schedule.getEndTime())
+                        .breakStartTime(schedule.getBreakStartTime())
+                        .breakEndTime(schedule.getBreakEndTime());
+            } else {
+                dayBuilder.isWorkDay(false);
+            }
+
+            workSchedule.add(dayBuilder.build());
+            current = current.plusDays(1);
+        }
+
+        // 6. 응답 조립
+        return StaffScheduleViewResponse.builder()
+                .staffId(staffId)
+                .staffName(staff.getName())
+                .startDate(startDate)
+                .endDate(endDate)
+                .reservations(scheduleReservations)
+                .workSchedule(workSchedule)
+                .blockedSlots(List.of())  // 향후 확장
+                .build();
+    }
+
+    /**
+     * 요일 이름 변환 (한국어)
+     */
+    private String toDayOfWeekName(DayOfWeek dayOfWeek) {
+        return switch (dayOfWeek) {
+            case MONDAY -> "월";
+            case TUESDAY -> "화";
+            case WEDNESDAY -> "수";
+            case THURSDAY -> "목";
+            case FRIDAY -> "금";
+            case SATURDAY -> "토";
+            case SUNDAY -> "일";
+        };
     }
 
     /**

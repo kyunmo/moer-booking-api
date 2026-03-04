@@ -2,6 +2,8 @@ package io.moer.booking.domain.business.dto;
 
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.BusinessType;
+import io.moer.booking.domain.business.SubscriptionPlan;
+import io.moer.booking.domain.business.SubscriptionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,6 +19,8 @@ public class BusinessSearchCondition {
     private Long ownerId;             // 특정 Owner의 매장만
     private BusinessType businessType; // 업종 필터
     private BusinessStatus status;    // 상태 필터
+    private SubscriptionPlan planType;           // 구독 플랜 필터
+    private SubscriptionStatus subscriptionStatus; // 구독 상태 필터
     private int page = 1;
     private int size = 20;
 

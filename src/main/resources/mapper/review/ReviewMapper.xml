@@ -65,6 +65,15 @@
         WHERE id = #{id}
     </update>
 
+    <!-- 리뷰 내용 수정 (rating, content) -->
+    <update id="updateContent">
+        UPDATE reviews
+        SET rating = COALESCE(#{rating}, rating),
+            content = COALESCE(#{content}, content),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
     <!-- ========================================
          조회 - 단건
          ======================================== -->
@@ -136,6 +145,36 @@
                 AND created_at &lt; (#{endDate}::date + INTERVAL '1 day')
             </if>
         </where>
+    </select>
+
+    <!-- ========================================
+         조회 - 목록 (Customer 내 리뷰, business 정보 포함)
+         ======================================== -->
+
+    <!-- 로그인 고객의 리뷰 목록 (userId → customers.user_id 기반) -->
+    <select id="findByCustomerUserId" resultType="java.util.Map">
+        SELECT r.id, r.business_id AS "businessId", r.reservation_id AS "reservationId",
+               r.customer_id AS "customerId", r.staff_id AS "staffId",
+               r.customer_name AS "customerName", r.rating, r.content,
+               r.images, r.status, r.reply_content AS "replyContent",
+               r.reply_created_at AS "replyCreatedAt", r.created_at AS "createdAt",
+               b.name AS "businessName", b.slug AS "businessSlug"
+        FROM reviews r
+        LEFT JOIN customers c ON r.customer_id = c.id
+        LEFT JOIN businesses b ON r.business_id = b.id
+        WHERE c.user_id = #{userId}
+          AND r.status = 'ACTIVE'
+        ORDER BY r.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 로그인 고객의 리뷰 총 개수 -->
+    <select id="countByCustomerUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM reviews r
+        LEFT JOIN customers c ON r.customer_id = c.id
+        WHERE c.user_id = #{userId}
+          AND r.status = 'ACTIVE'
     </select>
 
     <!-- ========================================
@@ -230,6 +269,20 @@
           AND status = 'ACTIVE'
         GROUP BY rating
         ORDER BY rating
+    </select>
+
+    <!-- ========================================
+         Platform 통계 (Public)
+         ======================================== -->
+
+    <!-- 전체 활성 리뷰 수 -->
+    <select id="countAllActiveReviews" resultType="long">
+        SELECT COUNT(*) FROM reviews WHERE status = 'ACTIVE'
+    </select>
+
+    <!-- 전체 평균 평점 (ACTIVE 상태만) -->
+    <select id="getOverallAverageRating" resultType="java.lang.Double">
+        SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE status = 'ACTIVE'
     </select>
 
 </mapper>

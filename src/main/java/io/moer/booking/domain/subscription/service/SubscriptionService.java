@@ -92,9 +92,14 @@ public class SubscriptionService {
 
     /**
      * 구독 취소
+     * - 상태를 CANCELED로 변경
+     * - nextBillingDate를 보존하여 잔여 기간 안내에 사용 (FE에서 expiresAt으로 활용)
+     * - 취소 후에도 nextBillingDate까지 서비스 이용 가능
+     *
+     * @return 취소 후 구독 정보 (잔여 기간 포함)
      */
     @Transactional
-    public void cancelSubscription(Long businessId) {
+    public SubscriptionInfoResponse cancelSubscription(Long businessId) {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
 
@@ -103,7 +108,7 @@ public class SubscriptionService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미 취소된 구독입니다");
         }
 
-        // 구독 상태를 CANCELED로 변경
+        // 구독 상태를 CANCELED로 변경 (nextBillingDate 보존하여 잔여 기간 안내)
         Business updatedBusiness = Business.builder()
                 .id(business.getId())
                 .ownerId(business.getOwnerId())
@@ -124,7 +129,7 @@ public class SubscriptionService {
                 .trialStartedAt(business.getTrialStartedAt())
                 .trialEndsAt(business.getTrialEndsAt())
                 .subscriptionStartedAt(business.getSubscriptionStartedAt())
-                .nextBillingDate(null)  // 다음 결제일 제거
+                .nextBillingDate(business.getNextBillingDate())  // 보존: 잔여 기간 안내용 (expiresAt)
                 .currentStaffCount(business.getCurrentStaffCount())
                 .currentMonthReservationCount(business.getCurrentMonthReservationCount())
                 .createdAt(business.getCreatedAt())
@@ -133,7 +138,10 @@ public class SubscriptionService {
 
         businessRepository.update(updatedBusiness);
 
-        log.info("Subscription canceled: businessId={}", businessId);
+        log.info("Subscription canceled: businessId={}, expiresAt={}",
+                businessId, business.getNextBillingDate());
+
+        return SubscriptionInfoResponse.from(updatedBusiness);
     }
 
     /**
@@ -189,6 +197,47 @@ public class SubscriptionService {
 
         log.info("유료 구독 활성화: businessId={}, plan={}, billingCycle={}, nextBillingDate={}",
                 businessId, newPlan, billingCycle, billingEndDate);
+    }
+
+    /**
+     * 기간 연장 결제 후 구독 갱신
+     * 기존 구독의 nextBillingDate만 업데이트 (subscriptionStartedAt은 유지)
+     */
+    @Transactional
+    public void extendSubscriptionAfterPayment(Long businessId, LocalDateTime newBillingEndDate) {
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        Business updatedBusiness = Business.builder()
+                .id(business.getId())
+                .ownerId(business.getOwnerId())
+                .name(business.getName())
+                .slug(business.getSlug())
+                .businessType(business.getBusinessType())
+                .phone(business.getPhone())
+                .address(business.getAddress())
+                .description(business.getDescription())
+                .businessHours(business.getBusinessHours())
+                .status(business.getStatus())
+                .dailyRevenueGoal(business.getDailyRevenueGoal())
+                .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
+                .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
+                .subscriptionPlan(business.getSubscriptionPlan())
+                .billingCycle(business.getBillingCycle())
+                .subscriptionStatus(SubscriptionStatus.ACTIVE)
+                .trialStartedAt(business.getTrialStartedAt())
+                .trialEndsAt(business.getTrialEndsAt())
+                .subscriptionStartedAt(business.getSubscriptionStartedAt()) // 기존 시작일 유지
+                .nextBillingDate(newBillingEndDate) // 연장된 종료일
+                .currentStaffCount(business.getCurrentStaffCount())
+                .currentMonthReservationCount(business.getCurrentMonthReservationCount())
+                .createdAt(business.getCreatedAt())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        businessRepository.update(updatedBusiness);
+
+        log.info("구독 기간 연장: businessId={}, newBillingEndDate={}", businessId, newBillingEndDate);
     }
 
     // ========================================

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moer.booking.domain.bookmark.repository.CustomerBookmarkRepository">
+
+    <resultMap id="BookmarkResultMap" type="io.moer.booking.domain.bookmark.CustomerBookmark">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="save" parameterType="io.moer.booking.domain.bookmark.CustomerBookmark"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO customer_bookmarks (user_id, business_id)
+        VALUES (#{userId}, #{businessId})
+    </insert>
+
+    <delete id="deleteByUserIdAndBusinessId">
+        DELETE FROM customer_bookmarks
+        WHERE user_id = #{userId} AND business_id = #{businessId}
+    </delete>
+
+    <select id="existsByUserIdAndBusinessId" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM customer_bookmarks
+            WHERE user_id = #{userId} AND business_id = #{businessId}
+        )
+    </select>
+
+    <select id="findByUserId" resultType="io.moer.booking.domain.bookmark.dto.BookmarkResponse">
+        SELECT cb.id, cb.business_id AS businessId,
+               b.name AS businessName, b.business_type AS businessType,
+               b.address, b.profile_image_url AS imageUrl,
+               b.slug, cb.created_at AS createdAt
+        FROM customer_bookmarks cb
+        JOIN businesses b ON cb.business_id = b.id
+        WHERE cb.user_id = #{userId}
+          AND b.status = 'ACTIVE'
+        ORDER BY cb.created_at DESC
+    </select>
+
+    <select id="findByUserIdAndBusinessId" resultMap="BookmarkResultMap">
+        SELECT * FROM customer_bookmarks
+        WHERE user_id = #{userId} AND business_id = #{businessId}
+    </select>
+
+</mapper>

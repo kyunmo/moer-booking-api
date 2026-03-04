@@ -72,14 +72,16 @@ public class SubscriptionController {
 
     /**
      * 구독 취소
+     * - 취소 후 구독 정보를 반환합니다 (잔여 기간 안내용 nextBillingDate 포함)
+     * - nextBillingDate: 유료 기능 사용 가능 마감일 (FE에서 expiresAt으로 활용)
      */
     @PostMapping("/cancel")
-    @Operation(summary = "구독 취소", description = "현재 구독을 취소합니다")
-    public ResponseEntity<ApiResponse<Void>> cancelSubscription(
+    @Operation(summary = "구독 취소", description = "현재 구독을 취소합니다. 잔여 기간 정보가 포함된 구독 정보를 반환합니다.")
+    public ResponseEntity<ApiResponse<SubscriptionInfoResponse>> cancelSubscription(
             @AuthenticationPrincipal CustomUserDetails currentUser
     ) {
         Long businessId = currentUser.getUser().getBusinessId();
-        subscriptionService.cancelSubscription(businessId);
-        return ResponseEntity.ok(ApiResponse.success());
+        SubscriptionInfoResponse response = subscriptionService.cancelSubscription(businessId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

@@ -8,6 +8,8 @@ import io.moer.booking.domain.payment.PaymentStatus;
 import lombok.Builder;
 import lombok.Getter;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -47,6 +49,14 @@ public class PaymentResponse {
     private LocalDateTime refundedAt;
     private Integer refundAmount;
 
+    // 취소 정보
+    private String cancelReason;
+    private LocalDateTime cancelledAt;
+
+    // 기간 연장 정보
+    private Boolean isExtension;
+    private LocalDate previousBillingEndDate;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -71,6 +81,10 @@ public class PaymentResponse {
                 .failedReason(payment.getFailedReason())
                 .refundedAt(payment.getRefundedAt())
                 .refundAmount(payment.getRefundAmount())
+                .cancelReason(payment.getCancelReason())
+                .cancelledAt(payment.getCancelledAt())
+                .isExtension(payment.getIsExtension())
+                .previousBillingEndDate(payment.getPreviousBillingEndDate())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();

@@ -4,6 +4,8 @@ import io.moer.booking.domain.business.BusinessSettings;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 @Mapper
@@ -20,6 +22,14 @@ public interface BusinessSettingsRepository {
 
     // 삭제
     void deleteByBusinessId(Long businessId);
+
+    // 카카오 알림톡 설정
+    void updateKakaoAlimtalkSettings(@Param("businessId") Long businessId,
+                                      @Param("kakaoEnabled") String kakaoEnabled,
+                                      @Param("kakaoChannelId") String kakaoChannelId,
+                                      @Param("kakaoSenderId") String kakaoSenderId,
+                                      @Param("kakaoAlimtalkTriggers") Map<String, Object> kakaoAlimtalkTriggers,
+                                      @Param("kakaoVerifiedAt") LocalDateTime kakaoVerifiedAt);
 
     // 온보딩
     void updateOnboardingStep(@Param("businessId") Long businessId,

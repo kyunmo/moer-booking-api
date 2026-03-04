@@ -27,6 +27,10 @@
         <result property="failedReason" column="failed_reason"/>
         <result property="refundedAt" column="refunded_at"/>
         <result property="refundAmount" column="refund_amount"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+        <result property="isExtension" column="is_extension"/>
+        <result property="previousBillingEndDate" column="previous_billing_end_date"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -50,7 +54,9 @@
             pg_provider,
             pg_transaction_id,
             webhook_received_at,
-            webhook_data
+            webhook_data,
+            is_extension,
+            previous_billing_end_date
         ) VALUES (
             #{businessId},
             #{couponId},
@@ -67,7 +73,9 @@
             #{pgProvider},
             #{pgTransactionId},
             #{webhookReceivedAt},
-            #{webhookData, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb
+            #{webhookData, typeHandler=io.moer.booking.common.mybatis.JsonTypeHandler}::jsonb,
+            #{isExtension},
+            #{previousBillingEndDate}
         )
     </insert>
 
@@ -83,6 +91,8 @@
             failed_reason = #{failedReason},
             refunded_at = #{refundedAt},
             refund_amount = #{refundAmount},
+            cancel_reason = #{cancelReason},
+            cancelled_at = #{cancelledAt},
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -144,6 +154,14 @@
           AND payment_status = 'COMPLETED'
         ORDER BY created_at DESC
         LIMIT 1
+    </select>
+
+    <!-- 매장의 최근 결제 목록 조회 -->
+    <select id="findRecentByBusinessId" resultMap="PaymentResultMap">
+        SELECT * FROM payments
+        WHERE business_id = #{businessId}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
     </select>
 
 </mapper>

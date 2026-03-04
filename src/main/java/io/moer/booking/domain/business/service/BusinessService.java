@@ -22,10 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -279,6 +276,9 @@ public class BusinessService {
                 .kakaoChannelId(request.getKakaoChannelId() != null ? request.getKakaoChannelId() : existing.getKakaoChannelId())
                 .kakaoApiKey(request.getKakaoApiKey() != null ? request.getKakaoApiKey() : existing.getKakaoApiKey())
                 .kakaoEnabled(request.getKakaoEnabled() != null ? request.getKakaoEnabled() : existing.getKakaoEnabled())
+                .kakaoSenderId(existing.getKakaoSenderId())
+                .kakaoAlimtalkTriggers(existing.getKakaoAlimtalkTriggers())
+                .kakaoVerifiedAt(existing.getKakaoVerifiedAt())
                 .paymentMethods(request.getPaymentMethods() != null ? request.getPaymentMethods() : existing.getPaymentMethods())
                 .requireDeposit(request.getRequireDeposit() != null ? request.getRequireDeposit() : existing.getRequireDeposit())
                 .depositAmount(request.getDepositAmount() != null ? request.getDepositAmount() : existing.getDepositAmount())
@@ -507,6 +507,9 @@ public class BusinessService {
                 .kakaoChannelId(existing.getKakaoChannelId())
                 .kakaoApiKey(existing.getKakaoApiKey())
                 .kakaoEnabled(existing.getKakaoEnabled())
+                .kakaoSenderId(existing.getKakaoSenderId())
+                .kakaoAlimtalkTriggers(existing.getKakaoAlimtalkTriggers())
+                .kakaoVerifiedAt(existing.getKakaoVerifiedAt())
                 .paymentMethods(existing.getPaymentMethods())
                 .requireDeposit(existing.getRequireDeposit())
                 .depositAmount(existing.getDepositAmount())
@@ -542,6 +545,164 @@ public class BusinessService {
                 .vipBenefitDescription(request.getVipBenefitDescription() != null ?
                         request.getVipBenefitDescription() : existing.getVipBenefitDescription())
                 .build();
+    }
+
+    // ========================================
+    // 카카오 알림톡 설정
+    // ========================================
+
+    /**
+     * 카카오 알림톡 설정 조회
+     */
+    public KakaoAlimtalkSettingsResponse getKakaoAlimtalkSettings(Long businessId, User currentUser) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+        if (!currentUser.canAccessBusiness(businessId)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
+        BusinessSettings settings = businessSettingsRepository.findByBusinessId(businessId)
+                .orElse(null);
+
+        if (settings == null) {
+            return KakaoAlimtalkSettingsResponse.defaults();
+        }
+
+        return buildKakaoAlimtalkResponse(settings);
+    }
+
+    /**
+     * 카카오 알림톡 설정 수정
+     */
+    @Transactional
+    public KakaoAlimtalkSettingsResponse updateKakaoAlimtalkSettings(Long businessId,
+                                                                      KakaoAlimtalkSettingsRequest request,
+                                                                      User currentUser) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+        if (!currentUser.canAccessBusiness(businessId)) {
+            throw new BusinessException(ErrorCode.BUSINESS_ACCESS_DENIED);
+        }
+
+        BusinessSettings existing = businessSettingsRepository.findByBusinessId(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND,
+                        "Settings를 찾을 수 없습니다"));
+
+        // 활성화 시 채널 ID 필수 검증
+        boolean enabled = request.getEnabled() != null ? request.getEnabled() : "Y".equals(existing.getKakaoEnabled());
+        if (enabled) {
+            String channelId = request.getChannelId() != null ? request.getChannelId() : existing.getKakaoChannelId();
+            if (channelId == null || channelId.isBlank()) {
+                throw new BusinessException(ErrorCode.KAKAO_CHANNEL_VERIFICATION_FAILED,
+                        "카카오 알림톡을 활성화하려면 채널 ID가 필요합니다");
+            }
+        }
+
+        // 트리거 설정 빌드
+        Map<String, Object> triggers = buildTriggersMap(request, existing);
+
+        String kakaoEnabled = enabled ? "Y" : "N";
+        String channelId = request.getChannelId() != null ? request.getChannelId() : existing.getKakaoChannelId();
+        String senderId = request.getSenderId() != null ? request.getSenderId() : existing.getKakaoSenderId();
+
+        businessSettingsRepository.updateKakaoAlimtalkSettings(
+                businessId,
+                kakaoEnabled,
+                channelId,
+                senderId,
+                triggers,
+                existing.getKakaoVerifiedAt()
+        );
+
+        log.info("Kakao alimtalk settings updated: businessId={}, enabled={}", businessId, kakaoEnabled);
+
+        // 업데이트된 설정 다시 조회하여 반환
+        BusinessSettings updated = businessSettingsRepository.findByBusinessId(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.ENTITY_NOT_FOUND));
+
+        return buildKakaoAlimtalkResponse(updated);
+    }
+
+    private KakaoAlimtalkSettingsResponse buildKakaoAlimtalkResponse(BusinessSettings settings) {
+        Map<String, Object> triggersMap = settings.getKakaoAlimtalkTriggers();
+
+        KakaoAlimtalkSettingsResponse.AlimtalkTriggers triggers;
+        if (triggersMap != null && !triggersMap.isEmpty()) {
+            triggers = KakaoAlimtalkSettingsResponse.AlimtalkTriggers.builder()
+                    .onReservationCreated(getBooleanValue(triggersMap, "onReservationCreated", true))
+                    .onReservationConfirmed(getBooleanValue(triggersMap, "onReservationConfirmed", true))
+                    .onReservationCancelled(getBooleanValue(triggersMap, "onReservationCancelled", true))
+                    .onReservationReminder(getBooleanValue(triggersMap, "onReservationReminder", true))
+                    .reminderHoursBefore(getIntValue(triggersMap, "reminderHoursBefore", 24))
+                    .build();
+        } else {
+            triggers = KakaoAlimtalkSettingsResponse.AlimtalkTriggers.builder()
+                    .onReservationCreated(true)
+                    .onReservationConfirmed(true)
+                    .onReservationCancelled(true)
+                    .onReservationReminder(true)
+                    .reminderHoursBefore(24)
+                    .build();
+        }
+
+        return KakaoAlimtalkSettingsResponse.builder()
+                .enabled("Y".equals(settings.getKakaoEnabled()))
+                .channelId(settings.getKakaoChannelId())
+                .senderId(settings.getKakaoSenderId())
+                .triggers(triggers)
+                .verifiedAt(settings.getKakaoVerifiedAt())
+                .build();
+    }
+
+    private Map<String, Object> buildTriggersMap(KakaoAlimtalkSettingsRequest request, BusinessSettings existing) {
+        Map<String, Object> existingTriggers = existing.getKakaoAlimtalkTriggers();
+        Map<String, Object> triggers = new HashMap<>();
+
+        if (request.getTriggers() != null) {
+            KakaoAlimtalkSettingsRequest.AlimtalkTriggers reqTriggers = request.getTriggers();
+            triggers.put("onReservationCreated",
+                    reqTriggers.getOnReservationCreated() != null ? reqTriggers.getOnReservationCreated()
+                            : getBooleanValue(existingTriggers, "onReservationCreated", true));
+            triggers.put("onReservationConfirmed",
+                    reqTriggers.getOnReservationConfirmed() != null ? reqTriggers.getOnReservationConfirmed()
+                            : getBooleanValue(existingTriggers, "onReservationConfirmed", true));
+            triggers.put("onReservationCancelled",
+                    reqTriggers.getOnReservationCancelled() != null ? reqTriggers.getOnReservationCancelled()
+                            : getBooleanValue(existingTriggers, "onReservationCancelled", true));
+            triggers.put("onReservationReminder",
+                    reqTriggers.getOnReservationReminder() != null ? reqTriggers.getOnReservationReminder()
+                            : getBooleanValue(existingTriggers, "onReservationReminder", true));
+            triggers.put("reminderHoursBefore",
+                    reqTriggers.getReminderHoursBefore() != null ? reqTriggers.getReminderHoursBefore()
+                            : getIntValue(existingTriggers, "reminderHoursBefore", 24));
+        } else if (existingTriggers != null) {
+            triggers.putAll(existingTriggers);
+        } else {
+            // 기본값
+            triggers.put("onReservationCreated", true);
+            triggers.put("onReservationConfirmed", true);
+            triggers.put("onReservationCancelled", true);
+            triggers.put("onReservationReminder", true);
+            triggers.put("reminderHoursBefore", 24);
+        }
+
+        return triggers;
+    }
+
+    private boolean getBooleanValue(Map<String, Object> map, String key, boolean defaultValue) {
+        if (map == null || !map.containsKey(key)) return defaultValue;
+        Object value = map.get(key);
+        if (value instanceof Boolean) return (Boolean) value;
+        return defaultValue;
+    }
+
+    private int getIntValue(Map<String, Object> map, String key, int defaultValue) {
+        if (map == null || !map.containsKey(key)) return defaultValue;
+        Object value = map.get(key);
+        if (value instanceof Number) return ((Number) value).intValue();
+        return defaultValue;
     }
 
     private BusinessResponse getBusinessWithSettings(Long businessId) {

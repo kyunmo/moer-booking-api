@@ -2,9 +2,11 @@ package io.moer.booking.domain.payment.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.security.CustomUserDetails;
+import io.moer.booking.domain.payment.dto.PaymentCancelRequest;
 import io.moer.booking.domain.payment.dto.PaymentCreateRequest;
 import io.moer.booking.domain.payment.dto.PaymentResponse;
 import io.moer.booking.domain.payment.dto.PaymentSearchCondition;
+import io.moer.booking.domain.payment.dto.RefundPreviewResponse;
 import io.moer.booking.domain.payment.service.PaymentService;
 import io.moer.booking.domain.user.User;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +18,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +53,19 @@ public class PaymentController {
     }
 
     /**
+     * 결제 취소
+     */
+    @PostMapping("/{paymentId}/cancel")
+    @Operation(summary = "결제 취소", description = "결제를 취소합니다. PENDING은 즉시 취소, COMPLETED는 전액 환불 후 취소")
+    public ResponseEntity<ApiResponse<PaymentResponse>> cancelPayment(
+            @PathVariable Long paymentId,
+            @Valid @RequestBody PaymentCancelRequest request
+    ) {
+        PaymentResponse response = paymentService.cancelPayment(paymentId, request.getReason());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
      * 환불 처리
      */
     @PostMapping("/{paymentId}/refund")
@@ -59,6 +76,18 @@ public class PaymentController {
     ) {
         String reason = body.getOrDefault("reason", "고객 요청");
         PaymentResponse response = paymentService.refundPayment(paymentId, reason);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * 환불 미리보기
+     */
+    @GetMapping("/{paymentId}/refund-preview")
+    @Operation(summary = "환불 미리보기", description = "환불 전 예상 금액을 미리 확인합니다")
+    public ResponseEntity<ApiResponse<RefundPreviewResponse>> getRefundPreview(
+            @PathVariable Long paymentId
+    ) {
+        RefundPreviewResponse response = paymentService.getRefundPreview(paymentId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -78,17 +107,30 @@ public class PaymentController {
      * 결제 내역 목록 조회
      */
     @GetMapping
-    @Operation(summary = "결제 내역 목록", description = "내 매장의 결제 내역 목록을 조회합니다")
+    @Operation(summary = "결제 내역 목록", description = "내 매장의 결제 내역 목록을 조회합니다. startDate/endDate로 날짜 필터 가능")
     public ResponseEntity<ApiResponse<List<PaymentResponse>>> getPaymentList(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) @io.swagger.v3.oas.annotations.Parameter(description = "조회 시작일 (yyyy-MM-dd)", example = "2026-01-01") String startDate,
+            @RequestParam(required = false) @io.swagger.v3.oas.annotations.Parameter(description = "조회 종료일 (yyyy-MM-dd)", example = "2026-02-28") String endDate,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         User user = userDetails.getUser();
+
+        // 날짜 필터 변환 (yyyy-MM-dd → LocalDateTime)
+        LocalDateTime startDateTime = startDate != null
+                ? LocalDate.parse(startDate).atStartOfDay()
+                : null;
+        LocalDateTime endDateTime = endDate != null
+                ? LocalDate.parse(endDate).atTime(23, 59, 59)
+                : null;
+
         PaymentSearchCondition condition = PaymentSearchCondition.builder()
                 .businessId(user.getBusinessId())
                 .status(status != null ? io.moer.booking.domain.payment.PaymentStatus.valueOf(status) : null)
+                .startDate(startDateTime)
+                .endDate(endDateTime)
                 .page(page)
                 .size(size)
                 .build();

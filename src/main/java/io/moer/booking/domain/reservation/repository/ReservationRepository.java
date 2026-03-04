@@ -46,6 +46,15 @@ public interface ReservationRepository {
     void updateCancellation(Reservation reservation);
 
     /**
+     * 예약 일정 변경 (날짜, 시간, 직원)
+     */
+    void updateSchedule(@Param("id") Long id,
+                        @Param("reservationDate") LocalDate reservationDate,
+                        @Param("startTime") LocalTime startTime,
+                        @Param("endTime") LocalTime endTime,
+                        @Param("staffId") Long staffId);
+
+    /**
      * 예약 삭제
      */
     void delete(Long id);
@@ -339,6 +348,15 @@ public interface ReservationRepository {
     BigDecimal sumRevenueByBusinessType(BusinessType type);
 
     // ========================================
+    // Platform 통계 (Public)
+    // ========================================
+
+    /**
+     * 전체 예약 수
+     */
+    long countAllReservations();
+
+    // ========================================
     // 로그인 고객(user_id) 예약 조회
     // ========================================
 
@@ -407,6 +425,19 @@ public interface ReservationRepository {
     Long findFavoriteStaffIdByCustomerId(
             @Param("businessId") Long businessId,
             @Param("customerId") Long customerId);
+
+    // ========================================
+    // 직원 스케줄 조회
+    // ========================================
+
+    /**
+     * 직원의 날짜 범위별 예약 조회 (취소 제외)
+     */
+    List<Reservation> findByStaffIdAndDateRange(
+            @Param("businessId") Long businessId,
+            @Param("staffId") Long staffId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     // ========================================
     // Public 예약 조회 (이름+전화번호)

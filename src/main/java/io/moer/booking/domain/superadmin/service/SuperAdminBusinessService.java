@@ -13,13 +13,18 @@ import io.moer.booking.domain.business.dto.BusinessResponse;
 import io.moer.booking.domain.business.dto.BusinessSearchCondition;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
+import io.moer.booking.domain.payment.Payment;
+import io.moer.booking.domain.payment.repository.PaymentRepository;
 import io.moer.booking.domain.superadmin.dto.BulkStatusUpdateRequest;
+import io.moer.booking.domain.superadmin.dto.SuperAdminBusinessDetailResponse;
 import io.moer.booking.domain.user.User;
+import io.moer.booking.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +41,8 @@ public class SuperAdminBusinessService {
 
     private final BusinessRepository businessRepository;
     private final BusinessSettingsRepository businessSettingsRepository;
+    private final PaymentRepository paymentRepository;
+    private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
     /**
@@ -61,6 +68,27 @@ public class SuperAdminBusinessService {
                 .collect(Collectors.toList());
 
         return PageResponse.of(content, page, size, totalElements);
+    }
+
+    /**
+     * 매장 상세 조회 (구독 정보 + 최근 결제 내역 포함)
+     */
+    public SuperAdminBusinessDetailResponse getBusinessDetail(Long businessId) {
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND));
+
+        // Owner 이메일 조회
+        String ownerEmail = "";
+        if (business.getOwnerId() != null) {
+            ownerEmail = userRepository.findById(business.getOwnerId())
+                    .map(User::getEmail)
+                    .orElse("");
+        }
+
+        // 최근 결제 내역 조회 (최대 10건)
+        List<Payment> recentPayments = paymentRepository.findRecentByBusinessId(businessId, 10);
+
+        return SuperAdminBusinessDetailResponse.from(business, ownerEmail, recentPayments);
     }
 
     /**

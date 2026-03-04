@@ -7,6 +7,7 @@ import io.moer.booking.domain.customer.repository.CustomerRepository;
 import io.moer.booking.domain.dashboard.dto.*;
 import io.moer.booking.domain.reservation.ReservationStatus;
 import io.moer.booking.domain.reservation.repository.ReservationRepository;
+import io.moer.booking.domain.review.repository.ReviewRepository;
 import io.moer.booking.domain.user.User;
 import io.moer.booking.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ public class DashboardService {
     private final ReservationRepository reservationRepository;
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository;
 
     public DashboardResponse getDashboardStats(Long businessId, LocalDate date) {
         if (!businessRepository.existsById(businessId)) {
@@ -81,6 +84,60 @@ public class DashboardService {
                 .timeSlotAnalysis(timeSlotAnalysis)
                 .goalProgress(goalProgress)
                 .trialProgress(trialProgress)
+                .build();
+    }
+
+    public BasicStatsResponse getBasicStats(Long businessId, LocalDate date) {
+        if (!businessRepository.existsById(businessId)) {
+            throw new EntityNotFoundException(ErrorCode.BUSINESS_NOT_FOUND);
+        }
+
+        // 오늘 통계
+        int todayTotal = reservationRepository.countByBusinessIdAndDate(businessId, date);
+        int todayCompleted = reservationRepository.countByBusinessIdAndDateAndStatus(
+                businessId, date, ReservationStatus.COMPLETED);
+        int todayCancelled = reservationRepository.countByBusinessIdAndDateAndStatus(
+                businessId, date, ReservationStatus.CANCELLED);
+        Integer todayRevenue = reservationRepository.getRevenueByDate(businessId, date);
+
+        BasicStatsResponse.PeriodStats todayStats = BasicStatsResponse.PeriodStats.builder()
+                .reservationCount(todayTotal)
+                .completedCount(todayCompleted)
+                .cancelledCount(todayCancelled)
+                .revenue(todayRevenue != null ? todayRevenue : 0L)
+                .build();
+
+        // 이번 주 통계 (월~일)
+        LocalDate weekStart = date.minusDays(date.getDayOfWeek().getValue() - 1);
+        LocalDate weekEnd = weekStart.plusDays(6);
+
+        int weekTotal = reservationRepository.countByBusinessIdAndDateRange(businessId, weekStart, weekEnd);
+        int weekCompleted = reservationRepository.countByBusinessIdAndDateRangeAndStatus(
+                businessId, weekStart, weekEnd, ReservationStatus.COMPLETED);
+        int weekCancelled = reservationRepository.countByBusinessIdAndDateRangeAndStatus(
+                businessId, weekStart, weekEnd, ReservationStatus.CANCELLED);
+        Integer weekRevenue = reservationRepository.getRevenueByDateRange(businessId, weekStart, weekEnd);
+
+        BasicStatsResponse.PeriodStats weekStats = BasicStatsResponse.PeriodStats.builder()
+                .reservationCount(weekTotal)
+                .completedCount(weekCompleted)
+                .cancelledCount(weekCancelled)
+                .revenue(weekRevenue != null ? weekRevenue : 0L)
+                .build();
+
+        // PENDING 상태 예약 수 (오늘 기준)
+        int pendingReservations = reservationRepository.countByBusinessIdAndDateAndStatus(
+                businessId, date, ReservationStatus.PENDING);
+
+        // 미답변 리뷰 수
+        int unreadReviews = reviewRepository.countUnrepliedByBusinessId(businessId);
+
+        return BasicStatsResponse.builder()
+                .today(todayStats)
+                .thisWeek(weekStats)
+                .pendingReservations(pendingReservations)
+                .unreadReviews(unreadReviews)
+                .generatedAt(LocalDateTime.now())
                 .build();
     }
 

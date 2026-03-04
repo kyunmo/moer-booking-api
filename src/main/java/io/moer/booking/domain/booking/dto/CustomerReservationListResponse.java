@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -69,18 +70,53 @@ public class CustomerReservationListResponse {
     @Schema(description = "취소 가능 여부")
     private boolean canCancel;
 
+    @Schema(description = "취소 불가 사유", example = "예약 2시간 전까지만 취소 가능합니다")
+    private String cancelRestrictionReason;
+
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @Schema(description = "취소 가능 마감 시각", example = "2026-02-25T14:00:00")
+    private LocalDateTime cancelableUntil;
+
     @Schema(description = "리뷰 작성 여부")
     private boolean hasReview;
 
     @Schema(description = "예약 생성일시")
     private LocalDateTime createdAt;
 
+    private static final int CANCEL_DEADLINE_HOURS = 2;
+
     /**
      * Reservation 엔티티 + 부가 정보를 통해 응답 DTO를 생성합니다.
+     * 취소 가능 여부 + 불가 사유 + 취소 가능 마감 시각을 계산합니다.
      */
     public static CustomerReservationListResponse from(
             Reservation reservation, Long businessId, String businessName, String businessSlug,
             String businessProfileImageUrl, String staffName, boolean hasReview) {
+
+        // 취소 가능 여부 및 사유 계산
+        boolean statusCanCancel = reservation.canCancel();
+        LocalDateTime cancelableUntil = null;
+        String cancelRestrictionReason = null;
+        boolean canCancel = false;
+
+        if (!statusCanCancel) {
+            // 상태상 취소 불가 (CANCELLED, NO_SHOW)
+            cancelRestrictionReason = "이미 취소되었거나 노쇼 처리된 예약입니다";
+        } else {
+            // 예약 시작 시각 기준 2시간 전까지 취소 가능
+            LocalDateTime reservationStart = reservation.getReservationDate().atTime(reservation.getStartTime());
+            cancelableUntil = reservationStart.minus(CANCEL_DEADLINE_HOURS, ChronoUnit.HOURS);
+            LocalDateTime now = LocalDateTime.now();
+
+            if (now.isAfter(cancelableUntil)) {
+                // 시간 초과로 취소 불가
+                cancelRestrictionReason = "예약 " + CANCEL_DEADLINE_HOURS + "시간 전까지만 취소 가능합니다";
+                canCancel = false;
+            } else {
+                canCancel = true;
+            }
+        }
+
         return CustomerReservationListResponse.builder()
                 .reservationNumber(reservation.getReservationNumber())
                 .status(reservation.getStatus().name())
@@ -95,7 +131,9 @@ public class CustomerReservationListResponse {
                 .staffName(staffName)
                 .services(reservation.getServices())
                 .totalPrice(reservation.getTotalPrice())
-                .canCancel(reservation.canCancel())
+                .canCancel(canCancel)
+                .cancelRestrictionReason(cancelRestrictionReason)
+                .cancelableUntil(cancelableUntil)
                 .hasReview(hasReview)
                 .createdAt(reservation.getCreatedAt())
                 .build();

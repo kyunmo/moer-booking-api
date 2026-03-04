@@ -12,6 +12,7 @@ import io.moer.booking.domain.payment.PaymentStatus;
 import io.moer.booking.domain.payment.dto.PaymentCreateRequest;
 import io.moer.booking.domain.payment.dto.PaymentResponse;
 import io.moer.booking.domain.payment.dto.PaymentSearchCondition;
+import io.moer.booking.domain.payment.dto.RefundPreviewResponse;
 import io.moer.booking.domain.payment.repository.PaymentRepository;
 import io.moer.booking.domain.coupon.Coupon;
 import io.moer.booking.domain.coupon.CouponUsage;
@@ -19,6 +20,7 @@ import io.moer.booking.domain.coupon.dto.CouponResponse;
 import io.moer.booking.domain.coupon.repository.CouponRepository;
 import io.moer.booking.domain.coupon.service.CouponService;
 import io.moer.booking.domain.subscription.service.SubscriptionService;
+import io.moer.booking.domain.business.SubscriptionStatus;
 import io.moer.booking.domain.user.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,9 +103,29 @@ public class PaymentService {
 
         int finalAmount = amount - discountAmount;
 
-        // 6. 청구 기간 계산 (결제 주기에 따라)
+        // 6. 청구 기간 계산 (활성 구독 여부에 따라 연장 또는 신규)
         LocalDate today = LocalDate.now();
-        LocalDate billingEnd = billingCycle.isYearly() ? today.plusYears(1) : today.plusMonths(1);
+        boolean isExtension = false;
+        LocalDate previousBillingEndDate = null;
+        LocalDate billingStart;
+        LocalDate billingEnd;
+
+        if (business.getSubscriptionStatus() == SubscriptionStatus.ACTIVE
+                && business.getNextBillingDate() != null) {
+            // 기간 연장: 기존 billingEndDate 기준으로 연장
+            isExtension = true;
+            previousBillingEndDate = business.getNextBillingDate().toLocalDate();
+            billingStart = previousBillingEndDate;
+            billingEnd = billingCycle.isYearly()
+                    ? previousBillingEndDate.plusYears(1)
+                    : previousBillingEndDate.plusMonths(1);
+            log.info("기간 연장 결제: businessId={}, 기존종료일={}, 새종료일={}",
+                    business.getId(), previousBillingEndDate, billingEnd);
+        } else {
+            // 신규 구독
+            billingStart = today;
+            billingEnd = billingCycle.isYearly() ? today.plusYears(1) : today.plusMonths(1);
+        }
 
         // 7. Payment 생성 (PENDING)
         Payment payment = Payment.builder()
@@ -111,8 +133,10 @@ public class PaymentService {
                 .couponId(couponId)
                 .subscriptionPlan(request.getPlan())
                 .billingCycle(billingCycle)
-                .billingPeriodStart(today)
+                .billingPeriodStart(billingStart)
                 .billingPeriodEnd(billingEnd)
+                .isExtension(isExtension)
+                .previousBillingEndDate(previousBillingEndDate)
                 .amount(amount)
                 .discountAmount(discountAmount)
                 .finalAmount(finalAmount)
@@ -157,12 +181,14 @@ public class PaymentService {
                 .webhookData(pgResponse)
                 .paidAt(newStatus == PaymentStatus.COMPLETED ? LocalDateTime.now() : null)
                 .failedReason(newStatus == PaymentStatus.FAILED ? (String) pgResponse.get("failReason") : null)
+                .isExtension(isExtension)
+                .previousBillingEndDate(previousBillingEndDate)
                 .build();
 
         paymentRepository.update(updatedPayment);
 
-        log.info("결제 처리 완료: paymentId={}, status={}, txnId={}",
-                payment.getId(), newStatus, updatedPayment.getPgTransactionId());
+        log.info("결제 처리 완료: paymentId={}, status={}, txnId={}, isExtension={}",
+                payment.getId(), newStatus, updatedPayment.getPgTransactionId(), isExtension);
 
         // 10. 결제 성공 시
         if (newStatus == PaymentStatus.COMPLETED) {
@@ -178,16 +204,108 @@ public class PaymentService {
                     couponUsage.getId(), couponId, couponUsage.getDiscountAmount());
             }
 
-            // 10.2 구독 활성화
-            subscriptionService.activateSubscriptionAfterPayment(
-                    business.getId(),
-                    payment.getSubscriptionPlan(),
-                    billingCycle,
-                    billingEnd.atStartOfDay()
-            );
-            log.info("구독 활성화 완료: businessId={}, plan={}, billingCycle={}",
-                    business.getId(), payment.getSubscriptionPlan(), billingCycle);
+            // 10.2 구독 활성화 또는 기간 연장
+            if (isExtension) {
+                subscriptionService.extendSubscriptionAfterPayment(
+                        business.getId(),
+                        billingEnd.atStartOfDay()
+                );
+                log.info("구독 기간 연장 완료: businessId={}, 이전종료일={}, 새종료일={}",
+                        business.getId(), previousBillingEndDate, billingEnd);
+            } else {
+                subscriptionService.activateSubscriptionAfterPayment(
+                        business.getId(),
+                        payment.getSubscriptionPlan(),
+                        billingCycle,
+                        billingEnd.atStartOfDay()
+                );
+                log.info("구독 활성화 완료: businessId={}, plan={}, billingCycle={}",
+                        business.getId(), payment.getSubscriptionPlan(), billingCycle);
+            }
         }
+
+        return PaymentResponse.from(updatedPayment);
+    }
+
+    /**
+     * 결제 취소 처리
+     *
+     * PENDING → 즉시 취소 (환불 없음)
+     * COMPLETED → 취소 + 자동 환불 (PG 취소 API 연동)
+     * FAILED/REFUNDED/CANCELLED → 취소 불가
+     */
+    @Transactional
+    public PaymentResponse cancelPayment(Long paymentId, String reason) {
+        log.info("결제 취소 요청: paymentId={}, reason={}", paymentId, reason);
+
+        // 1. Payment 조회
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        // 2. 이미 취소된 결제 체크
+        if (payment.isCancelled()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_CANCELLED);
+        }
+
+        // 3. 취소 가능 여부 확인
+        if (!payment.canCancel()) {
+            throw new BusinessException(
+                    ErrorCode.PAYMENT_CANNOT_CANCEL,
+                    "취소할 수 없는 결제 상태입니다 (현재 상태: " + payment.getPaymentStatus() + ")"
+            );
+        }
+
+        // 4. COMPLETED 상태이면 PG 환불 처리
+        Integer refundAmount = null;
+        LocalDateTime refundedAt = null;
+        if (payment.isCompleted()) {
+            refundAmount = payment.getFinalAmount(); // 취소는 전액 환불
+            fakePGService.requestRefund(
+                    payment.getPgTransactionId(),
+                    refundAmount,
+                    reason
+            );
+            refundedAt = LocalDateTime.now();
+
+            // 쿠폰 사용 취소
+            couponService.cancelCouponUsage(paymentId);
+
+            log.info("결제 취소 환불 처리: paymentId={}, 환불금액={}원", paymentId, refundAmount);
+        }
+
+        // 5. Payment 상태 업데이트 (CANCELLED)
+        Payment updatedPayment = Payment.builder()
+                .id(payment.getId())
+                .businessId(payment.getBusinessId())
+                .couponId(payment.getCouponId())
+                .subscriptionPlan(payment.getSubscriptionPlan())
+                .billingCycle(payment.getBillingCycle())
+                .billingPeriodStart(payment.getBillingPeriodStart())
+                .billingPeriodEnd(payment.getBillingPeriodEnd())
+                .amount(payment.getAmount())
+                .discountAmount(payment.getDiscountAmount())
+                .finalAmount(payment.getFinalAmount())
+                .couponCode(payment.getCouponCode())
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentStatus(PaymentStatus.CANCELLED)
+                .pgProvider(payment.getPgProvider())
+                .pgTransactionId(payment.getPgTransactionId())
+                .webhookReceivedAt(payment.getWebhookReceivedAt())
+                .webhookData(payment.getWebhookData())
+                .paidAt(payment.getPaidAt())
+                .failedReason(payment.getFailedReason())
+                .refundedAt(refundedAt != null ? refundedAt : payment.getRefundedAt())
+                .refundAmount(refundAmount != null ? refundAmount : payment.getRefundAmount())
+                .cancelReason(reason)
+                .cancelledAt(LocalDateTime.now())
+                .isExtension(payment.getIsExtension())
+                .previousBillingEndDate(payment.getPreviousBillingEndDate())
+                .build();
+
+        paymentRepository.update(updatedPayment);
+
+        log.info("결제 취소 완료: paymentId={}, 이전상태={}, cancelReason={}",
+                paymentId, payment.getPaymentStatus(), reason);
 
         return PaymentResponse.from(updatedPayment);
     }
@@ -266,13 +384,75 @@ public class PaymentService {
     }
 
     /**
+     * 환불 미리보기
+     * 환불 전 예상 금액 및 일할계산 상세 정보 제공
+     */
+    public RefundPreviewResponse getRefundPreview(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        if (!payment.canRefund()) {
+            throw new BusinessException(
+                    ErrorCode.PAYMENT_CANNOT_REFUND,
+                    "환불할 수 없는 결제입니다 (현재 상태: " + payment.getPaymentStatus() + ")"
+            );
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate start = payment.getBillingPeriodStart();
+        LocalDate end = payment.getBillingPeriodEnd();
+
+        long totalDays = java.time.temporal.ChronoUnit.DAYS.between(start, end);
+        long usedDays = java.time.temporal.ChronoUnit.DAYS.between(start, today);
+        long remainingDays = java.time.temporal.ChronoUnit.DAYS.between(today, end);
+
+        // 음수 보정
+        if (usedDays < 0) usedDays = 0;
+        if (remainingDays < 0) remainingDays = 0;
+        if (totalDays <= 0) totalDays = 1;
+
+        int refundAmount = calculateProRataRefund(payment);
+        boolean isFullRefund = refundAmount == payment.getFinalAmount();
+        int usagePercent = (int) Math.round((double) usedDays / totalDays * 100);
+
+        // formula 문자열 생성
+        String formula;
+        if (isFullRefund) {
+            if (!today.isAfter(start)) {
+                formula = String.format("%,d원 (결제 당일 전액 환불)", payment.getFinalAmount());
+            } else {
+                formula = String.format("%,d원 (7일 이내 전액 환불)", payment.getFinalAmount());
+            }
+        } else if (refundAmount == 0) {
+            formula = "0원 (청구 기간 만료)";
+        } else {
+            formula = String.format("%,d원 x (%d일 / %d일)",
+                    payment.getFinalAmount(), remainingDays, totalDays);
+        }
+
+        return RefundPreviewResponse.builder()
+                .paymentId(payment.getId())
+                .originalAmount(payment.getFinalAmount())
+                .refundAmount(refundAmount)
+                .usedDays(usedDays)
+                .remainingDays(remainingDays)
+                .totalDays(totalDays)
+                .usagePercent(usagePercent)
+                .isFullRefund(isFullRefund)
+                .formula(formula)
+                .build();
+    }
+
+    /**
      * 일할 계산 환불 금액 산정
      *
      * 계산 공식: finalAmount × (잔여일수 / 총일수)
      * - 결제 당일 환불 → 전액 환불
+     * - 7일 이내 환불 → 전액 환불 (정책)
      * - 청구 기간 만료 후 → 환불 0원
      *
      * 예시 (월간 19,800원 기준, 30일 청구):
+     * - 7일 이내 → 19,800원 (전액 환불)
      * - 10일 사용 → 19,800 × 20/30 = 13,200원 환불
      * - 20일 사용 → 19,800 × 10/30 = 6,600원 환불
      * - 25일 사용 → 19,800 × 5/30 = 3,300원 환불
@@ -290,6 +470,12 @@ public class PaymentService {
         // 청구 기간 만료 후 → 환불 불가
         if (!today.isBefore(end)) {
             return 0;
+        }
+
+        // 7일 이내 환불 → 전액 환불 (정책)
+        long usedDays = java.time.temporal.ChronoUnit.DAYS.between(start, today);
+        if (usedDays <= 7) {
+            return payment.getFinalAmount();
         }
 
         // 일할 계산

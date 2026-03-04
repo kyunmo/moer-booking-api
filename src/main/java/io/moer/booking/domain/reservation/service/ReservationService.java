@@ -10,7 +10,9 @@ import io.moer.booking.domain.customer.repository.CustomerRepository;
 import io.moer.booking.domain.customer.service.CustomerHistoryService;
 import io.moer.booking.domain.customer.service.CustomerService;
 import io.moer.booking.domain.notification.NotificationType;
+import io.moer.booking.domain.notification.dto.SseEventData;
 import io.moer.booking.domain.notification.service.NotificationService;
+import io.moer.booking.domain.notification.service.SseEmitterService;
 import io.moer.booking.domain.notificationlog.dto.NotificationSender;
 import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.holiday.repository.SpecialHolidayRepository;
@@ -59,6 +61,7 @@ public class ReservationService {
     private final CustomerHistoryService customerHistoryService;
     private final UsageLimitService usageLimitService;
     private final NotificationService notificationService;
+    private final SseEmitterService sseEmitterService;
     private final NotificationSender notificationSender;
     private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
 
@@ -176,7 +179,20 @@ public class ReservationService {
         // 13. 알림 생성 (매장 OWNER에게)
         sendReservationNotification(business, reservation, customer.getName(), NotificationType.RESERVATION_NEW);
 
-        // 13-1. 외부 알림 로그 기록 (고객에게)
+        // 13-1. SSE 실시간 이벤트 발송
+        String sseServiceName = services.stream().map(Service::getName).collect(Collectors.joining(", "));
+        sseEmitterService.sendEventToBusinessOwner(businessId, "RESERVATION_CREATED", SseEventData.builder()
+                .type("RESERVATION_CREATED")
+                .referenceId(reservation.getId())
+                .reservationNumber(reservation.getReservationNumber())
+                .customerName(customer.getName())
+                .serviceName(sseServiceName)
+                .startTime(reservation.getReservationDate() + " " + reservation.getStartTime())
+                .message("새 예약이 들어왔습니다.")
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        // 13-2. 외부 알림 로그 기록 (고객에게)
         String serviceName = services.stream().map(Service::getName).collect(Collectors.joining(", "));
         sendExternalNotificationLog(business, reservation, customer.getPhone(), customer.getName(),
                 serviceName, "created");
@@ -492,6 +508,118 @@ public class ReservationService {
     }
 
     // ========================================
+    // 일정 변경 (Reschedule)
+    // ========================================
+
+    /**
+     * 예약 일정 변경 (날짜/시간/직원 변경)
+     * - 취소/완료 상태의 예약은 변경 불가
+     * - 기존 검증 로직(휴무일, 근무시간, 시간 충돌) 재사용
+     * - 시간 충돌 검증 시 자기 자신은 제외
+     */
+    @Transactional
+    public RescheduleResponse reschedule(Long businessId, Long reservationId, RescheduleRequest request) {
+        // 1. 예약 존재 확인
+        if (!reservationRepository.existsByBusinessIdAndId(businessId, reservationId)) {
+            throw new EntityNotFoundException(ErrorCode.RESERVATION_NOT_FOUND,
+                    "예약을 찾을 수 없습니다: " + reservationId);
+        }
+
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.RESERVATION_NOT_FOUND,
+                        "예약을 찾을 수 없습니다: " + reservationId));
+
+        // 2. 상태 확인 (CANCELLED, COMPLETED이면 변경 불가)
+        if (reservation.getStatus() == ReservationStatus.CANCELLED ||
+                reservation.getStatus() == ReservationStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.RESCHEDULE_INVALID_STATUS,
+                    "취소/완료된 예약은 일정을 변경할 수 없습니다");
+        }
+
+        // 3. 이전 일정 정보 저장 (응답용)
+        LocalDate previousDate = reservation.getReservationDate();
+        LocalTime previousStartTime = reservation.getStartTime();
+
+        // 4. staffId 결정 (요청에 없으면 기존 유지)
+        Long staffId = request.getStaffId() != null ? request.getStaffId() : reservation.getStaffId();
+
+        // Staff 변경 시 존재 및 매장 소속 확인
+        if (request.getStaffId() != null) {
+            Staff staff = staffRepository.findById(request.getStaffId())
+                    .orElseThrow(() -> new EntityNotFoundException(ErrorCode.STAFF_NOT_FOUND,
+                            "직원을 찾을 수 없습니다: " + request.getStaffId()));
+
+            if (!staff.getBusinessId().equals(businessId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "다른 매장의 직원입니다");
+            }
+        }
+
+        // 5. endTime 결정 (요청에 없으면 기존 소요시간 유지)
+        LocalTime newEndTime;
+        if (request.getNewEndTime() != null) {
+            newEndTime = request.getNewEndTime();
+        } else {
+            // 기존 duration 계산하여 새 시작 시간에 적용
+            long durationMinutes = java.time.Duration.between(
+                    reservation.getStartTime(), reservation.getEndTime()).toMinutes();
+            newEndTime = request.getNewStartTime().plusMinutes(durationMinutes);
+        }
+
+        // 6. 예약 가능 여부 검증 (휴무일, 근무시간, 시간 충돌 - 자기 자신 제외)
+        validateReservation(businessId, staffId, request.getNewDate(),
+                request.getNewStartTime(), newEndTime, reservationId);
+
+        // 7. 예약 일정 업데이트
+        reservationRepository.updateSchedule(reservationId,
+                request.getNewDate(), request.getNewStartTime(), newEndTime, staffId);
+
+        log.info("Reservation rescheduled: id={}, businessId={}, {} {} -> {} {}-{}",
+                reservationId, businessId, previousDate, previousStartTime,
+                request.getNewDate(), request.getNewStartTime(), newEndTime);
+
+        // 8. 알림 생성 (매장 관리자에게)
+        Business business = businessRepository.findById(businessId).orElse(null);
+        Customer customer = customerRepository.findById(reservation.getCustomerId()).orElse(null);
+        String customerName = customer != null ? customer.getName() : null;
+        if (business != null) {
+            sendReservationNotification(business, reservation, customerName,
+                    NotificationType.RESERVATION_CONFIRMED);
+        }
+
+        // 9. 직원명 조회
+        String staffName = null;
+        if (staffId != null) {
+            Staff staff = staffRepository.findById(staffId).orElse(null);
+            if (staff != null) {
+                staffName = staff.getName();
+            }
+        }
+
+        // 10. 서비스명 조합
+        String serviceName = reservation.getServiceNames() != null
+                ? String.join(", ", reservation.getServiceNames()) : null;
+
+        // 11. 업데이트된 예약 다시 조회하여 updatedAt 반영
+        Reservation updatedReservation = reservationRepository.findById(reservationId).orElse(reservation);
+
+        // 12. RescheduleResponse 반환
+        return RescheduleResponse.builder()
+                .id(reservationId)
+                .reservationNumber(reservation.getReservationNumber())
+                .customerName(customerName)
+                .serviceName(serviceName)
+                .staffName(staffName)
+                .previousDate(previousDate)
+                .previousStartTime(previousStartTime)
+                .newDate(request.getNewDate())
+                .newStartTime(request.getNewStartTime())
+                .newEndTime(newEndTime)
+                .status(reservation.getStatus().name())
+                .updatedAt(updatedReservation.getUpdatedAt())
+                .build();
+    }
+
+    // ========================================
     // 상태 변경
     // ========================================
 
@@ -692,6 +820,18 @@ public class ReservationService {
         String cancelledCustomerName = cancelledCustomer != null ? cancelledCustomer.getName() : null;
         if (cancelledBusiness != null) {
             sendReservationNotification(cancelledBusiness, reservation, cancelledCustomerName, NotificationType.RESERVATION_CANCELLED);
+
+            // SSE 실시간 이벤트 발송
+            sseEmitterService.sendEventToBusinessOwner(businessId, "RESERVATION_CANCELLED", SseEventData.builder()
+                    .type("RESERVATION_CANCELLED")
+                    .referenceId(reservation.getId())
+                    .reservationNumber(reservation.getReservationNumber())
+                    .customerName(cancelledCustomerName)
+                    .startTime(reservation.getReservationDate() + " " + reservation.getStartTime())
+                    .reason(reason)
+                    .message("예약이 취소되었습니다.")
+                    .createdAt(LocalDateTime.now())
+                    .build());
 
             // 외부 알림 로그 기록 (고객에게)
             if (cancelledCustomer != null) {

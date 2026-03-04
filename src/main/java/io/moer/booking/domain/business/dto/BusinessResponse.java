@@ -5,6 +5,9 @@ import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.BusinessStatus;
 import io.moer.booking.domain.business.BusinessType;
+import io.moer.booking.domain.business.BillingCycle;
+import io.moer.booking.domain.business.SubscriptionPlan;
+import io.moer.booking.domain.business.SubscriptionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -38,6 +41,16 @@ public class BusinessResponse {
     private Integer monthlyRevenueGoal;
     private Integer monthlyNewCustomerGoal;
 
+    // 구독 정보
+    private SubscriptionPlan subscriptionPlan;
+    private SubscriptionStatus subscriptionStatus;
+    private BillingCycle billingCycle;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime nextBillingDate;
+
+    private Boolean isTrialActive;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
@@ -69,6 +82,11 @@ public class BusinessResponse {
                 .dailyRevenueGoal(business.getDailyRevenueGoal())
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
+                .subscriptionPlan(business.getSubscriptionPlan())
+                .subscriptionStatus(business.getSubscriptionStatus())
+                .billingCycle(business.getBillingCycle())
+                .nextBillingDate(business.getNextBillingDate())
+                .isTrialActive(business.isTrialActive())
                 .createdAt(business.getCreatedAt())
                 .updatedAt(business.getUpdatedAt())
                 .build();
@@ -96,6 +114,11 @@ public class BusinessResponse {
                 .dailyRevenueGoal(business.getDailyRevenueGoal())
                 .monthlyRevenueGoal(business.getMonthlyRevenueGoal())
                 .monthlyNewCustomerGoal(business.getMonthlyNewCustomerGoal())
+                .subscriptionPlan(business.getSubscriptionPlan())
+                .subscriptionStatus(business.getSubscriptionStatus())
+                .billingCycle(business.getBillingCycle())
+                .nextBillingDate(business.getNextBillingDate())
+                .isTrialActive(business.isTrialActive())
                 .createdAt(business.getCreatedAt())
                 .updatedAt(business.getUpdatedAt())
                 .settings(settings)

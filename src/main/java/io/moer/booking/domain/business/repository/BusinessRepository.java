@@ -68,6 +68,20 @@ public interface BusinessRepository {
     );
 
     // ========================================
+    // Platform 통계 (Public)
+    // ========================================
+
+    /**
+     * 활성 매장 수 (status = ACTIVE)
+     */
+    long countActiveBusinesses();
+
+    /**
+     * 활성 구독 매장 수 (subscription_status IN (ACTIVE, TRIAL))
+     */
+    long countActiveSubscriptions();
+
+    // ========================================
     // 배치 작업용 쿼리
     // ========================================
 
@@ -98,4 +112,28 @@ public interface BusinessRepository {
      * 최근 만료된 매장 조회
      */
     List<Business> findRecentlyExpired(@Param("since") java.time.LocalDateTime since);
+
+    // ========================================
+    // 위치 기반 매장 검색
+    // ========================================
+
+    /**
+     * 위치 기반 매장 검색 (Haversine 거리 계산)
+     */
+    List<Business> searchNearby(@Param("lat") double lat,
+                                @Param("lng") double lng,
+                                @Param("radiusKm") int radiusKm,
+                                @Param("businessType") String businessType,
+                                @Param("keyword") String keyword,
+                                @Param("size") int size,
+                                @Param("offset") int offset);
+
+    /**
+     * 위치 기반 매장 검색 결과 수
+     */
+    int countSearchNearby(@Param("lat") double lat,
+                          @Param("lng") double lng,
+                          @Param("radiusKm") int radiusKm,
+                          @Param("businessType") String businessType,
+                          @Param("keyword") String keyword);
 }

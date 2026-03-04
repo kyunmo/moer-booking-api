@@ -166,7 +166,16 @@ public class CustomerBookingService {
 
         if (!reservation.canCancel()) {
             throw new BusinessException(ErrorCode.RESERVATION_ALREADY_CANCELLED,
-                    "취소할 수 없는 예약입니다");
+                    "이미 취소되었거나 노쇼 처리된 예약입니다");
+        }
+
+        // 시간 기반 취소 검증 (예약 2시간 전까지만 취소 가능)
+        LocalDateTime reservationStart = reservation.getReservationDate()
+                .atTime(reservation.getStartTime());
+        LocalDateTime cancelDeadline = reservationStart.minusHours(2);
+        if (LocalDateTime.now().isAfter(cancelDeadline)) {
+            throw new BusinessException(ErrorCode.RESERVATION_CANCEL_DEADLINE_PASSED,
+                    "예약 2시간 전까지만 취소 가능합니다");
         }
 
         // 취소 처리 (userId 기반 본인 확인 완료, 전화번호 검증 불필요)

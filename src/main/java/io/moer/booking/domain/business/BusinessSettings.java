@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 매장 설정 엔티티
@@ -95,6 +96,21 @@ public class BusinessSettings {
      * 기본값: N
      */
     private String kakaoEnabled;
+
+    /**
+     * 카카오 발신 프로필 키
+     */
+    private String kakaoSenderId;
+
+    /**
+     * 카카오 알림톡 트리거 설정 (JSONB)
+     */
+    private Map<String, Object> kakaoAlimtalkTriggers;
+
+    /**
+     * 카카오 채널 인증 일시
+     */
+    private LocalDateTime kakaoVerifiedAt;
 
     // ========================================
     // 결제 설정

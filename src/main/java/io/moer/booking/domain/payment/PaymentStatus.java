@@ -12,7 +12,8 @@ public enum PaymentStatus {
     PENDING("결제 대기"),
     COMPLETED("결제 완료"),
     FAILED("결제 실패"),
-    REFUNDED("환불 완료");
+    REFUNDED("환불 완료"),
+    CANCELLED("결제 취소");
 
     private final String description;
 
@@ -24,7 +25,15 @@ public enum PaymentStatus {
         return this == COMPLETED;
     }
 
+    public boolean canCancel() {
+        return this == PENDING || this == COMPLETED;
+    }
+
     public boolean isPending() {
         return this == PENDING;
+    }
+
+    public boolean isCancelled() {
+        return this == CANCELLED;
     }
 }

@@ -4,12 +4,17 @@ import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.domain.booking.dto.NearbyBusinessResponse;
+import io.moer.booking.domain.booking.dto.NearbyBusinessSearchCondition;
+import io.moer.booking.domain.booking.dto.PlatformStatsResponse;
 import io.moer.booking.domain.booking.dto.PublicBusinessDetailResponse;
 import io.moer.booking.domain.booking.dto.PublicBusinessListResponse;
 import io.moer.booking.domain.booking.dto.PublicBusinessSearchCondition;
 import io.moer.booking.domain.booking.dto.SlugCheckResponse;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.repository.BusinessRepository;
+import io.moer.booking.domain.reservation.repository.ReservationRepository;
+import io.moer.booking.domain.review.repository.ReviewRepository;
 import io.moer.booking.domain.service.Service;
 import io.moer.booking.domain.service.repository.ServiceRepository;
 import io.moer.booking.domain.staff.Portfolio;
@@ -20,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +44,8 @@ import java.util.stream.Collectors;
 public class PublicBusinessService {
 
     private final BusinessRepository businessRepository;
+    private final ReservationRepository reservationRepository;
+    private final ReviewRepository reviewRepository;
     private final ServiceRepository serviceRepository;
     private final StaffRepository staffRepository;
     private final PortfolioRepository portfolioRepository;
@@ -89,6 +97,45 @@ public class PublicBusinessService {
     }
 
     // ========================================
+    // 위치 기반 매장 검색 (Nearby)
+    // ========================================
+
+    /**
+     * 위치 기반 매장 검색
+     * Haversine 공식으로 거리 계산 후 반경 내 매장만 반환
+     */
+    public Map<String, Object> searchNearbyBusinesses(NearbyBusinessSearchCondition condition) {
+        int size = condition.getSizeOrDefault();
+        int offset = condition.getOffset();
+        int radius = condition.getRadiusOrDefault();
+
+        List<Business> businesses = businessRepository.searchNearby(
+                condition.getLat(), condition.getLng(), radius,
+                condition.getBusinessType(), condition.getKeyword(),
+                size, offset);
+
+        int totalCount = businessRepository.countSearchNearby(
+                condition.getLat(), condition.getLng(), radius,
+                condition.getBusinessType(), condition.getKeyword());
+
+        // distance 계산 (Java side - for response)
+        List<NearbyBusinessResponse> items = businesses.stream()
+                .map(b -> {
+                    double distance = calculateDistance(condition.getLat(), condition.getLng(),
+                            b.getLatitude(), b.getLongitude());
+                    return NearbyBusinessResponse.from(b, distance);
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", items);
+        result.put("total", totalCount);
+        result.put("page", condition.getPageOrDefault());
+        result.put("size", size);
+        return result;
+    }
+
+    // ========================================
     // 매장 상세 조회 (Public)
     // ========================================
 
@@ -132,6 +179,37 @@ public class PublicBusinessService {
                 staffs != null ? staffs.size() : 0);
 
         return PublicBusinessDetailResponse.from(business, services, staffs, portfolioCounts);
+    }
+
+    // ========================================
+    // 플랫폼 통계 (랜딩 페이지)
+    // ========================================
+
+    /**
+     * 플랫폼 전체 통계 조회 (랜딩 페이지용)
+     * 인증 없이 접근 가능
+     *
+     * @return 플랫폼 통계 (매장 수, 예약 수, 리뷰 수, 평균 평점, 활성 구독 수)
+     */
+    public PlatformStatsResponse getPlatformStats() {
+        long totalBusinesses = businessRepository.countActiveBusinesses();
+        long totalReservations = reservationRepository.countAllReservations();
+        long totalReviews = reviewRepository.countAllActiveReviews();
+        Double avgRating = reviewRepository.getOverallAverageRating();
+        long activePlans = businessRepository.countActiveSubscriptions();
+
+        double roundedRating = avgRating != null
+                ? Math.round(avgRating * 10.0) / 10.0
+                : 0.0;
+
+        return PlatformStatsResponse.builder()
+                .totalBusinesses(totalBusinesses)
+                .totalReservations(totalReservations)
+                .totalReviews(totalReviews)
+                .avgRating(roundedRating)
+                .activePlansCount(activePlans)
+                .updatedAt(LocalDateTime.now())
+                .build();
     }
 
     // ========================================
@@ -252,6 +330,21 @@ public class PublicBusinessService {
             return false;
         }
         return slug.matches("^[a-z0-9][a-z0-9-]*[a-z0-9]$");
+    }
+
+    /**
+     * Haversine 거리 계산 (km)
+     */
+    private double calculateDistance(double lat1, double lng1, Double lat2, Double lng2) {
+        if (lat2 == null || lng2 == null) return 0;
+        double R = 6371;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 
     /**

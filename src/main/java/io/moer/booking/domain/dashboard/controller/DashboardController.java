@@ -2,6 +2,7 @@ package io.moer.booking.domain.dashboard.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.security.CustomUserDetails;
+import io.moer.booking.domain.dashboard.dto.BasicStatsResponse;
 import io.moer.booking.domain.dashboard.dto.DashboardResponse;
 import io.moer.booking.domain.dashboard.dto.GoalStatsResponse;
 import io.moer.booking.domain.dashboard.dto.PeriodStatsResponse;
@@ -32,6 +33,17 @@ public class DashboardController {
 
         LocalDate targetDate = date != null ? date : LocalDate.now();
         DashboardResponse response = dashboardService.getDashboardStats(businessId, targetDate);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "기본 통계 (FREE 플랜)", description = "모든 플랜에서 사용 가능한 기본 통계를 조회합니다.")
+    @GetMapping("/basic-stats")
+    public ApiResponse<BasicStatsResponse> getBasicStats(
+            @PathVariable Long businessId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        userDetails.getUser().canAccessBusiness(businessId);
+        LocalDate today = LocalDate.now();
+        BasicStatsResponse response = dashboardService.getBasicStats(businessId, today);
         return ApiResponse.success(response);
     }
 

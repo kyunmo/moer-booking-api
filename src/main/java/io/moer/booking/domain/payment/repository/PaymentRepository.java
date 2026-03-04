@@ -48,4 +48,9 @@ public interface PaymentRepository {
      * 매장의 최근 결제 조회
      */
     Optional<Payment> findLatestByBusinessId(@Param("businessId") Long businessId);
+
+    /**
+     * 매장의 최근 결제 목록 조회 (최신 순, 개수 제한)
+     */
+    List<Payment> findRecentByBusinessId(@Param("businessId") Long businessId, @Param("limit") int limit);
 }
