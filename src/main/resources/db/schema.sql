@@ -135,7 +135,9 @@ CREATE TABLE businesses (
     owner_id BIGINT NOT NULL,
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(50) UNIQUE,
-    business_type VARCHAR(50) NOT NULL,
+    -- SECURITY (P3-1): enum 컬럼 CHECK 제약
+    business_type VARCHAR(50) NOT NULL
+        CHECK (business_type IN ('BEAUTY_SHOP', 'PILATES', 'YOGA', 'CAFE', 'STUDY_CAFE', 'WORKSHOP', 'ACADEMY', 'PET_SALON', 'OTHER')),
     phone VARCHAR(20),
     address TEXT,
     address_detail VARCHAR(200),
@@ -149,13 +151,17 @@ CREATE TABLE businesses (
     average_rating DOUBLE PRECISION,
     review_count INTEGER DEFAULT 0,
     business_hours JSONB,
-    status VARCHAR(20) DEFAULT 'ACTIVE',
+    status VARCHAR(20) DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED')),
     daily_revenue_goal INTEGER,
     monthly_revenue_goal INTEGER,
     monthly_new_customer_goal INTEGER,
-    subscription_plan VARCHAR(20) DEFAULT 'FREE',
-    billing_cycle VARCHAR(10) DEFAULT 'MONTHLY',
-    subscription_status VARCHAR(20) DEFAULT 'TRIAL',
+    subscription_plan VARCHAR(20) DEFAULT 'FREE'
+        CHECK (subscription_plan IN ('FREE', 'BASIC')),
+    billing_cycle VARCHAR(10) DEFAULT 'MONTHLY'
+        CHECK (billing_cycle IN ('MONTHLY', 'YEARLY')),
+    subscription_status VARCHAR(20) DEFAULT 'TRIAL'
+        CHECK (subscription_status IN ('TRIAL', 'ACTIVE', 'EXPIRED', 'CANCELED', 'SUSPENDED')),
     trial_started_at TIMESTAMP,
     trial_ends_at TIMESTAMP,
     subscription_started_at TIMESTAMP,
@@ -518,7 +524,9 @@ CREATE TABLE reservations (
     services JSONB NOT NULL,
     total_duration INTEGER NOT NULL,
     total_price INTEGER NOT NULL,
-    status VARCHAR(20) DEFAULT 'PENDING',
+    -- SECURITY (P3-1): 예약 상태 CHECK 제약
+    status VARCHAR(20) DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW')),
     reservation_number VARCHAR(50) NOT NULL,
     customer_memo TEXT,
     staff_memo TEXT,
@@ -586,7 +594,9 @@ CREATE TABLE audit_logs (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT,
     user_email VARCHAR(100),
-    user_role VARCHAR(20),
+    -- SECURITY (P3-1): user_role CHECK (NULL 허용)
+    user_role VARCHAR(20)
+        CHECK (user_role IS NULL OR user_role IN ('SUPER_ADMIN', 'ADMIN', 'OWNER', 'STAFF', 'CUSTOMER')),
     action VARCHAR(50) NOT NULL,
     entity_type VARCHAR(50),
     entity_id BIGINT,
@@ -627,7 +637,9 @@ CREATE TABLE business_coupons (
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    coupon_type VARCHAR(20) NOT NULL,
+    -- SECURITY (P3-1): 쿠폰 타입/상태 CHECK 제약
+    coupon_type VARCHAR(20) NOT NULL
+        CHECK (coupon_type IN ('PERCENTAGE', 'FIXED_AMOUNT')),
     discount_amount INTEGER,
     discount_percentage INTEGER,
     max_discount_amount INTEGER,
@@ -636,7 +648,8 @@ CREATE TABLE business_coupons (
     current_usage_count INTEGER DEFAULT 0,
     valid_from TIMESTAMP NOT NULL,
     valid_until TIMESTAMP NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'EXPIRED', 'DISABLED')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_business_coupons_business FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
@@ -657,7 +670,9 @@ CREATE TABLE coupons (
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    discount_type VARCHAR(20) NOT NULL,
+    -- SECURITY (P3-1): 시스템 쿠폰 타입/상태 CHECK 제약
+    discount_type VARCHAR(20) NOT NULL
+        CHECK (discount_type IN ('PERCENTAGE', 'FIXED_AMOUNT')),
     discount_value INTEGER NOT NULL,
     max_discount_amount INTEGER,
     applicable_plans TEXT,
@@ -667,7 +682,8 @@ CREATE TABLE coupons (
     max_total_uses INTEGER,
     current_total_uses INTEGER DEFAULT 0,
     max_uses_per_business INTEGER DEFAULT 1,
-    status VARCHAR(20) DEFAULT 'ACTIVE',
+    status VARCHAR(20) DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'EXPIRED', 'DISABLED')),
     created_by BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -706,16 +722,21 @@ CREATE TABLE payments (
     id BIGSERIAL PRIMARY KEY,
     business_id BIGINT NOT NULL,
     coupon_id BIGINT,
-    subscription_plan VARCHAR(20) NOT NULL,
-    billing_cycle VARCHAR(10),
+    -- SECURITY (P3-1): 결제 플랜/주기/수단/상태 CHECK 제약
+    subscription_plan VARCHAR(20) NOT NULL
+        CHECK (subscription_plan IN ('FREE', 'BASIC')),
+    billing_cycle VARCHAR(10)
+        CHECK (billing_cycle IS NULL OR billing_cycle IN ('MONTHLY', 'YEARLY')),
     billing_period_start DATE NOT NULL,
     billing_period_end DATE NOT NULL,
     amount INTEGER NOT NULL,
     discount_amount INTEGER DEFAULT 0,
     final_amount INTEGER NOT NULL,
     coupon_code VARCHAR(50),
-    payment_method VARCHAR(20) DEFAULT 'CARD',
-    payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    payment_method VARCHAR(20) DEFAULT 'CARD'
+        CHECK (payment_method IN ('CARD', 'BANK_TRANSFER', 'VIRTUAL_ACCOUNT', 'MOBILE')),
+    payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (payment_status IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED')),
     pg_provider VARCHAR(50),
     pg_transaction_id VARCHAR(200),
     webhook_received_at TIMESTAMP,
@@ -891,7 +912,9 @@ CREATE TABLE reviews (
     rating INTEGER NOT NULL,
     content TEXT,
     images JSONB,
-    status VARCHAR(20) DEFAULT 'ACTIVE',
+    -- SECURITY (P3-1): 리뷰 상태 CHECK 제약
+    status VARCHAR(20) DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'HIDDEN', 'DELETED')),
     reply_content TEXT,
     reply_created_at TIMESTAMP,
     delete_reason TEXT,
@@ -939,7 +962,9 @@ CREATE TABLE notification_logs (
     recipient_name VARCHAR(50),
     title VARCHAR(200),
     content TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    -- SECURITY (P3-1): 알림 발송 상태 CHECK 제약
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
     error_message TEXT,
     sent_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -984,9 +1009,12 @@ CREATE TABLE IF NOT EXISTS inquiries (
     name VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
-    type VARCHAR(30) NOT NULL DEFAULT 'GENERAL',
+    -- SECURITY (P3-1): 문의 유형/상태 CHECK 제약
+    type VARCHAR(30) NOT NULL DEFAULT 'GENERAL'
+        CHECK (type IN ('GENERAL', 'FEATURE_REQUEST', 'BUG_REPORT', 'PARTNERSHIP')),
     content TEXT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')),
     admin_note TEXT,
     ip_address VARCHAR(45),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1059,11 +1087,15 @@ CREATE TABLE IF NOT EXISTS broadcasts (
     id BIGSERIAL PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
     content TEXT NOT NULL,
-    target_type VARCHAR(20) NOT NULL DEFAULT 'ALL',
-    priority VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+    -- SECURITY (P3-1): 방송 대상/우선순위/상태 CHECK 제약
+    target_type VARCHAR(20) NOT NULL DEFAULT 'ALL'
+        CHECK (target_type IN ('ALL', 'PAID', 'TRIAL', 'FREE')),
+    priority VARCHAR(20) NOT NULL DEFAULT 'NORMAL'
+        CHECK (priority IN ('LOW', 'NORMAL', 'HIGH', 'URGENT')),
     sent_by BIGINT NOT NULL,
     sent_at TIMESTAMP,
-    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+        CHECK (status IN ('DRAFT', 'SENT')),
     recipient_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
