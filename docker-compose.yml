@@ -2,14 +2,14 @@ version: '3.8'
 
 services:
   # moer 전용 PostgreSQL
+  # SECURITY: 비밀번호 등 시크릿은 .env 파일 또는 환경변수로 주입 (저장소에 평문 금지)
   chatbot-db:
     image: postgres:16
     container_name: moer-postgresql
     environment:
-      POSTGRES_DB: moer_dev
-      POSTGRES_USER: moer
-      POSTGRES_PASSWORD: moer2026@
-      POSTGRES_ROOT_PASSWORD: root2025@
+      POSTGRES_DB: ${POSTGRES_DB:-moer_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-moer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 환경변수가 필요합니다}
       TZ: Asia/Seoul
     ports:
       - "5432:5432"
@@ -20,7 +20,7 @@ services:
       - db-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-moer} -d ${POSTGRES_DB:-moer_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5

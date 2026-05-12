@@ -1,5 +1,6 @@
 package io.moer.booking.common.service;
 
+import io.moer.booking.common.util.MaskingUtils;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -61,10 +62,13 @@ public class EmailService {
             // 이메일 발송
             mailSender.send(message);
 
-            log.info("Password reset email sent successfully: to={}, token={}", to, token.substring(0, 8) + "...");
+            // SECURITY (P1-7): PII 로그 마스킹
+            log.info("Password reset email sent successfully: to={}, token={}",
+                    MaskingUtils.maskEmail(to), MaskingUtils.maskToken(token));
 
         } catch (MessagingException e) {
-            log.error("Failed to send password reset email: to={}, error={}", to, e.getMessage(), e);
+            log.error("Failed to send password reset email: to={}, error={}",
+                    MaskingUtils.maskEmail(to), e.getMessage(), e);
             throw new RuntimeException("이메일 발송에 실패했습니다", e);
         }
     }
@@ -84,10 +88,10 @@ public class EmailService {
             helper.setText("이메일 발송 테스트입니다.", false);
 
             mailSender.send(message);
-            log.info("Test email sent successfully: to={}", to);
+            log.info("Test email sent successfully: to={}", MaskingUtils.maskEmail(to));
 
         } catch (MessagingException e) {
-            log.error("Failed to send test email: to={}, error={}", to, e.getMessage(), e);
+            log.error("Failed to send test email: to={}, error={}", MaskingUtils.maskEmail(to), e.getMessage(), e);
             throw new RuntimeException("테스트 이메일 발송 실패", e);
         }
     }
@@ -143,9 +147,10 @@ public class EmailService {
             message.setFrom(fromEmail);
 
             mailSender.send(message);
-            log.info("이메일 발송 완료: to={}, subject={}", to, subject);
+            log.info("이메일 발송 완료: to={}, subject={}", MaskingUtils.maskEmail(to), subject);
         } catch (Exception e) {
-            log.error("이메일 발송 실패: to={}, subject={}, error={}", to, subject, e.getMessage(), e);
+            log.error("이메일 발송 실패: to={}, subject={}, error={}",
+                    MaskingUtils.maskEmail(to), subject, e.getMessage(), e);
         }
     }
 }

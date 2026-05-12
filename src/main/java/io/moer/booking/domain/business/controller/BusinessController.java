@@ -197,7 +197,8 @@ public class BusinessController {
     public ApiResponse<OnboardingStatusResponse> getOnboardingStatus(
             @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable Long id) {
-        currentUser.getUser().canAccessBusiness(id);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        currentUser.getUser().requireAccessBusiness(id);
         return ApiResponse.success(onboardingService.getOnboardingStatus(id));
     }
 
@@ -208,7 +209,8 @@ public class BusinessController {
     public ApiResponse<Void> skipOnboarding(
             @AuthenticationPrincipal CustomUserDetails currentUser,
             @PathVariable Long id) {
-        currentUser.getUser().canAccessBusiness(id);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        currentUser.getUser().requireAccessBusiness(id);
         onboardingService.skipOnboarding(id);
         return ApiResponse.success(null, "온보딩을 건너뛰었습니다.");
     }

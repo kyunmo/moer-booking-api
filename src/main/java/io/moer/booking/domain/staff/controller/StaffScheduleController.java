@@ -39,7 +39,8 @@ public class StaffScheduleController {
             @PathVariable Long businessId,
             @PathVariable Long staffId) {
 
-        userDetails.canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.requireAccessBusiness(businessId);
 
         List<StaffScheduleResponse> response = staffScheduleService.getSchedules(businessId, staffId);
         return ApiResponse.success(response);
@@ -56,7 +57,8 @@ public class StaffScheduleController {
             @PathVariable Long staffId,
             @Valid @RequestBody StaffScheduleSaveRequest request) {
 
-        userDetails.canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.requireAccessBusiness(businessId);
 
         List<StaffScheduleResponse> response = staffScheduleService.saveSchedules(businessId, staffId, request);
         return ApiResponse.success(response);
@@ -74,7 +76,8 @@ public class StaffScheduleController {
             @Parameter(description = "조회 날짜 (yyyy-MM-dd)", example = "2026-02-14")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
-        userDetails.canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.requireAccessBusiness(businessId);
 
         StaffAvailableTimesResponse response = staffScheduleService.getAvailableTimes(businessId, staffId, date);
         return ApiResponse.success(response);

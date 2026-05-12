@@ -4,6 +4,8 @@ import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
 import io.moer.booking.common.storage.FileStorageService;
+import io.moer.booking.domain.auditlog.AuditAction;
+import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.customer.Customer;
 import io.moer.booking.domain.customer.repository.CustomerRepository;
@@ -32,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -55,6 +58,7 @@ public class StaffService {
     private final ReservationRepository reservationRepository;
     private final CustomerRepository customerRepository;
     private final io.moer.booking.domain.business.service.OnboardingService onboardingService;
+    private final AuditLogService auditLogService;
 
     /**
      * 직원 생성
@@ -269,20 +273,38 @@ public class StaffService {
     }
 
     /**
-     * 직원 삭제
+     * 직원 삭제.
+     *
+     * SECURITY (P3-5): 권한 변경/삭제 액션은 감사 로그 기록.
      */
     @Transactional
-    public void deleteStaff(Long businessId, Long staffId) {
-        if (!staffRepository.existsByBusinessIdAndId(businessId, staffId)) {
+    public void deleteStaff(Long businessId, Long staffId, io.moer.booking.domain.user.User actor) {
+        Staff staff = staffRepository.findById(staffId)
+                .orElseThrow(() -> new EntityNotFoundException(ErrorCode.STAFF_NOT_FOUND));
+        if (!staff.getBusinessId().equals(businessId)) {
             throw new EntityNotFoundException(ErrorCode.STAFF_NOT_FOUND);
         }
 
         staffRepository.delete(staffId);
-
-        // 직원 수 감소
         usageLimitService.decrementStaffCount(businessId);
 
-        log.info("Staff deleted: id={}, businessId={}", staffId, businessId);
+        // 감사 로그
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("staffId", staffId);
+        metadata.put("staffName", staff.getName());
+        metadata.put("businessId", businessId);
+        auditLogService.log(actor, AuditAction.STAFF_DELETED, "Staff", staffId,
+                "직원 삭제: " + staff.getName(), metadata);
+
+        log.info("Staff deleted: id={}, businessId={}, by userId={}",
+                staffId, businessId, actor != null ? actor.getId() : null);
+    }
+
+    /** @deprecated SECURITY (P3-5): actor 정보 없는 호출 금지. {@link #deleteStaff(Long, Long, io.moer.booking.domain.user.User)} 사용. */
+    @Deprecated
+    @Transactional
+    public void deleteStaff(Long businessId, Long staffId) {
+        deleteStaff(businessId, staffId, null);
     }
 
     /**

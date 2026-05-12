@@ -58,9 +58,22 @@ public class User {
      */
     private String marketingAgree;
 
+    /**
+     * SECURITY (P3-4): 첫 로그인 시 비밀번호 변경 강제 플래그.
+     * - 초기 SUPER_ADMIN 계정, 관리자가 발급한 계정 등에 'Y' 설정.
+     * - 로그인 응답에 노출되어 클라이언트가 강제 비밀번호 변경 화면으로 라우팅.
+     * - changePassword() 정상 호출 시 'N' 으로 자동 초기화.
+     * DB: CHAR(1)
+     */
+    private String passwordChangeRequired;
+
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public boolean isPasswordChangeRequired() {
+        return "Y".equalsIgnoreCase(this.passwordChangeRequired);
+    }
 
     public void updateBusinessId(Long businessId) {
         this.businessId = businessId;
@@ -117,6 +130,19 @@ public class User {
     }
 
     /**
+     * SECURITY (P1-4): 접근 권한이 없으면 AccessDeniedException 을 던지는 enforce 메서드.
+     * 호출 측에서 반환값을 무시하는 실수를 방지하기 위해 boolean 대신 throws 패턴 사용.
+     *
+     * @throws org.springframework.security.access.AccessDeniedException 접근 권한이 없는 경우
+     */
+    public void requireAccessBusiness(Long businessId) {
+        if (!canAccessBusiness(businessId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "해당 매장에 접근할 권한이 없습니다: businessId=" + businessId);
+        }
+    }
+
+    /**
      * 특정 Staff에 접근 가능한지 확인
      */
     public boolean canAccessStaff(Long staffId) {
@@ -130,6 +156,18 @@ public class User {
             return this.staffId != null && this.staffId.equals(staffId);
         }
         return false;
+    }
+
+    /**
+     * SECURITY (P1-4): 특정 Staff 에 대한 접근 권한 enforce 메서드.
+     *
+     * @throws org.springframework.security.access.AccessDeniedException 접근 권한이 없는 경우
+     */
+    public void requireAccessStaff(Long staffId) {
+        if (!canAccessStaff(staffId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "해당 직원 정보에 접근할 권한이 없습니다: staffId=" + staffId);
+        }
     }
 
     // ========================================

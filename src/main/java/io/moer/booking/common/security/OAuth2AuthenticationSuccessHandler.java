@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -34,6 +35,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.oauth2.redirect-uri}")
     private String redirectUri;
@@ -55,13 +57,14 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             String accessToken = tokenProvider.generateAccessToken(user);
             String refreshToken = tokenProvider.generateRefreshToken(user);
 
-            // Refresh Token 저장
+            // Refresh Token 저장 (BCrypt 해시 + 기존 토큰 폐기)
+            // SECURITY (P1-1): 평문 저장 금지. 해시로 저장하고 user_id 로 조회 후 matches() 검증.
+            refreshTokenRepository.deleteByUserId(user.getId());
             RefreshToken refreshTokenEntity = RefreshToken.builder()
                     .userId(user.getId())
-                    .token(refreshToken)
+                    .tokenHash(passwordEncoder.encode(refreshToken))
                     .expiresAt(LocalDateTime.now().plusDays(7))
                     .build();
-            refreshTokenRepository.deleteByUserId(user.getId());
             refreshTokenRepository.save(refreshTokenEntity);
 
             // loginType 쿠키 읽기 및 삭제

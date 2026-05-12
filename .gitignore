@@ -37,8 +37,14 @@ out/
 
 ### Environment ###
 .env
-application-local.yml
-application-prod.yml
+.env.local
+.env.prod
+src/main/resources/application-local.yml
+src/main/resources/application-prod.yml
+src/main/resources/application-dev.yml
+# 업로드 디렉토리 (개발 환경)
+/uploads/
+uploads/
 
 
 # Agent 생성 리포트 (개인 작업물)

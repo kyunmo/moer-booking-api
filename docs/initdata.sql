@@ -8,10 +8,12 @@
 -- 1. 시스템 관리자
 -- =============================================================================
 
--- 슈퍼 관리자 (비밀번호: password123)
--- $2a$10$zOjLVHiSvRhfzFVpbn4IB.4pr4LSZMKx5JdBjf5USqdwoGG6NcquC
--- $2a$10$zOjLVHiSvRhfzFVpbn4IB.4pr4LSZMKx5JdBjf5USqdwoGG6NcquC
-INSERT INTO users (id, email, password, name, role, status, email_verified, created_at)
+-- 슈퍼 관리자 (개발 시드 — 운영 환경 사용 금지)
+-- 비밀번호는 환경별로 운영자가 직접 설정 (BCrypt strength 12).
+-- 아래 해시는 개발용 약한 비밀번호 ('password123', strength 10) 이며,
+-- password_change_required = 'Y' 로 발급되어 첫 로그인 시 변경 강제됨.
+-- SECURITY (P3-4): 운영 배포 전 별도 시드 스크립트로 강한 비밀번호 + 변경 강제 발급할 것.
+INSERT INTO users (id, email, password, name, role, status, email_verified, password_change_required, created_at)
 VALUES (
     1,
     'superadmin@moer.io',
@@ -20,6 +22,7 @@ VALUES (
     'SUPER_ADMIN',
     'ACTIVE',
     'Y',
+    'Y',
     CURRENT_TIMESTAMP
 );
 
@@ -27,7 +30,7 @@ VALUES (
 -- 2. 샘플 매장 사장님
 -- =============================================================================
 
--- 사장님 (비밀번호: password123)
+-- 샘플 매장 사장님 (개발용 시드 데이터 — 운영 환경 사용 금지)
 INSERT INTO users (id, email, password, name, phone, role, status, business_id, email_verified, is_premium, trial_started_at, trial_expires_at, created_at)
 VALUES (
     2,

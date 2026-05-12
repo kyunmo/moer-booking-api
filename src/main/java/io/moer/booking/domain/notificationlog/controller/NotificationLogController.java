@@ -40,7 +40,8 @@ public class NotificationLogController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
 
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
 
         PageResponse<NotificationLogResponse> response = notificationLogService
                 .getNotificationLogs(businessId, channel, status, templateType, page, size);
@@ -58,7 +59,8 @@ public class NotificationLogController {
             @PathVariable Long businessId,
             @PathVariable Long id) {
 
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
 
         NotificationLogResponse response = notificationLogService.getNotificationLog(id);
 

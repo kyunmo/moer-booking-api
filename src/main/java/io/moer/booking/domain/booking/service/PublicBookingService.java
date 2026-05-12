@@ -3,6 +3,7 @@ package io.moer.booking.domain.booking.service;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.common.util.MaskingUtils;
 import io.moer.booking.domain.booking.dto.*;
 import io.moer.booking.domain.holiday.SpecialHoliday;
 import io.moer.booking.domain.business.Business;
@@ -410,7 +411,9 @@ public class PublicBookingService {
      * 모든 매장의 예약을 반환하며, 완료/취소된 예약도 포함합니다.
      */
     public List<PublicReservationLookupResponse> lookupReservations(String name, String phone) {
-        log.info("Looking up reservations: name={}, phone={}", name, phone);
+        // SECURITY (P1-7): PII 로그 마스킹
+        log.info("Looking up reservations: name={}, phone={}",
+                MaskingUtils.maskName(name), MaskingUtils.maskPhone(phone));
 
         // 1. 이름+전화번호가 일치하는 모든 고객 조회
         List<Customer> customers = customerRepository.findAllByNameAndPhone(name, phone);
@@ -562,8 +565,9 @@ public class PublicBookingService {
                 request.getReason() != null ? request.getReason() : "고객 요청으로 취소"
         );
 
+        // SECURITY (P1-7): PII 로그 마스킹
         log.info("Public reservation cancelled: reservationNumber={}, phone={}",
-                reservationNumber, request.getPhone());
+                reservationNumber, MaskingUtils.maskPhone(request.getPhone()));
     }
 
     // ========================================

@@ -10,7 +10,9 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "jwt")
 public class JwtProperties {
-    private String secret = "moer-booking-system-secret-key-change-this-in-production-minimum-256-bits";
+    // SECURITY: 기본값 없음. 반드시 환경변수 JWT_SECRET 으로 주입.
+    // 검증은 io.moer.booking.common.config.SecretsValidator 에서 수행.
+    private String secret;
     private Long accessTokenExpiration = 3600000L;  // 1시간 (밀리초)
     private Long refreshTokenExpiration = 604800000L;  // 7일 (밀리초)
 }

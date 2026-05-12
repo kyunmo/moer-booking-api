@@ -59,14 +59,18 @@
     <select id="findByCondition" resultMap="CustomerResultMap">
         SELECT * FROM customers
         WHERE business_id = #{businessId}
+        <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
         <if test="name != null and name != ''">
-            AND name LIKE '%' || #{name} || '%'
+            <bind name="nameEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(name)"/>
+            AND name LIKE '%' || #{nameEscaped} || '%' ESCAPE '\'
         </if>
         <if test="phone != null and phone != ''">
-            AND phone LIKE '%' || #{phone} || '%'
+            <bind name="phoneEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(phone)"/>
+            AND phone LIKE '%' || #{phoneEscaped} || '%' ESCAPE '\'
         </if>
         <if test="tag != null and tag != ''">
-            AND tags LIKE '%' || #{tag} || '%'
+            <bind name="tagEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(tag)"/>
+            AND tags LIKE '%' || #{tagEscaped} || '%' ESCAPE '\'
         </if>
         <if test="minVisitCount != null">
             AND visit_count >= #{minVisitCount}
@@ -214,12 +218,13 @@
     </select>
 
     <!-- 재방문 유도 대상 고객 수 (N개월 이상 미방문) -->
+    <!-- SECURITY: monthsAgo 값을 파라미터 바인딩(#{}) + MAKE_INTERVAL 로 처리하여 SQL Injection 방어 -->
     <select id="countInactiveCustomers" resultType="int">
         SELECT COUNT(*)
         FROM customers
         WHERE business_id = #{businessId}
           AND last_visit_date IS NOT NULL
-          AND last_visit_date <![CDATA[<]]> CURRENT_DATE - INTERVAL '${monthsAgo} months'
+          AND last_visit_date <![CDATA[<]]> CURRENT_DATE - MAKE_INTERVAL(months => #{monthsAgo})
           AND visit_count > 0
     </select>
 
@@ -236,12 +241,13 @@
     </select>
 
     <!-- 이탈 고객 수 (N개월 이상 미방문) -->
+    <!-- SECURITY: monthsAgo 값을 파라미터 바인딩(#{}) + MAKE_INTERVAL 로 처리하여 SQL Injection 방어 -->
     <select id="countInactiveCustomersByLastVisit" resultType="int">
         SELECT COUNT(*)
         FROM customers
         WHERE business_id = #{businessId}
           AND last_visit_date IS NOT NULL
-          AND last_visit_date <![CDATA[<]]> CURRENT_DATE - INTERVAL '${monthsAgo} months'
+          AND last_visit_date <![CDATA[<]]> CURRENT_DATE - MAKE_INTERVAL(months => #{monthsAgo})
           AND visit_count > 0
     </select>
 
@@ -375,8 +381,9 @@
             </choose>
         </if>
         <if test="tags != null and tags.size() > 0">
+            <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 (foreach 내부에서는 bind 불가하여 함수형 escape 패턴 사용) -->
             <foreach item="tag" collection="tags" open="AND (" separator=" OR " close=")">
-                tags LIKE '%' || #{tag} || '%'
+                tags LIKE '%' || REPLACE(REPLACE(REPLACE(#{tag}, '\', '\\'), '%', '\%'), '_', '\_') || '%' ESCAPE '\'
             </foreach>
         </if>
         <if test="startDate != null and startDate != ''">

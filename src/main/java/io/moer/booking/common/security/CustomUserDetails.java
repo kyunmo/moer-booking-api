@@ -61,8 +61,19 @@ public class CustomUserDetails implements UserDetails {
         return user.canAccessBusiness(businessId);
     }
 
+    /**
+     * SECURITY (P1-4): 접근 권한 enforce. 위반 시 AccessDeniedException.
+     */
+    public void requireAccessBusiness(Long businessId) {
+        user.requireAccessBusiness(businessId);
+    }
+
     public boolean canAccessStaff(Long staffId) {
         return user.canAccessStaff(staffId);
+    }
+
+    public void requireAccessStaff(Long staffId) {
+        user.requireAccessStaff(staffId);
     }
 
     @Override

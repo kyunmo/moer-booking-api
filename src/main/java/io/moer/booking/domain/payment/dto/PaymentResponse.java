@@ -1,5 +1,6 @@
 package io.moer.booking.domain.payment.dto;
 
+import io.moer.booking.common.util.MaskingUtils;
 import io.moer.booking.domain.business.BillingCycle;
 import io.moer.booking.domain.business.SubscriptionPlan;
 import io.moer.booking.domain.payment.Payment;
@@ -42,6 +43,9 @@ public class PaymentResponse {
     private PaymentStatus paymentStatus;
     private String pgProvider;
     private String pgTransactionId;
+    // SECURITY (P1-9): PG 거래번호는 위변조/환불 공격 표적이므로 일반 노출은 마스킹된 형태 사용 권장.
+    // 마스킹된 표시용 필드. UI에서 가능하면 이 필드를 사용.
+    private String pgTransactionIdMasked;
 
     // 메타데이터
     private LocalDateTime paidAt;
@@ -77,6 +81,7 @@ public class PaymentResponse {
                 .paymentStatus(payment.getPaymentStatus())
                 .pgProvider(payment.getPgProvider())
                 .pgTransactionId(payment.getPgTransactionId())
+                .pgTransactionIdMasked(MaskingUtils.maskToken(payment.getPgTransactionId()))
                 .paidAt(payment.getPaidAt())
                 .failedReason(payment.getFailedReason())
                 .refundedAt(payment.getRefundedAt())

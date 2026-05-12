@@ -3,6 +3,8 @@ package io.moer.booking.domain.customer.service;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.common.util.HtmlSanitizer;
+import io.moer.booking.common.util.MaskingUtils;
 import io.moer.booking.domain.business.BusinessSettings;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.business.repository.BusinessSettingsRepository;
@@ -76,8 +78,11 @@ public class CustomerService {
 
         customerRepository.save(customer);
 
+        // SECURITY (P1-7): PII 로그 마스킹
         log.info("Customer created: id={}, businessId={}, name={}, phone={}",
-                customer.getId(), businessId, customer.getName(), customer.getPhone());
+                customer.getId(), businessId,
+                MaskingUtils.maskName(customer.getName()),
+                MaskingUtils.maskPhone(customer.getPhone()));
 
         return CustomerResponse.from(customer);
     }
@@ -284,13 +289,17 @@ public class CustomerService {
         Optional<Customer> existingCustomer = customerRepository.findByBusinessIdAndPhone(businessId, phone);
 
         if (existingCustomer.isPresent()) {
+            // SECURITY (P1-7): PII 로그 마스킹
             log.info("Found existing customer: id={}, name={}, phone={}",
-                    existingCustomer.get().getId(), existingCustomer.get().getName(), phone);
+                    existingCustomer.get().getId(),
+                    MaskingUtils.maskName(existingCustomer.get().getName()),
+                    MaskingUtils.maskPhone(phone));
             return existingCustomer.get();
         }
 
         // 2. 없으면 새로 생성
-        log.info("Creating new customer: name={}, phone={}", name, phone);
+        log.info("Creating new customer: name={}, phone={}",
+                MaskingUtils.maskName(name), MaskingUtils.maskPhone(phone));
 
         Customer newCustomer = Customer.builder()
                 .businessId(businessId)
@@ -302,8 +311,10 @@ public class CustomerService {
 
         customerRepository.save(newCustomer);
 
+        // SECURITY (P1-7): PII 로그 마스킹
         log.info("Customer created: id={}, businessId={}, name={}, phone={}",
-                newCustomer.getId(), businessId, name, phone);
+                newCustomer.getId(), businessId,
+                MaskingUtils.maskName(name), MaskingUtils.maskPhone(phone));
 
         return newCustomer;
     }
@@ -499,7 +510,8 @@ public class CustomerService {
         CustomerNote note = CustomerNote.builder()
                 .customerId(customerId)
                 .businessId(businessId)
-                .content(request.getContent())
+                // SECURITY (P1-5): 입력 텍스트 정화 (XSS 방어)
+                .content(HtmlSanitizer.plainText(request.getContent()))
                 .isPrivate(request.getIsPrivate() != null ? request.getIsPrivate() : false)
                 .authorId(userId)
                 .authorName(userName)
@@ -538,7 +550,8 @@ public class CustomerService {
                 .id(note.getId())
                 .customerId(note.getCustomerId())
                 .businessId(note.getBusinessId())
-                .content(request.getContent())
+                // SECURITY (P1-5): 입력 텍스트 정화 (XSS 방어)
+                .content(HtmlSanitizer.plainText(request.getContent()))
                 .isPrivate(request.getIsPrivate() != null ? request.getIsPrivate() : note.getIsPrivate())
                 .authorId(note.getAuthorId())
                 .authorName(note.getAuthorName())

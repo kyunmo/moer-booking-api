@@ -159,9 +159,21 @@
     <!-- ========================================
          온보딩
          ======================================== -->
+    <!--
+        SECURITY: 컬럼명은 화이트리스트에 등록된 값만 허용 (SQL Injection 방어).
+        호출 측(OnboardingService)에서도 switch 로 1차 검증하지만, XML 자체에서 2차 방어.
+        화이트리스트 외 값 입력 시 invalid_column 으로 의도적 SQL 오류 발생시켜 부적절 사용 차단.
+    -->
     <update id="updateOnboardingStep">
         UPDATE business_settings
-        SET ${column} = #{value},
+        SET
+        <choose>
+            <when test='column == "onboarding_step_service"'>onboarding_step_service</when>
+            <when test='column == "onboarding_step_staff"'>onboarding_step_staff</when>
+            <when test='column == "onboarding_step_reservation"'>onboarding_step_reservation</when>
+            <otherwise>invalid_column_blocked_by_whitelist</otherwise>
+        </choose>
+        = #{value},
             updated_at = CURRENT_TIMESTAMP
         WHERE business_id = #{businessId}
     </update>

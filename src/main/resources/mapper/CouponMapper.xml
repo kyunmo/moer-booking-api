@@ -75,7 +75,10 @@
                 AND business_id = #{businessId}
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (code LIKE '%' || #{keyword} || '%' OR name LIKE '%' || #{keyword} || '%')
+                <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
+                <bind name="kwEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(keyword)"/>
+                AND (code LIKE '%' || #{kwEscaped} || '%' ESCAPE '\'
+                     OR name LIKE '%' || #{kwEscaped} || '%' ESCAPE '\')
             </if>
             <if test="couponType != null">
                 AND coupon_type = #{couponType}
@@ -95,7 +98,10 @@
                 AND business_id = #{businessId}
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (code LIKE '%' || #{keyword} || '%' OR name LIKE '%' || #{keyword} || '%')
+                <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
+                <bind name="kwEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(keyword)"/>
+                AND (code LIKE '%' || #{kwEscaped} || '%' ESCAPE '\'
+                     OR name LIKE '%' || #{kwEscaped} || '%' ESCAPE '\')
             </if>
             <if test="couponType != null">
                 AND coupon_type = #{couponType}

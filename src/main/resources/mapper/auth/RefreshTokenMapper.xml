@@ -2,63 +2,41 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
+<!--
+    SECURITY (P1-1): refresh_tokens.token_hash 는 BCrypt 해시 저장.
+    조회는 user_id 기준, 검증은 Service 레이어에서 matches() 로 수행.
+-->
 <mapper namespace="io.moer.booking.domain.auth.repository.RefreshTokenRepository">
 
-    <!-- ========================================
-         Result Map
-         ======================================== -->
     <resultMap id="RefreshTokenResultMap" type="io.moer.booking.domain.auth.RefreshToken">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
-        <result property="token" column="token"/>
+        <result property="tokenHash" column="token_hash"/>
         <result property="expiresAt" column="expires_at"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
-    <!-- ========================================
-         생성 (INSERT)
-         ======================================== -->
     <insert id="save" parameterType="io.moer.booking.domain.auth.RefreshToken"
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO refresh_tokens (
-            user_id, token, expires_at
+            user_id, token_hash, expires_at
         ) VALUES (
-                     #{userId}, #{token}, #{expiresAt}
-                 )
+            #{userId}, #{tokenHash}, #{expiresAt}
+        )
     </insert>
 
-    <!-- ========================================
-         조회 - 단건
-         ======================================== -->
-
-    <!-- Token으로 조회 -->
-    <select id="findByToken" resultMap="RefreshTokenResultMap">
-        SELECT * FROM refresh_tokens
-        WHERE token = #{token}
-    </select>
-
-    <!-- User ID로 조회 -->
+    <!-- User ID로 조회 (최근 1건) -->
     <select id="findByUserId" resultMap="RefreshTokenResultMap">
         SELECT * FROM refresh_tokens
         WHERE user_id = #{userId}
         ORDER BY created_at DESC
-            LIMIT 1
+        LIMIT 1
     </select>
 
-    <!-- ========================================
-         삭제 (DELETE)
-         ======================================== -->
-
-    <!-- User ID로 삭제 -->
+    <!-- User ID로 삭제 (해당 사용자의 모든 토큰) -->
     <delete id="deleteByUserId">
         DELETE FROM refresh_tokens
         WHERE user_id = #{userId}
-    </delete>
-
-    <!-- Token으로 삭제 -->
-    <delete id="deleteByToken">
-        DELETE FROM refresh_tokens
-        WHERE token = #{token}
     </delete>
 
     <!-- 만료된 토큰 삭제 -->

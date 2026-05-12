@@ -31,6 +31,7 @@ public class LocalFileStorageService implements FileStorageService {
     private long maxFileSize;
 
     private List<String> allowedExtensionList;
+    private Path uploadRoot; // 정규화된 절대 경로 (Path Traversal 검증용)
 
     @PostConstruct
     public void init() {
@@ -40,6 +41,8 @@ public class LocalFileStorageService implements FileStorageService {
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
+            // SECURITY (P0-4): 정규화된 절대 경로를 캐시하여 모든 파일 조작 시 hostname 비교
+            this.uploadRoot = uploadPath.toAbsolutePath().normalize();
         } catch (IOException e) {
             throw new RuntimeException("업로드 디렉토리를 생성할 수 없습니다: " + uploadDir, e);
         }
@@ -61,15 +64,29 @@ public class LocalFileStorageService implements FileStorageService {
                     "지원하지 않는 파일 형식입니다. 허용: " + allowedExtensions);
         }
 
-        // 3. 저장 경로 생성
+        // 3. subDir 검증 (영문/숫자/하이픈/언더스코어만 허용 - Path Traversal 방어)
+        if (!isSafeSubDir(subDir)) {
+            log.warn("Invalid subDir attempt: {}", subDir);
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "허용되지 않는 저장 경로입니다");
+        }
+
+        // 4. 저장 경로 생성 및 검증
         String filename = UUID.randomUUID() + "." + extension;
-        Path targetDir = Paths.get(uploadDir, subDir);
+        Path targetDir = uploadRoot.resolve(subDir).normalize();
+        if (!targetDir.startsWith(uploadRoot)) {
+            log.warn("Path traversal attempt detected: subDir={}, resolved={}", subDir, targetDir);
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "허용되지 않는 저장 경로입니다");
+        }
+
         try {
             if (!Files.exists(targetDir)) {
                 Files.createDirectories(targetDir);
             }
 
-            Path targetPath = targetDir.resolve(filename);
+            Path targetPath = targetDir.resolve(filename).normalize();
+            if (!targetPath.startsWith(uploadRoot)) {
+                throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "허용되지 않는 저장 경로입니다");
+            }
             Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
             String fileUrl = "/uploads/" + subDir + "/" + filename;
@@ -89,7 +106,14 @@ public class LocalFileStorageService implements FileStorageService {
         try {
             // "/uploads/profiles/xxx.jpg" -> "profiles/xxx.jpg"
             String relativePath = fileUrl.replaceFirst("^/uploads/", "");
-            Path filePath = Paths.get(uploadDir, relativePath);
+
+            // SECURITY (P0-4): 정규화 후 uploadRoot 하위 경로인지 검증 (Path Traversal 방어)
+            // 예: relativePath="../etc/passwd" -> 정규화하면 uploadRoot 밖으로 벗어남 -> 차단
+            Path filePath = uploadRoot.resolve(relativePath).normalize();
+            if (!filePath.startsWith(uploadRoot)) {
+                log.warn("Path traversal attempt detected on delete: fileUrl={}, resolved={}", fileUrl, filePath);
+                return; // 조용히 거부 (공격자에게 정보 노출 회피)
+            }
 
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
@@ -105,5 +129,14 @@ public class LocalFileStorageService implements FileStorageService {
             return "";
         }
         return filename.substring(filename.lastIndexOf(".") + 1);
+    }
+
+    /**
+     * subDir 화이트리스트 검증.
+     * 영문/숫자/하이픈/언더스코어/슬래시(중첩 디렉토리) 만 허용. 점(.) 금지.
+     */
+    private boolean isSafeSubDir(String subDir) {
+        if (subDir == null || subDir.isBlank()) return false;
+        return subDir.matches("[a-zA-Z0-9_\\-/]+");
     }
 }

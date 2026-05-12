@@ -1,6 +1,7 @@
 package io.moer.booking.domain.staff.controller;
 
 import io.moer.booking.common.dto.ApiResponse;
+import io.moer.booking.common.security.CustomUserDetails;
 import io.moer.booking.domain.staff.dto.PortfolioResponse;
 import io.moer.booking.domain.staff.dto.StaffCreateRequest;
 import io.moer.booking.domain.staff.dto.StaffResponse;
@@ -15,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -196,9 +198,12 @@ public class StaffController {
     @DeleteMapping("/{staffId}")
     @Operation(summary = "직원 삭제")
     public ApiResponse<Void> deleteStaff(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @PathVariable Long staffId) {
-        staffService.deleteStaff(businessId, staffId);
+        // SECURITY (P1-4 / P3-5): 접근 권한 + 감사 로그
+        userDetails.getUser().requireAccessBusiness(businessId);
+        staffService.deleteStaff(businessId, staffId, userDetails.getUser());
         return ApiResponse.success();
     }
 }

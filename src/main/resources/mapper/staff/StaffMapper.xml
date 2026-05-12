@@ -160,14 +160,17 @@
             <if test="businessId != null">
                 AND s.business_id = #{businessId}
             </if>
+            <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
             <if test="name != null and name != ''">
-                AND s.name LIKE '%' || #{name} || '%'
+                <bind name="nameEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(name)"/>
+                AND s.name LIKE '%' || #{nameEscaped} || '%' ESCAPE '\'
             </if>
             <if test="positionId != null">
                 AND s.position_id = #{positionId}
             </if>
             <if test="specialty != null and specialty != ''">
-                AND s.specialty LIKE '%' || #{specialty} || '%'
+                <bind name="specEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(specialty)"/>
+                AND s.specialty LIKE '%' || #{specEscaped} || '%' ESCAPE '\'
             </if>
             <if test="isActive != null">
                 <choose>

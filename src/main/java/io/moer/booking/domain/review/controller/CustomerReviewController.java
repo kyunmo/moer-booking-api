@@ -3,6 +3,7 @@ package io.moer.booking.domain.review.controller;
 import io.moer.booking.common.dto.ApiResponse;
 import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.security.CustomUserDetails;
+import io.moer.booking.common.util.FilenameUtils;
 import io.moer.booking.domain.review.dto.CustomerReviewCreateRequest;
 import io.moer.booking.domain.review.dto.ReviewImageResponse;
 import io.moer.booking.domain.review.dto.ReviewResponse;
@@ -188,10 +189,12 @@ public class CustomerReviewController {
         String imageUrl = fileStorageService.store(file, "reviews/" + reviewId);
         String thumbnailUrl = imageUrl; // TODO: 실제 구현에서는 리사이즈 후 별도 URL 생성
 
+        // SECURITY (P1-9): 원본 파일명 정화
+        String safeFilename = FilenameUtils.sanitize(file.getOriginalFilename());
         ReviewImageResponse response = reviewService.addReviewImage(
                 reviewId, userDetails.getUserId(),
                 imageUrl, thumbnailUrl,
-                file.getOriginalFilename(), (int) file.getSize());
+                safeFilename, (int) file.getSize());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response));

@@ -50,8 +50,10 @@
                 AND LOWER(category) = LOWER(#{category})
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (title ILIKE CONCAT('%', #{keyword}, '%')
-                     OR content ILIKE CONCAT('%', #{keyword}, '%'))
+                <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
+                <bind name="kwEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(keyword)"/>
+                AND (title ILIKE CONCAT('%', #{kwEscaped}, '%') ESCAPE '\'
+                     OR content ILIKE CONCAT('%', #{kwEscaped}, '%') ESCAPE '\')
             </if>
             <if test="lang != null and lang != ''">
                 AND lang = #{lang}
@@ -73,8 +75,10 @@
                 AND LOWER(category) = LOWER(#{category})
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (title ILIKE CONCAT('%', #{keyword}, '%')
-                     OR content ILIKE CONCAT('%', #{keyword}, '%'))
+                <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
+                <bind name="kwEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(keyword)"/>
+                AND (title ILIKE CONCAT('%', #{kwEscaped}, '%') ESCAPE '\'
+                     OR content ILIKE CONCAT('%', #{kwEscaped}, '%') ESCAPE '\')
             </if>
             <if test="lang != null and lang != ''">
                 AND lang = #{lang}

@@ -41,7 +41,8 @@ public class DashboardController {
     public ApiResponse<BasicStatsResponse> getBasicStats(
             @PathVariable Long businessId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         LocalDate today = LocalDate.now();
         BasicStatsResponse response = dashboardService.getBasicStats(businessId, today);
         return ApiResponse.success(response);
@@ -55,7 +56,8 @@ public class DashboardController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String compareWith) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         return ApiResponse.success(dashboardService.getPeriodStats(businessId, startDate, endDate, compareWith));
     }
 
@@ -65,7 +67,8 @@ public class DashboardController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @RequestParam(required = false) String month) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         YearMonth targetMonth = month != null ? YearMonth.parse(month) : YearMonth.now();
         return ApiResponse.success(dashboardService.getGoalStats(businessId, targetMonth));
     }

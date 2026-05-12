@@ -17,15 +17,20 @@ CREATE TABLE users (
     name VARCHAR(50) NOT NULL,
     phone VARCHAR(20),
     profile_image_url TEXT,
-    role VARCHAR(20) NOT NULL DEFAULT 'OWNER',
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    -- SECURITY (P3-1): 역할/상태에 CHECK 제약으로 무효값 INSERT 차단 (방어 계층 추가)
+    role VARCHAR(20) NOT NULL DEFAULT 'OWNER'
+        CHECK (role IN ('SUPER_ADMIN', 'ADMIN', 'OWNER', 'STAFF', 'CUSTOMER')),
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'DELETED')),
     staff_id BIGINT,
     business_id BIGINT,
-    email_verified CHAR(1) DEFAULT 'N',
+    email_verified CHAR(1) DEFAULT 'N' CHECK (email_verified IN ('Y', 'N')),
     trial_started_at TIMESTAMP,
     trial_expires_at TIMESTAMP,
-    is_premium CHAR(1) DEFAULT 'N',
-    marketing_agree CHAR(1) DEFAULT 'N',
+    is_premium CHAR(1) DEFAULT 'N' CHECK (is_premium IN ('Y', 'N')),
+    marketing_agree CHAR(1) DEFAULT 'N' CHECK (marketing_agree IN ('Y', 'N')),
+    -- SECURITY (P3-4): 첫 로그인 시 비밀번호 변경 필요 여부 (초기 SUPER_ADMIN, 관리자 발급 계정 등)
+    password_change_required CHAR(1) DEFAULT 'N' CHECK (password_change_required IN ('Y', 'N')),
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -56,22 +61,23 @@ CREATE INDEX idx_users_business_id ON users(business_id);
 CREATE INDEX idx_users_trial_expires ON users(trial_expires_at) WHERE (is_premium = 'N');
 
 -- 리프레시 토큰 테이블
+-- SECURITY (P1-1): 토큰은 BCrypt 해시 형태로 저장. user_id 로 조회 후 matches() 검증.
+-- 매 갱신 시 토큰 회전(rotation) — 이전 해시 즉시 무효화 + 재사용 감지 시 전체 세션 무효화.
 CREATE TABLE refresh_tokens (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    token VARCHAR(500) NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE refresh_tokens IS 'JWT 리프레시 토큰';
+COMMENT ON TABLE refresh_tokens IS 'JWT 리프레시 토큰 (BCrypt 해시 저장)';
 COMMENT ON COLUMN refresh_tokens.id IS '토큰 ID';
 COMMENT ON COLUMN refresh_tokens.user_id IS '사용자 ID';
-COMMENT ON COLUMN refresh_tokens.token IS '리프레시 토큰 문자열';
+COMMENT ON COLUMN refresh_tokens.token_hash IS '리프레시 토큰 BCrypt 해시';
 COMMENT ON COLUMN refresh_tokens.expires_at IS '만료 시각';
 COMMENT ON COLUMN refresh_tokens.created_at IS '생성일시';
 
-CREATE UNIQUE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
 -- 비밀번호 재설정 토큰 테이블

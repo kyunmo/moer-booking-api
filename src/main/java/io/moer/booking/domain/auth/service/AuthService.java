@@ -3,8 +3,11 @@ package io.moer.booking.domain.auth.service;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.common.ratelimit.RateLimiterService;
 import io.moer.booking.common.security.JwtTokenProvider;
 import io.moer.booking.common.storage.FileStorageService;
+import io.moer.booking.common.util.MaskingUtils;
+import io.moer.booking.common.util.PasswordPolicy;
 import io.moer.booking.domain.auditlog.AuditAction;
 import io.moer.booking.domain.auditlog.service.AuditLogService;
 import io.moer.booking.domain.auth.PasswordResetToken;
@@ -64,12 +67,23 @@ public class AuthService {
     private final EmailService emailService;
     private final AuditLogService auditLogService;
     private final FileStorageService fileStorageService;
+    private final RateLimiterService rateLimiterService;
 
     /**
      * 로그인
      */
     @Transactional
     public LoginResponse login(LoginRequest request) {
+        // SECURITY (P1-3): 계정 기반 로그인 잠금 (IP 기반 limit 외 추가 방어)
+        // - 동일 이메일에 대해 15분 5회 실패 시 차단. 성공 시 리셋.
+        String accountKey = "LOGIN:account:" + request.getEmail();
+        var probe = rateLimiterService.tryConsume(accountKey, RateLimiterService.RateLimitPolicy.LOGIN);
+        if (!probe.isConsumed()) {
+            long waitSec = Math.max(1, probe.getNanosToWaitForRefill() / 1_000_000_000L);
+            throw new BusinessException(ErrorCode.ACCESS_DENIED,
+                    "로그인 시도가 너무 많습니다. " + waitSec + "초 후 다시 시도해주세요.");
+        }
+
         // 1. 이메일로 사용자 조회
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
@@ -78,6 +92,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
+
+        // 로그인 성공 — 계정 기반 카운터 리셋
+        rateLimiterService.reset(accountKey);
 
         // 3. 계정 상태 확인
         if (user.getStatus() == UserStatus.DELETED) {
@@ -94,12 +111,13 @@ public class AuthService {
         String accessToken = tokenProvider.generateAccessToken(user);
         String refreshToken = tokenProvider.generateRefreshToken(user);
 
-        // 5. Refresh Token 저장 (기존 것 삭제 후 저장)
+        // 5. Refresh Token 저장 (BCrypt 해시 + 기존 토큰 회전)
+        // SECURITY (P1-1): 평문 저장 금지. 해시로만 저장하고 user_id 로 조회 후 matches() 검증.
         refreshTokenRepository.deleteByUserId(user.getId());
 
         RefreshToken refreshTokenEntity = RefreshToken.builder()
                 .userId(user.getId())
-                .token(refreshToken)
+                .tokenHash(passwordEncoder.encode(refreshToken))
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
         refreshTokenRepository.save(refreshTokenEntity);
@@ -107,39 +125,73 @@ public class AuthService {
         // 6. 마지막 로그인 시간 업데이트
         userRepository.updateLastLoginAt(user.getId(), LocalDateTime.now());
 
+        // SECURITY (P1-7): 이메일 마스킹
         log.info("User logged in: email={}, userId={}, role={}",
-                user.getEmail(), user.getId(), user.getRole());
+                MaskingUtils.maskEmail(user.getEmail()), user.getId(), user.getRole());
 
         // 7. 응답 생성
         return LoginResponse.of(accessToken, refreshToken, 3600L, user);
     }
 
     /**
-     * 토큰 갱신
+     * 토큰 갱신.
+     *
+     * SECURITY (P1-1): Refresh Token Rotation + Replay Detection.
+     * 1. 제출된 raw 토큰의 JWT 서명/만료 1차 검증
+     * 2. JWT claims 에서 userId 추출 후 저장된 해시 조회
+     * 3. BCrypt.matches() 로 매칭 — 불일치 시 "이미 회전된 토큰 재제출"로 간주하여 전체 세션 무효화
+     * 4. 일치 시: 새 access + refresh 발급, 새 refresh 의 해시로 교체(이전 해시 즉시 폐기)
      */
     @Transactional
     public LoginResponse refreshAccessToken(RefreshTokenRequest request) {
-        // 1. Refresh Token 조회
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.getRefreshToken())
+        String rawToken = request.getRefreshToken();
+
+        // 1. JWT 자체 검증 (서명, 만료)
+        if (rawToken == null || !tokenProvider.validateToken(rawToken)) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+        Long userId = tokenProvider.getUserIdFromToken(rawToken);
+        if (userId == null) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 2. 저장된 해시 조회
+        RefreshToken stored = refreshTokenRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
-        // 2. 토큰 만료 확인
-        if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
-            refreshTokenRepository.deleteByToken(request.getRefreshToken());
+        // 3. 저장된 해시 만료 확인
+        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+            refreshTokenRepository.deleteByUserId(userId);
             throw new BusinessException(ErrorCode.EXPIRED_TOKEN);
         }
 
-        // 3. 사용자 조회
-        User user = userRepository.findById(refreshToken.getUserId())
+        // 4. 해시 매칭 — 불일치 시 재사용(rotation 후 재제출) 의심 → 전체 세션 무효화
+        if (!passwordEncoder.matches(rawToken, stored.getTokenHash())) {
+            log.warn("[Security] Refresh token mismatch (possible replay). Invalidating all sessions: userId={}", userId);
+            refreshTokenRepository.deleteByUserId(userId);
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 5. 사용자 조회
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
-        // 4. 새 Access Token 생성
+        // 6. 새 토큰 쌍 발급 (Rotation)
         String newAccessToken = tokenProvider.generateAccessToken(user);
+        String newRefreshToken = tokenProvider.generateRefreshToken(user);
 
-        log.info("Access token refreshed: userId={}", user.getId());
+        // 7. 이전 해시 폐기 + 새 해시 저장
+        refreshTokenRepository.deleteByUserId(userId);
+        RefreshToken rotated = RefreshToken.builder()
+                .userId(userId)
+                .tokenHash(passwordEncoder.encode(newRefreshToken))
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+        refreshTokenRepository.save(rotated);
 
-        // 5. 응답 (기존 Refresh Token 유지)
-        return LoginResponse.of(newAccessToken, request.getRefreshToken(), 3600L, user);
+        log.info("Access token refreshed (rotated): userId={}", userId);
+
+        return LoginResponse.of(newAccessToken, newRefreshToken, 3600L, user);
     }
 
     /**
@@ -161,6 +213,9 @@ public class AuthService {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
 
+        // SECURITY (P3-7): 비밀번호 정책 검증 (NIST 800-63B 기반)
+        PasswordPolicy.validate(request.getPassword(), request.getEmail());
+
         // 2. User 생성 (30일 체험판 자동 설정, 항상 OWNER 역할)
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         LocalDateTime now = LocalDateTime.now();
@@ -179,7 +234,8 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
-        log.info("User created: id={}, email={}", user.getId(), user.getEmail());
+        // SECURITY (P1-7): 이메일 마스킹
+        log.info("User created: id={}, email={}", user.getId(), MaskingUtils.maskEmail(user.getEmail()));
 
         // 3. Business 생성 (항상 FREE 플랜 + 30일 무료 체험 자동 설정)
         Business business = Business.builder()
@@ -243,10 +299,11 @@ public class AuthService {
         String accessToken = tokenProvider.generateAccessToken(user);
         String refreshToken = tokenProvider.generateRefreshToken(user);
 
-        // 7. Refresh Token 저장
+        // 7. Refresh Token 저장 (BCrypt 해시)
+        // SECURITY (P1-1): 평문 저장 금지.
         RefreshToken refreshTokenEntity = RefreshToken.builder()
                 .userId(user.getId())
-                .token(refreshToken)
+                .tokenHash(passwordEncoder.encode(refreshToken))
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();
         refreshTokenRepository.save(refreshTokenEntity);
@@ -277,7 +334,8 @@ public class AuthService {
         // 1. 사용자 조회 (보안: 미등록 이메일도 동일한 응답 반환)
         var userOptional = userRepository.findByEmail(email);
         if (userOptional.isEmpty()) {
-            log.info("Password reset requested for non-existent email: {}", email);
+            // SECURITY (M-04, P1-7): 미등록 이메일을 평문 로깅하지 않음 (사용자 열거 부분 차단)
+            log.info("Password reset requested for non-existent email: {}", MaskingUtils.maskEmail(email));
             return; // 보안상 미등록 이메일에도 "발송 완료" 응답 (사용자 존재 여부 미노출)
         }
 
@@ -299,8 +357,9 @@ public class AuthService {
         // 4. 비밀번호 재설정 이메일 발송 (비동기)
         emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), token);
 
+        // SECURITY (P1-7): 이메일 마스킹
         log.info("Password reset requested: userId={}, email={}, tokenId={}",
-                user.getId(), user.getEmail(), resetToken.getId());
+                user.getId(), MaskingUtils.maskEmail(user.getEmail()), resetToken.getId());
     }
 
     /**
@@ -333,6 +392,9 @@ public class AuthService {
         User user = userRepository.findById(resetToken.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
 
+        // SECURITY (P3-7): 새 비밀번호 정책 검증
+        PasswordPolicy.validate(newPassword, user.getEmail());
+
         // 4. 비밀번호 변경
         String encodedPassword = passwordEncoder.encode(newPassword);
         userRepository.updatePassword(user.getId(), encodedPassword);
@@ -343,7 +405,9 @@ public class AuthService {
         // 6. 모든 Refresh Token 삭제 (재로그인 강제)
         refreshTokenRepository.deleteByUserId(user.getId());
 
-        log.info("Password reset completed: userId={}, email={}", user.getId(), user.getEmail());
+        // SECURITY (P1-7): 이메일 마스킹
+        log.info("Password reset completed: userId={}, email={}",
+                user.getId(), MaskingUtils.maskEmail(user.getEmail()));
     }
 
     /**
@@ -369,6 +433,9 @@ public class AuthService {
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             throw new BusinessException(ErrorCode.SAME_PASSWORD);
         }
+
+        // SECURITY (P3-7): 새 비밀번호 정책 검증
+        PasswordPolicy.validate(request.getNewPassword(), user.getEmail());
 
         // 5. 비밀번호 변경
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
@@ -566,6 +633,8 @@ public class AuthService {
         auditLogService.log(user, AuditAction.USER_ACCOUNT_DELETED,
                 "User", user.getId(), "회원 탈퇴: " + user.getEmail(), metadata);
 
-        log.info("Account deleted: userId={}, email={}, role={}", userId, user.getEmail(), user.getRole());
+        // SECURITY (P1-7): 이메일 마스킹
+        log.info("Account deleted: userId={}, email={}, role={}",
+                userId, MaskingUtils.maskEmail(user.getEmail()), user.getRole());
     }
 }

@@ -2,6 +2,8 @@ package io.moer.booking.domain.inquiry.service;
 
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.common.util.HtmlSanitizer;
+import io.moer.booking.common.util.MaskingUtils;
 import io.moer.booking.domain.inquiry.Inquiry;
 import io.moer.booking.domain.inquiry.InquiryStatus;
 import io.moer.booking.domain.inquiry.dto.InquiryCreateRequest;
@@ -40,19 +42,23 @@ public class InquiryService {
      */
     @Transactional
     public InquiryResponse createInquiry(InquiryCreateRequest request, String ipAddress) {
+        // SECURITY (P1-7): PII 로그 마스킹
         log.info("Creating inquiry: name={}, email={}, type={}, ip={}",
-                request.getName(), request.getEmail(), request.getType(), ipAddress);
+                MaskingUtils.maskName(request.getName()),
+                MaskingUtils.maskEmail(request.getEmail()),
+                request.getType(), ipAddress);
 
         // 1. Rate Limit 체크
         checkRateLimit(ipAddress);
 
         // 2. Inquiry 엔티티 생성
+        // SECURITY (P1-5): 사용자 입력 텍스트는 HTML 태그 제거 후 저장 (XSS 방어)
         Inquiry inquiry = Inquiry.builder()
-                .name(request.getName())
+                .name(HtmlSanitizer.plainText(request.getName()))
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .type(request.getType())
-                .content(request.getContent())
+                .content(HtmlSanitizer.plainText(request.getContent()))
                 .status(InquiryStatus.PENDING)
                 .ipAddress(ipAddress)
                 .build();
@@ -69,7 +75,7 @@ public class InquiryService {
         // 5. TODO: 문의자에게 접수 확인 이메일 발송
         // emailService.sendInquiryConfirmation(inquiry);
         log.info("[TODO] Confirmation email should be sent to {} for inquiry id={}",
-                request.getEmail(), inquiry.getId());
+                MaskingUtils.maskEmail(request.getEmail()), inquiry.getId());
 
         // 6. 응답 반환
         return InquiryResponse.from(inquiry);

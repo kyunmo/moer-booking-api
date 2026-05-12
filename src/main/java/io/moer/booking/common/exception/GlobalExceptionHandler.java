@@ -1,7 +1,9 @@
 package io.moer.booking.common.exception;
 
 import io.moer.booking.common.dto.ApiResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -17,7 +19,22 @@ import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final Environment environment;
+
+    /**
+     * SECURITY (P3-2): 운영 환경에서는 내부 필드명 노출을 최소화.
+     * - prod 프로필: 필드별 상세 details 제거. 일반 메시지만 반환.
+     * - dev/local 프로필: 기존처럼 필드명 + 검증 메시지 노출 (개발 편의)
+     */
+    private boolean isProdProfile() {
+        for (String active : environment.getActiveProfiles()) {
+            if ("prod".equalsIgnoreCase(active)) return true;
+        }
+        return false;
+    }
 
     /**
      * BaseException (우리가 정의한 예외) 처리
@@ -46,15 +63,13 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException e) {
         log.error("MethodArgumentNotValidException: {}", e.getMessage());
 
-        Map<String, String> errors = new HashMap<>();
-        for (FieldError error : e.getBindingResult().getFieldErrors()) {
-            errors.put(error.getField(), error.getDefaultMessage());
-        }
+        // SECURITY (P3-2): prod 에서는 필드명/내부 메시지 미노출
+        Object details = buildValidationDetails(e.getBindingResult().getFieldErrors());
 
         ApiResponse<Void> response = ApiResponse.error(
                 ErrorCode.INVALID_INPUT_VALUE.getCode(),
                 ErrorCode.INVALID_INPUT_VALUE.getMessage(),
-                errors
+                details
         );
 
         return ResponseEntity
@@ -69,20 +84,34 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleBindException(BindException e) {
         log.error("BindException: {}", e.getMessage());
 
-        Map<String, String> errors = new HashMap<>();
-        for (FieldError error : e.getBindingResult().getFieldErrors()) {
-            errors.put(error.getField(), error.getDefaultMessage());
-        }
+        // SECURITY (P3-2): prod 에서는 필드명/내부 메시지 미노출
+        Object details = buildValidationDetails(e.getBindingResult().getFieldErrors());
 
         ApiResponse<Void> response = ApiResponse.error(
                 ErrorCode.INVALID_INPUT_VALUE.getCode(),
                 ErrorCode.INVALID_INPUT_VALUE.getMessage(),
-                errors
+                details
         );
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(response);
+    }
+
+    /**
+     * Validation 에러 상세 정보 빌더.
+     * - dev/local: 필드명 + 메시지 매핑 (개발 편의)
+     * - prod: 단순 메시지 ("입력값을 확인해주세요"), 필드명 누설 방지
+     */
+    private Object buildValidationDetails(java.util.List<FieldError> fieldErrors) {
+        if (isProdProfile()) {
+            return "입력값을 확인해주세요";
+        }
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError error : fieldErrors) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
+        return errors;
     }
 
     /**

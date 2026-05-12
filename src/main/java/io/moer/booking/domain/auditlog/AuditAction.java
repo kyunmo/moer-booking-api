@@ -25,6 +25,11 @@ public enum AuditAction {
     USER_ACCOUNT_DELETED("회원 탈퇴"),
     SNS_ACCOUNT_DISCONNECTED("SNS 계정 연결 해제"),
 
+    // Staff
+    STAFF_CREATED("직원 생성"),
+    STAFF_UPDATED("직원 수정"),
+    STAFF_DELETED("직원 삭제"),
+
     // System
     SYSTEM_BACKUP("시스템 백업"),
     SYSTEM_RESTORE("시스템 복원"),

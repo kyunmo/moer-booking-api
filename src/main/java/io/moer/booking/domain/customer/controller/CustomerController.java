@@ -65,7 +65,8 @@ public class CustomerController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         return ApiResponse.success(
                 customerService.getCustomerReservationHistory(businessId, customerId, status, page, size));
     }
@@ -198,7 +199,8 @@ public class CustomerController {
             @PathVariable Long businessId,
             @PathVariable Long customerId,
             @Valid @RequestBody CustomerNoteRequest request) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         CustomerNoteResponse response = customerService.createNote(
                 businessId, customerId, request,
                 userDetails.getUser().getId(), userDetails.getUser().getName());
@@ -214,7 +216,8 @@ public class CustomerController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @PathVariable Long customerId) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         List<CustomerNoteResponse> response = customerService.getNotes(businessId, customerId);
         return ApiResponse.success(response);
     }
@@ -230,7 +233,8 @@ public class CustomerController {
             @PathVariable Long customerId,
             @PathVariable Long noteId,
             @Valid @RequestBody CustomerNoteRequest request) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         CustomerNoteResponse response = customerService.updateNote(businessId, customerId, noteId, request);
         return ApiResponse.success(response);
     }
@@ -245,7 +249,8 @@ public class CustomerController {
             @PathVariable Long businessId,
             @PathVariable Long customerId,
             @PathVariable Long noteId) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         customerService.deleteNote(businessId, customerId, noteId);
         return ApiResponse.success();
     }
@@ -264,7 +269,8 @@ public class CustomerController {
             @PathVariable Long businessId,
             @PathVariable Long customerId,
             @Valid @RequestBody CustomerTagRequest request) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         CustomerResponse response = customerService.updateTags(businessId, customerId, request);
         return ApiResponse.success(response);
     }
@@ -277,7 +283,8 @@ public class CustomerController {
     public ApiResponse<CustomerTagResponse> getAllTags(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         CustomerTagResponse response = customerService.getAllTags(businessId);
         return ApiResponse.success(response);
     }
@@ -299,7 +306,8 @@ public class CustomerController {
             @RequestParam(required = false) String endDate,
             @AuthenticationPrincipal CustomUserDetails userDetails,
             HttpServletResponse response) throws IOException {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         // BASIC 플랜 이상 체크
         subscriptionCheckService.checkPremiumAccess(businessId);
 
@@ -342,7 +350,8 @@ public class CustomerController {
     public ApiResponse<List<DuplicateCustomerResponse>> findDuplicates(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         List<DuplicateCustomerResponse> response = customerService.findDuplicates(businessId);
         return ApiResponse.success(response);
     }
@@ -356,7 +365,8 @@ public class CustomerController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @Valid @RequestBody CustomerMergeRequest request) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         CustomerMergeResponse response = customerService.mergeCustomers(businessId, request);
         return ApiResponse.success(response);
     }

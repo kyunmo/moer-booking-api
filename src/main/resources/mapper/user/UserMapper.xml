@@ -21,6 +21,7 @@
         <result property="trialExpiresAt" column="trial_expires_at"/>
         <result property="isPremium" column="is_premium"/>
         <result property="marketingAgree" column="marketing_agree"/>
+        <result property="passwordChangeRequired" column="password_change_required"/>
         <result property="lastLoginAt" column="last_login_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -31,6 +32,7 @@
         id, email, password, name, phone, profile_image_url, role, status,
         staff_id, business_id, email_verified,
         trial_started_at, trial_expires_at, is_premium, marketing_agree,
+        password_change_required,
         last_login_at, created_at, updated_at
     </sql>
 
@@ -67,12 +69,14 @@
         INSERT INTO users (
             email, password, name, phone, profile_image_url, role, status,
             staff_id, business_id, email_verified,
-            trial_started_at, trial_expires_at, is_premium, marketing_agree
+            trial_started_at, trial_expires_at, is_premium, marketing_agree,
+            password_change_required
         ) VALUES (
             #{email}, #{password}, #{name}, #{phone}, #{profileImageUrl},
             #{role}, #{status},
             #{staffId}, #{businessId}, #{emailVerified},
-            #{trialStartedAt}, #{trialExpiresAt}, #{isPremium}, #{marketingAgree}
+            #{trialStartedAt}, #{trialExpiresAt}, #{isPremium}, #{marketingAgree},
+            COALESCE(#{passwordChangeRequired}, 'N')
         )
     </insert>
 
@@ -103,10 +107,12 @@
         WHERE id = #{id}
     </update>
 
-    <!-- 비밀번호 업데이트 -->
+    <!-- 비밀번호 업데이트 (변경 시 강제 변경 플래그 자동 해제) -->
+    <!-- SECURITY (P3-4): password_change_required = 'N' 자동 초기화 -->
     <update id="updatePassword">
         UPDATE users
         SET password = #{password},
+            password_change_required = 'N',
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
     </update>
@@ -134,9 +140,11 @@
         FROM users
         <where>
             <if test="keyword != null and keyword != ''">
+                <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
+                <bind name="kwEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(keyword)"/>
                 AND (
-                name LIKE '%' || #{keyword} || '%'
-                OR email LIKE '%' || #{keyword} || '%'
+                name LIKE '%' || #{kwEscaped} || '%' ESCAPE '\'
+                OR email LIKE '%' || #{kwEscaped} || '%' ESCAPE '\'
                 )
             </if>
             <if test="role != null">
@@ -159,9 +167,11 @@
         FROM users
         <where>
             <if test="keyword != null and keyword != ''">
+                <!-- SECURITY (P1-6): LIKE 와일드카드 이스케이프 -->
+                <bind name="kwEscaped" value="@io.moer.booking.common.util.SqlEscapeUtils@escapeLike(keyword)"/>
                 AND (
-                name LIKE '%' || #{keyword} || '%'
-                OR email LIKE '%' || #{keyword} || '%'
+                name LIKE '%' || #{kwEscaped} || '%' ESCAPE '\'
+                OR email LIKE '%' || #{kwEscaped} || '%' ESCAPE '\'
                 )
             </if>
             <if test="role != null">

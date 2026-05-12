@@ -38,34 +38,17 @@ public class SwaggerConfig {
     }
 
     private Info apiInfo() {
+        // SECURITY (P0-6): 운영 노출 시 정보 유출 방지를 위해 테스트 계정/내부 가이드 문구 제거.
         return new Info()
                 .title("moer 예약 시스템 API")
                 .description("""
                         ## moer 예약 관리 시스템 REST API 문서
-                        
-                        ### 주요 기능
-                        - 🔐 JWT 인증/인가
-                        - 👤 사용자 관리 (ADMIN, OWNER, STAFF)
-                        - 🏪 매장 관리
-                        - 👨‍💼 직원(디자이너/강사) 관리
-                        - 📸 포트폴리오 관리
-                        - 💇 서비스(시술/수업) 관리
-                        - 📅 예약 관리
-                        - 👥 고객 관리
-                        - 📊 고객 이력 관리
-                        - 🎊 특별 휴무일 관리
-                        
+
                         ### 인증 방법
                         1. POST /api/auth/login 으로 로그인
                         2. 응답에서 accessToken 복사
                         3. 우측 상단 [Authorize] 버튼 클릭
                         4. "Bearer {accessToken}" 형식으로 입력
-                        5. 모든 API에 자동으로 토큰이 추가됩니다
-                        
-                        ### 테스트 계정
-                        - ADMIN: admin@moer.io / password123
-                        - OWNER: owner@moer.io / password123
-                        - STAFF: staff@moer.io / password123
                         """)
                 .version("1.0.0")
                 .contact(new Contact()

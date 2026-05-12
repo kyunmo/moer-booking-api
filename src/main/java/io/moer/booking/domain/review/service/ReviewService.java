@@ -4,6 +4,8 @@ import io.moer.booking.common.dto.PageResponse;
 import io.moer.booking.common.exception.BusinessException;
 import io.moer.booking.common.exception.EntityNotFoundException;
 import io.moer.booking.common.exception.ErrorCode;
+import io.moer.booking.common.util.FilenameUtils;
+import io.moer.booking.common.util.HtmlSanitizer;
 import io.moer.booking.domain.business.Business;
 import io.moer.booking.domain.business.repository.BusinessRepository;
 import io.moer.booking.domain.customer.Customer;
@@ -110,7 +112,8 @@ public class ReviewService {
                 .customerName(customer.getName())
                 .customerPhone(customer.getPhone())
                 .rating(request.getRating())
-                .content(request.getContent())
+                // SECURITY (P1-5): 사용자 입력 텍스트는 HTML 태그 제거 후 저장 (XSS 방어)
+                .content(HtmlSanitizer.plainText(request.getContent()))
                 .status(ReviewStatus.ACTIVE)
                 .build();
 
@@ -206,7 +209,8 @@ public class ReviewService {
                 .customerName(customer.getName())
                 .customerPhone(customer.getPhone())
                 .rating(request.getRating())
-                .content(request.getContent())
+                // SECURITY (P1-5): 사용자 입력 텍스트는 HTML 태그 제거 후 저장 (XSS 방어)
+                .content(HtmlSanitizer.plainText(request.getContent()))
                 .status(ReviewStatus.ACTIVE)
                 .build();
 
@@ -282,12 +286,16 @@ public class ReviewService {
                 // FileStorageService로 파일 저장
                 String imageUrl = fileStorageService.store(file, "reviews/" + response.getId());
 
+                // SECURITY (P1-9): 사용자 디바이스 경로 정보 등 위험 패턴이 포함될 수 있어
+                //                  원본 파일명을 정화 후 저장
+                String safeFilename = FilenameUtils.sanitize(file.getOriginalFilename());
+
                 // ReviewImage 레코드 생성
                 ReviewImage image = ReviewImage.builder()
                         .reviewId(response.getId())
                         .imageUrl(imageUrl)
                         .thumbnailUrl(imageUrl) // TODO: 실제 구현에서는 리사이즈 후 별도 URL 생성
-                        .originalFilename(file.getOriginalFilename())
+                        .originalFilename(safeFilename)
                         .fileSize((int) file.getSize())
                         .sortOrder(sortOrder++)
                         .build();
@@ -296,7 +304,7 @@ public class ReviewService {
                 imageUrls.add(imageUrl);
 
                 log.info("Review image saved: reviewId={}, imageId={}, filename={}",
-                        response.getId(), image.getId(), file.getOriginalFilename());
+                        response.getId(), image.getId(), safeFilename);
             }
 
             // 4. 응답에 이미지 URL 포함하여 재구성

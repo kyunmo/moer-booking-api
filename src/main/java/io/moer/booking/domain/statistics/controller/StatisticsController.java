@@ -27,7 +27,8 @@ public class StatisticsController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @Valid StatisticsSearchCondition condition) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         subscriptionCheckService.checkPremiumAccess(businessId);
         return ApiResponse.success(statisticsService.getRevenueStatistics(businessId, condition));
     }
@@ -38,7 +39,8 @@ public class StatisticsController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @Valid StatisticsSearchCondition condition) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         subscriptionCheckService.checkPremiumAccess(businessId);
         return ApiResponse.success(statisticsService.getReservationStatistics(businessId, condition));
     }
@@ -49,7 +51,8 @@ public class StatisticsController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @Valid StatisticsSearchCondition condition) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         subscriptionCheckService.checkPremiumAccess(businessId);
         return ApiResponse.success(statisticsService.getCustomerStatistics(businessId, condition));
     }
@@ -60,7 +63,8 @@ public class StatisticsController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @Valid StatisticsSearchCondition condition) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         subscriptionCheckService.checkPremiumAccess(businessId);
         return ApiResponse.success(statisticsService.getStaffStatistics(businessId, condition));
     }
@@ -71,7 +75,8 @@ public class StatisticsController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long businessId,
             @Valid StatisticsSearchCondition condition) {
-        userDetails.getUser().canAccessBusiness(businessId);
+        // SECURITY (P1-4): enforce — 위반 시 AccessDeniedException
+        userDetails.getUser().requireAccessBusiness(businessId);
         subscriptionCheckService.checkPremiumAccess(businessId);
         return ApiResponse.success(statisticsService.getServiceStatistics(businessId, condition));
     }

@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class LoginResponse {
     private String accessToken;
     private String refreshToken;
+    @Builder.Default
     private String tokenType = "Bearer";
     private Long expiresIn;  // 초 단위
 
@@ -24,6 +25,12 @@ public class LoginResponse {
     private UserRole role;
     private Long staffId;
     private Long businessId;
+
+    /**
+     * SECURITY (P3-4): 첫 로그인 시 비밀번호 변경 필요 여부.
+     * true 시 클라이언트는 즉시 비밀번호 변경 화면으로 라우팅해야 함.
+     */
+    private boolean passwordChangeRequired;
 
     public static LoginResponse of(
             String accessToken,
@@ -41,6 +48,7 @@ public class LoginResponse {
                 .role(user.getRole())
                 .staffId(user.getStaffId())
                 .businessId(user.getBusinessId())
+                .passwordChangeRequired(user.isPasswordChangeRequired())
                 .build();
     }
 }
